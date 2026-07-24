@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Ministers · A society of LLM agents</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Baloo+2:wght@500;600;700;800&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; padding:0; background:#1c1a20; }
+  * { box-sizing:border-box; }
+  @keyframes tickerMove { from { transform:translateX(0);} to { transform:translateX(-50%);} }
+  @keyframes stampIn { 0% { transform:scale(2.4) rotate(14deg); opacity:0;} 60% { transform:scale(.92) rotate(-7deg); opacity:1;} 100% { transform:scale(1) rotate(-7deg);} }
+  @keyframes riseIn { from { transform:translateY(26px); opacity:0;} to { transform:translateY(0); opacity:1;} }
+  @keyframes bounceIn { 0% { transform:scale(.4) rotate(-8deg); opacity:0;} 60% { transform:scale(1.12) rotate(3deg); opacity:1;} 100% { transform:scale(1) rotate(0);} }
+  @keyframes blinkCaret { 0%,49% { opacity:1;} 50%,100% { opacity:0;} }
+  @keyframes idleBob { 0%,100% { transform:translateY(0);} 50% { transform:translateY(-6px);} }
+  @keyframes wiggle { 0%,100% { transform:rotate(-2.5deg);} 50% { transform:rotate(2.5deg);} }
+  @keyframes burstSpin { from { transform:translate(-50%,-50%) rotate(0);} to { transform:translate(-50%,-50%) rotate(360deg);} }
+  @keyframes sparkle { 0%,100% { transform:scale(1) rotate(0);} 50% { transform:scale(.55) rotate(40deg);} }
+  @keyframes speedShift { from { background-position:0 0;} to { background-position:-80px 0;} }
+  @keyframes floatUp { 0% { transform:translateY(0); opacity:0;} 7% { opacity:1;} 78% { opacity:1;} 100% { transform:translateY(-1080px); opacity:0;} }
+  @keyframes lungeR { 0%,100% { transform:translateX(0) rotate(0);} 30% { transform:translateX(16px) rotate(7deg);} 48% { transform:translateX(10px) rotate(4deg);} }
+  @keyframes lungeL { 0%,100% { transform:translateX(0) rotate(0);} 30% { transform:translateX(-16px) rotate(-7deg);} 48% { transform:translateX(-10px) rotate(-4deg);} }
+  @keyframes recoilR { 0%,100% { transform:translateX(0) rotate(0);} 35% { transform:translateX(7px) rotate(5deg);} 55% { transform:translateX(4px) rotate(2deg);} }
+  @keyframes recoilL { 0%,100% { transform:translateX(0) rotate(0);} 35% { transform:translateX(-7px) rotate(-5deg);} 55% { transform:translateX(-4px) rotate(-2deg);} }
+  @keyframes wander { 0%,100% { transform:translateX(0);} 42%,58% { transform:translateX(84px);} }
+  @keyframes sigHop { 0%,100% { transform:translateY(0) scale(1);} 25% { transform:translateY(-14px) scale(1.06);} 45% { transform:translateY(0) scale(1,.9);} 62% { transform:translateY(-7px);} 80% { transform:translateY(0);} }
+  @keyframes sigSpin { from { transform:rotate(0);} to { transform:rotate(360deg);} }
+  @keyframes sigShake { 0%,100% { transform:translateX(0);} 15%,45%,75% { transform:translateX(-4px) rotate(-5deg);} 30%,60%,90% { transform:translateX(4px) rotate(5deg);} }
+  @keyframes sigDive { 0%,100% { transform:rotate(0) translateY(0);} 30% { transform:rotate(-14deg) translateY(-14px);} 55%,85% { transform:rotate(76deg) translateY(22px);} 70% { transform:rotate(68deg) translateY(17px);} }
+  @keyframes sigDash { 0%,100% { transform:translateX(-24px);} 45%,55% { transform:translateX(24px) rotate(6deg);} }
+  @keyframes sigFlip { 0%,100% { transform:rotate(0);} 35%,80% { transform:rotate(180deg) translateY(6px);} }
+  @keyframes sigDizzy { 0%,100% { transform:rotate(0);} 25% { transform:rotate(-24deg);} 50% { transform:rotate(20deg);} 75% { transform:rotate(-14deg);} }
+  @keyframes sigShrink { 0%,100% { transform:scale(1);} 40%,70% { transform:scale(.6) rotate(-8deg);} }
+  @keyframes bananaFall { 0% { transform:translateY(-70px) rotate(0); opacity:0;} 10% { opacity:1;} 100% { transform:translateY(780px) rotate(420deg); opacity:.9;} }
+  @keyframes inkBloom { 0% { transform:translate(-50%,-50%) scale(0); opacity:.85;} 100% { transform:translate(-50%,-50%) scale(3); opacity:0;} }
+  @keyframes stageShake { 0%,100% { transform:translate(0,0);} 15% { transform:translate(-7px,3px);} 30% { transform:translate(6px,-4px);} 45% { transform:translate(-5px,2px);} 60% { transform:translate(5px,-2px);} 80% { transform:translate(-3px,1px);} }
+  @keyframes cutZoom { 0% { transform:scale(.3) rotate(-8deg); opacity:0;} 60% { transform:scale(1.12) rotate(3deg); opacity:1;} 100% { transform:scale(1) rotate(0);} }
+  @keyframes vGaze { 0%,100% { transform:rotate(-6deg);} 50% { transform:rotate(-14deg) translateY(-5px);} }
+  @keyframes vRam { 0%,100% { transform:translateX(0) rotate(0);} 26% { transform:translateX(-24px) rotate(-7deg);} 48% { transform:translateX(44px) rotate(9deg);} 56% { transform:translateX(36px) rotate(5deg);} 78% { transform:translateX(0) rotate(0);} }
+  @keyframes vTear { 0% { transform:translateY(0) scale(.7); opacity:0;} 18% { opacity:1;} 100% { transform:translateY(44px) scale(1); opacity:0;} }
+  @keyframes vDash { 0% { transform:translateX(-78px) scaleX(1);} 44% { transform:translateX(78px) scaleX(1);} 50% { transform:translateX(78px) scaleX(-1);} 94% { transform:translateX(-78px) scaleX(-1);} 100% { transform:translateX(-78px) scaleX(1);} }
+  @keyframes vBowl { 0% { transform:translateY(-70px) rotate(0); opacity:0;} 12% { opacity:1;} 42% { transform:translateY(-70px) rotate(0); opacity:1;} 62% { transform:translateY(28px) rotate(26deg); opacity:1;} 66%,100% { transform:translateY(28px) rotate(26deg); opacity:0;} }
+  @keyframes vPop { 0%,58% { transform:scale(0); opacity:0;} 66% { transform:scale(1.5); opacity:1;} 84% { transform:scale(1); opacity:1;} 100% { transform:scale(1.1); opacity:0;} }
+  @keyframes vKick { 0%,100% { transform:rotate(0) translateY(0);} 18% { transform:rotate(16deg) translateY(-5px);} 30% { transform:rotate(12deg);} 42% { transform:rotate(19deg) translateY(-7px);} 58% { transform:rotate(0);} }
+  @keyframes vTrot { 0%,100% { transform:translateX(-24px) rotate(-4deg);} 25% { transform:translateX(0) translateY(-9px) rotate(0);} 50% { transform:translateX(24px) rotate(4deg);} 75% { transform:translateX(0) translateY(-9px) rotate(0);} }
+  @keyframes vRise { 0% { transform:translateY(0) scale(.6); opacity:0;} 22% { opacity:1;} 100% { transform:translateY(-42px) scale(1); opacity:0;} }
+  @keyframes vDart { 0%,100% { transform:translateX(-13px);} 18% { transform:translateX(12px);} 38% { transform:translateX(-9px);} 58% { transform:translateX(13px);} 78% { transform:translateX(-5px);} }
+  @keyframes vDead { 0% { transform:rotate(0) translateY(0);} 30%,100% { transform:rotate(180deg) translateY(-16px);} }
+  @keyframes vStagger { 0%,100% { transform:translateX(0) rotate(0);} 18% { transform:translateX(-15px) rotate(-9deg);} 42% { transform:translateX(10px) rotate(7deg);} 66% { transform:translateX(-7px) rotate(-5deg);} 84% { transform:translateX(13px) rotate(8deg);} }
+  @keyframes vRum { 0%,100% { transform:rotate(0) translate(0,0);} 28%,60% { transform:rotate(46deg) translate(26px,12px);} 44% { transform:rotate(52deg) translate(30px,16px);} 80% { transform:rotate(0) translate(0,0);} }
+  @keyframes vPuff { 0%,52% { transform:scale(.3); opacity:0;} 62% { transform:scale(1); opacity:.9;} 100% { transform:scale(1.6); opacity:0;} }
+</style>
+</helmet>
+
+<div style="width:100vw; height:100dvh; min-height:560px; background:#1c1a20; display:flex; align-items:center; justify-content:center;">
+<div data-screen-label="The Court · Cel×Type" style="position:relative; width:390px; height:844px; flex-shrink:0; background:#f1ede4; overflow:hidden; display:flex; flex-direction:column; font-family:'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#2b2733;">
+
+  <!-- ============================== SCREEN 1 · OPENING ============================== -->
+  <sc-if value="{{ scr1 }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="01 开场" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#f1ede4;">
+    <!-- halftone air -->
+    <div style="position:absolute; inset:0; pointer-events:none; background-image:radial-gradient(circle, rgba(43,39,51,.08) 1.6px, transparent 2px); background-size:17px 17px;"></div>
+    <!-- rising hot topics -->
+    <div style="position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden;">
+      <sc-for list="{{ floatTopics }}" as="t" hint-placeholder-count="8">
+        <div style="position:absolute; left:{{ t.x }}; bottom:-70px; animation:floatUp {{ t.dur }} linear {{ t.delay }} infinite; opacity:0;">
+          <div style="background:rgba(245,243,238,.72); border:2.5px solid rgba(43,39,51,.3); border-radius:14px; padding:7px 12px; font:400 {{ t.size }}/1.2 {{ dispFont }}; color:rgba(43,39,51,.5); box-shadow:3px 3px 0 rgba(43,39,51,.1); white-space:nowrap; transform:rotate({{ t.rot }});">{{ t.icon }} {{ t.label }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <!-- masthead -->
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:calc(16px + env(safe-area-inset-top)) 18px 0; font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px; position:relative; z-index:2;">
+      <span>MY MINISTERS®</span>
+      <span style="background:#a4726a; color:#f1ede4; border:2.5px solid #2b2733; border-radius:10px; padding:4px 9px; box-shadow:2.5px 2.5px 0 #2b2733; transform:rotate(2deg);">{{ t.epChip }}</span>
+    </div>
+    <div style="margin:10px 18px 0; height:4px; background:#2b2733; border-radius:2px; position:relative; z-index:2;"></div>
+    <!-- giant stacked title -->
+    <div style="flex:1; position:relative; padding:6px 96px 0 18px; display:flex;">
+      <div style="flex:1; display:flex; flex-direction:column; padding-top:2px; animation:riseIn .7s cubic-bezier(.2,.9,.2,1) both; position:relative; z-index:2;">
+        <div style="font:{{ t.titleFont }}; color:#a4726a; -webkit-text-stroke:4px #2b2733; paint-order:stroke fill; text-shadow:6px 7px 0 #2b2733; letter-spacing:-2px;">{{ t.title1 }}</div>
+        <div style="font:{{ t.titleFont }}; color:transparent; -webkit-text-stroke:3px #2b2733; letter-spacing:-2px;">{{ t.title2 }}</div>
+        <div style="margin-top:14px; font:{{ t.subFont }}; letter-spacing:.5px;">{{ t.sub1 }}<br><span style="color:#a4726a;">{{ t.sub2 }}</span></div>
+        <div style="flex:1; min-height:150px; display:flex; align-items:center; justify-content:center; padding:10px 0; margin-right:-78px;">
+          <div style="position:relative; width:150px; height:150px;">
+            <div style="position:absolute; left:50%; top:50%; width:280px; height:280px; background:repeating-conic-gradient(rgba(178,166,140,.55) 0deg 9deg, transparent 9deg 18deg); border-radius:50%; animation:burstSpin 24s linear infinite; z-index:-1;"></div>
+            <div style="position:absolute; left:8px; top:8px; animation:stampIn .6s .5s cubic-bezier(.2,1.2,.3,1) both;">
+              <div style="width:134px; height:134px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #f7f4ec, #e3d9c4); box-shadow:0 0 0 5px #b2a181, 6px 7px 0 rgba(43,39,51,.45); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; transform:rotate(-7deg);">
+                <span style="font-size:58px; animation:idleBob 2.4s ease-in-out infinite;">🐱</span>
+                <span style="font:400 13px/1.1 {{ dispFont }}; letter-spacing:2px; color:#a4726a;">{{ t.sealText }}</span>
+              </div>
+              <div style="position:absolute; top:-16px; left:50%; transform:translateX(-50%) rotate(-5deg); font-size:34px; filter:drop-shadow(2px 2px 0 #2b2733);">👑</div>
+            </div>
+            <span style="position:absolute; right:-36px; top:0; color:#b2a181; font-size:26px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.5s ease-in-out infinite;">✦</span>
+            <span style="position:absolute; left:-32px; bottom:8px; color:#a4726a; font-size:18px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.9s .4s ease-in-out infinite;">✦</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:9px; padding-bottom:8px; margin-right:-78px;">
+          <span style="width:10px; height:10px; border-radius:50%; background:#a4726a; border:2px solid #2b2733; animation:sparkle 1.2s ease-in-out infinite;"></span>
+          <span style="font:800 12px/1 'Baloo 2',sans-serif; letter-spacing:1.5px;">{{ t.statusLine }}</span>
+        </div>
+      </div>
+      <!-- right rail -->
+      <div style="position:absolute; right:42px; top:8px; bottom:6px; width:62px; display:flex; flex-direction:column; align-items:center; gap:12px; z-index:2; animation:riseIn .7s .25s cubic-bezier(.2,.9,.2,1) both;">
+        <div style="writing-mode:vertical-rl; font:400 21px/1.15 {{ dispFont }}; letter-spacing:6px; color:#2b2733; overflow:hidden;">{{ t.railHead }}</div>
+        <div style="width:3px; flex:1; min-height:12px; background:#2b2733; border-radius:2px;"></div>
+        <div style="width:52px; height:52px; flex-shrink:0; border:3.5px solid #a4726a; border-radius:12px; transform:rotate(8deg); display:flex; align-items:center; justify-content:center; font:{{ t.stampFont }}; color:#a4726a; background:rgba(164,114,106,.08); box-shadow:3px 3px 0 rgba(43,39,51,.18); text-align:center;">{{ t.stampChar }}</div>
+        <div style="writing-mode:vertical-rl; font:400 11.5px/1.3 {{ altFont }}; letter-spacing:3px; color:#847d88; overflow:hidden;">{{ t.railSub }}</div>
+        <div style="flex-shrink:0; background:#2b2733; color:#f1ede4; border-radius:10px; padding:5px 8px; font:400 10.5px/1.2 {{ dispFont }}; letter-spacing:1px; transform:rotate(-4deg); box-shadow:2.5px 2.5px 0 rgba(43,39,51,.3); white-space:nowrap;">{{ t.stickerTag }}</div>
+        <span style="font-size:17px; transform:rotate(-12deg); opacity:.7;">🐾</span>
+      </div>
+      <!-- oversized numeral -->
+      <div style="position:absolute; right:64px; bottom:-20px; font:400 120px/1 'Lilita One',sans-serif; color:transparent; -webkit-text-stroke:2px rgba(43,39,51,.14); letter-spacing:-6px; z-index:1;">01</div>
+    </div>
+    <!-- ticker -->
+    <div style="border-top:4px solid #2b2733; border-bottom:4px solid #2b2733; background:#a4726a; overflow:hidden; padding:9px 0; position:relative; z-index:2;">
+      <div style="display:inline-flex; white-space:nowrap; animation:tickerMove 14s linear infinite;">
+        <span style="font:400 16px/1 {{ dispFont }}; color:#f1ede4; letter-spacing:1px;">{{ t.ticker }}</span>
+        <span style="font:400 16px/1 {{ dispFont }}; color:#f1ede4; letter-spacing:1px;">{{ t.ticker }}</span>
+      </div>
+    </div>
+    <!-- CTA -->
+    <button onClick="{{ go2 }}" style="margin:0; border:none; background:#2b2733; color:#f1ede4; padding:19px 18px calc(23px + env(safe-area-inset-bottom)); display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-family:inherit; position:relative; z-index:2;">
+      <span style="font:400 27px/1 {{ dispFont }}; letter-spacing:{{ t.ctaSpacing }};">{{ t.cta1Main }}</span>
+      <span style="font:400 15px/1 {{ altFont }}; color:#b2a181; letter-spacing:2px; animation:wiggle 1.6s ease-in-out infinite;">{{ t.cta1Sub }}</span>
+      <span style="font:400 26px/1 'Lilita One',sans-serif;">→</span>
+    </button>
+  </div>
+  </sc-if>
+
+  <!-- ============================== SCREEN 2 · CAST INDEX ============================== -->
+  <sc-if value="{{ scr2 }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="02 名册" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#f1ede4;">
+    <div style="padding:calc(16px + env(safe-area-inset-top)) 18px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px;">
+        <span>{{ t.castKicker }}</span>
+        <span style="background:#b2a181; border:2.5px solid #2b2733; border-radius:10px; padding:4px 9px; box-shadow:2.5px 2.5px 0 #2b2733; transform:rotate(-2deg);">{{ t.castChip }}</span>
+      </div>
+      <div style="margin-top:8px; display:flex; align-items:flex-end; gap:14px; border-bottom:4px solid #2b2733; padding-bottom:10px;">
+        <span style="font:{{ t.castTitleFont }}; color:#a4726a; -webkit-text-stroke:3px #2b2733; paint-order:stroke fill; text-shadow:4px 5px 0 #2b2733;">{{ t.castTitle }}</span>
+        <span style="font:400 15px/1.2 {{ altFont }}; padding-bottom:6px; color:#847d88;">{{ t.castSub1 }}<br>{{ t.castSub2 }}</span>
+      </div>
+    </div>
+    <div style="flex:1; overflow-y:auto; padding:4px 38px 12px 18px;">
+      <sc-for list="{{ cast }}" as="m" hint-placeholder-count="11">
+        <div style="display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:2px dashed rgba(43,39,51,.3); animation:riseIn .5s cubic-bezier(.2,.9,.2,1) both;">
+          <span style="font:400 12px/1 'Lilita One',sans-serif; color:#a9a3ab; width:24px;">{{ m.no }}</span>
+          <div style="width:52px; height:52px; border-radius:50%; border:3.5px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ m.bg }}); box-shadow:0 0 0 4px {{ m.ring }}, 3.5px 4px 0 rgba(43,39,51,.35); display:flex; align-items:center; justify-content:center; font-size:30px; animation:{{ m.avAnim }};">{{ m.head }}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:baseline; gap:8px;">
+              <span style="font:400 16px/1 {{ dispFont }}; letter-spacing:.5px;">{{ m.primary }}</span>
+              <span style="font:400 13px/1 {{ altFont }}; color:#847d88;">{{ m.secondary }}</span>
+            </div>
+            <div style="margin-top:4px; font:700 12px/1.2 'Baloo 2',sans-serif; color:{{ m.roleColor }};">{{ m.roleLine }}</div>
+          </div>
+          <span style="font:400 26px/1 'ZCOOL KuaiLe',sans-serif; color:transparent; -webkit-text-stroke:1.5px rgba(43,39,51,.4);">{{ m.hanzi }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <button onClick="{{ go3 }}" style="border:none; border-top:4px solid #2b2733; background:#b2a181; color:#2b2733; padding:17px 18px calc(17px + env(safe-area-inset-bottom)); display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-family:inherit;">
+      <span style="font:400 23px/1 {{ dispFont }}; letter-spacing:{{ t.ctaSpacing }};">{{ t.cta2Main }}</span>
+      <span style="font:400 14px/1 {{ altFont }}; letter-spacing:1.5px;">{{ t.cta2Sub }} →</span>
+    </button>
+  </div>
+  </sc-if>
+
+  <!-- ============================== SCREEN 3 · PETITION ============================== -->
+  <sc-if value="{{ scr3 }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="03 奏章" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#f1ede4;">
+    <div style="position:absolute; inset:0; pointer-events:none; background-image:radial-gradient(circle, rgba(164,120,112,.12) 1.8px, transparent 2.2px); background-size:16px 16px;"></div>
+    <div style="padding:calc(16px + env(safe-area-inset-top)) 18px 0; position:relative;">
+      <div style="display:flex; justify-content:space-between; align-items:center; font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px;">
+        <span>{{ t.petKicker }}</span>
+        <span style="background:#a4726a; color:#f1ede4; border:2.5px solid #2b2733; border-radius:10px; padding:4px 9px; box-shadow:2.5px 2.5px 0 #2b2733; transform:rotate(2deg);">{{ t.petChip }}</span>
+      </div>
+    </div>
+    <div style="flex:1; position:relative; padding:0 38px 0 18px; display:flex; flex-direction:column; justify-content:center; overflow-y:auto;">
+      <div style="position:absolute; left:4px; top:-14px; font:400 140px/1 'ZCOOL KuaiLe',sans-serif; color:rgba(164,120,112,.25);">「</div>
+      <div style="position:absolute; right:4px; bottom:30px; font:400 140px/1 'ZCOOL KuaiLe',sans-serif; color:rgba(164,120,112,.25);">」</div>
+      <div style="font:800 12px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#847d88;">{{ t.petLabel }}</div>
+      <div style="margin-top:12px; font:{{ t.qFont }}; text-shadow:3px 4px 0 rgba(178,166,140,.55);">{{ t.q1 }}<br>{{ t.q2 }}<span style="display:inline-block; width:4px; height:34px; background:#a4726a; vertical-align:-3px; animation:blinkCaret 1s steps(1) infinite;"></span></div>
+      <div style="margin-top:14px; font:600 14.5px/1.55 'Baloo 2',sans-serif; color:#847d88;">{{ t.stakes }}</div>
+      <div style="margin-top:24px;">
+        <div style="display:flex; align-items:center; gap:8px; padding-bottom:8px; border-bottom:3px solid #2b2733;">
+          <span style="font:400 16px/1 {{ dispFont }};">{{ t.rerunTitle }}</span>
+          <span style="font:400 10px/1 {{ altFont }}; letter-spacing:2px; color:#a4726a;">{{ t.rerunSub }}</span>
+        </div>
+        <sc-for list="{{ reruns }}" as="r" hint-placeholder-count="3">
+          <button onClick="{{ noopBtn }}" style="all:unset; display:flex; align-items:center; gap:10px; width:100%; padding:11px 0; border-bottom:2px dashed rgba(43,39,51,.3); cursor:pointer;"><span style="font-size:20px;">{{ r.icon }}</span><span style="font:400 17px/1.25 {{ dispFont }};">{{ r.text }}</span><span style="margin-left:auto; font:400 11px/1 'Lilita One',sans-serif; color:#a4726a; letter-spacing:1px;">{{ r.tag }}</span></button>
+        </sc-for>
+      </div>
+    </div>
+    <button onClick="{{ go4 }}" style="border:none; border-top:4px solid #2b2733; background:#a4726a; color:#f1ede4; padding:18px 18px calc(18px + env(safe-area-inset-bottom)); display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-family:inherit;">
+      <span style="font:400 24px/1 {{ dispFont }}; letter-spacing:{{ t.ctaSpacing }};">🎬 {{ t.cta3Main }}</span>
+      <span style="font:400 14px/1 {{ altFont }}; color:#b2a181; letter-spacing:1.5px; animation:wiggle 1.8s ease-in-out infinite;">{{ t.cta3Sub }} →</span>
+    </button>
+  </div>
+  </sc-if>
+
+  <!-- ============================== SCREEN 4 · DEBATE ============================== -->
+  <sc-if value="{{ scr4 }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="04 辩论" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#2b2733; color:#f1ede4;">
+    <!-- act ticker -->
+    <div style="border-bottom:3px solid rgba(241,237,228,.3); overflow:hidden; padding:calc(8px + env(safe-area-inset-top)) 0 8px;">
+      <div style="display:inline-flex; white-space:nowrap; animation:tickerMove 11s linear infinite;">
+        <span style="font:400 13px/1 {{ dispFont }}; color:#b2a181; letter-spacing:2px;">{{ actTicker }}</span>
+        <span style="font:400 13px/1 {{ dispFont }}; color:#b2a181; letter-spacing:2px;">{{ actTicker }}</span>
+      </div>
+    </div>
+    <!-- stage · overhead court plaza -->
+    <div style="flex:1; position:relative; overflow:hidden; animation:{{ stageAnim }};">
+      <div style="position:absolute; left:50%; top:16%; width:720px; height:720px; transform:translate(-50%,-50%); background:repeating-conic-gradient(rgba(178,166,140,.12) 0deg 8deg, transparent 8deg 16deg); border-radius:50%;"></div>
+      <div style="position:absolute; right:-4px; top:76px; writing-mode:vertical-rl; font:400 {{ heatSize }}/1 {{ dispFont }}; color:transparent; -webkit-text-stroke:2px rgba(164,120,112,.55); letter-spacing:8px; z-index:1;">{{ heatWord }}</div>
+      <!-- perspective floor: two camps -->
+      <div style="position:absolute; left:-70px; right:-70px; bottom:-16px; height:66%; transform:perspective(720px) rotateX(52deg); transform-origin:50% 100%; border-top:4px solid rgba(241,237,228,.85); overflow:hidden; border-radius:10px;">
+        <div style="position:absolute; inset:0; display:flex;">
+          <div style="flex:1; background:rgba(164,114,106,.38); border-right:3px dashed rgba(241,237,228,.5);"></div>
+          <div style="flex:1; background:rgba(178,161,129,.32);"></div>
+        </div>
+        <div style="position:absolute; inset:0; background-image:radial-gradient(circle, rgba(241,237,228,.15) 2px, transparent 2.4px); background-size:26px 26px;"></div>
+      </div>
+      <!-- header row -->
+      <div style="position:relative; z-index:6; padding:12px 38px 0 18px; display:flex; justify-content:space-between; align-items:baseline;">
+        <span style="font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#a9a3ab;">{{ t.nowSpeaking }}</span>
+        <span style="font:400 10.5px/1 {{ altFont }}; letter-spacing:1px; color:#847d88;">{{ t.tapHint }}</span>
+      </div>
+      <!-- throne · the emperor looks down -->
+      <div style="position:absolute; left:50%; top:34px; transform:translateX(-50%); z-index:6; display:flex; flex-direction:column; align-items:center;">
+        <div style="width:60px; height:60px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #f7f4ec, #e3d9c4); box-shadow:0 0 0 4px #b2a181, 4px 5px 0 rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center; font-size:34px; animation:idleBob 2.6s ease-in-out infinite;">😾</div>
+        <div style="margin-top:-6px; background:#2b2733; color:#b2a181; font:800 9px/1 'Baloo 2',sans-serif; letter-spacing:1.5px; padding:3px 8px; border-radius:8px; border:2px solid rgba(241,237,228,.4);">{{ t.throneTag }}</div>
+        <sc-if value="{{ silenceOn }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; bottom:100%; left:50%; transform:translate(-50%,-4px); background:#a4726a; color:#f1ede4; border:3px solid #2b2733; border-radius:14px 14px 14px 3px; padding:7px 12px; font:400 16px/1.2 {{ dispFont }}; letter-spacing:2px; white-space:nowrap; box-shadow:3px 3px 0 rgba(0,0,0,.4); z-index:21; animation:bounceIn .3s cubic-bezier(.3,1.7,.5,1) both;">💥 {{ t.silenceCry }}</div>
+        </sc-if>
+      </div>
+      <!-- camp flags -->
+      <div style="position:absolute; left:10px; top:23%; z-index:5; transform:rotate(-5deg); white-space:nowrap; background:#a4726a; color:#f1ede4; border:3px solid #f1ede4; border-radius:12px; padding:6px 11px; box-shadow:3px 3px 0 rgba(0,0,0,.4); font:400 13px/1 {{ dispFont }}; letter-spacing:1px;">{{ t.proLabel }} · {{ proCount }}</div>
+      <div style="position:absolute; right:40px; top:23%; z-index:5; transform:rotate(5deg); white-space:nowrap; background:#b2a181; color:#2b2733; border:3px solid #f1ede4; border-radius:12px; padding:6px 11px; box-shadow:3px 3px 0 rgba(0,0,0,.4); font:400 13px/1 {{ dispFont }}; letter-spacing:1px;">{{ t.conLabel }} · {{ conCount }}</div>
+      <!-- lobbying banner -->
+      <sc-if value="{{ lobActive }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; left:14px; top:calc(23% + 48px); transform:rotate(-2deg); z-index:11; background:#f7f4ec; color:#2b2733; border:3px solid #2b2733; border-radius:12px; padding:5px 11px; font:400 12.5px/1.2 {{ dispFont }}; letter-spacing:1px; box-shadow:3px 3px 0 rgba(0,0,0,.4); white-space:nowrap; animation:bounceIn .35s cubic-bezier(.3,1.7,.5,1) both;">🤝 {{ t.lobbyBanner }}</div>
+      </sc-if>
+      <!-- standing ministers (tap to hear) -->
+      <sc-for list="{{ plaza }}" as="p" hint-placeholder-count="9">
+        <div style="position:absolute; left:{{ p.x }}; top:{{ p.y }}; z-index:{{ p.z }}; animation:{{ p.wander }}; transition:left 1.3s cubic-bezier(.45,.1,.25,1), top 1.3s cubic-bezier(.45,.1,.25,1);">
+          <sc-if value="{{ p.poked }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; bottom:100%; left:{{ p.bLeft }}; right:{{ p.bRight }}; transform:{{ p.bXform }} translateY(-8px); background:#f7f4ec; color:#2b2733; border:3px solid #2b2733; border-radius:{{ p.bRad }}; padding:6px 10px; font:400 13px/1.25 {{ dispFont }}; white-space:nowrap; box-shadow:3px 3px 0 rgba(0,0,0,.4); z-index:20; animation:bounceIn .3s cubic-bezier(.3,1.7,.5,1) both;">{{ p.line }}</div>
+          </sc-if>
+          <sc-if value="{{ p.sup }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; bottom:100%; left:{{ p.bLeft }}; right:{{ p.bRight }}; transform:{{ p.bXform }} translateY(-6px); background:#2b2733; color:#f1ede4; border:3px solid #f1ede4; border-radius:{{ p.bRad }}; padding:5px 9px; font:400 11.5px/1.25 {{ dispFont }}; white-space:nowrap; box-shadow:3px 3px 0 rgba(0,0,0,.35); z-index:19; animation:bounceIn .3s cubic-bezier(.3,1.7,.5,1) both;">{{ p.supLine }}</div>
+          </sc-if>
+          <button onClick="{{ p.poke }}" style="all:unset; cursor:pointer; display:flex; flex-direction:column; align-items:center; transform:scale({{ p.scale }}); transition:transform 1.3s cubic-bezier(.45,.1,.25,1);">
+            <div style="width:46px; height:46px; border-radius:50%; border:3px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ p.bg }}); box-shadow:0 0 0 3px {{ p.ring }}, 3px 4px 0 rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; font-size:27px; animation:idleBob {{ p.dur }} ease-in-out infinite;">{{ p.head }}</div>
+            <div style="width:32px; height:8px; border-radius:50%; background:rgba(0,0,0,.32); margin-top:2px;"></div>
+          </button>
+        </div>
+      </sc-for>
+      <!-- decree toast -->
+      <sc-if value="{{ itvToastOn }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; left:50%; top:64px; transform:translateX(-50%) rotate(-2deg); z-index:14; background:#a4726a; color:#f1ede4; border:3px solid #f1ede4; border-radius:12px; padding:7px 14px; font:400 14px/1.25 {{ dispFont }}; letter-spacing:1px; white-space:nowrap; box-shadow:3px 3px 0 rgba(0,0,0,.4); animation:stampIn .45s cubic-bezier(.2,1.2,.3,1) both;">📜 {{ itvToast }}</div>
+      </sc-if>
+      <!-- banana rain decree fx -->
+      <sc-if value="{{ itvBanana }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; inset:0; z-index:28; pointer-events:none; overflow:hidden;">
+          <span style="position:absolute; left:8%; top:0; font-size:26px; animation:bananaFall 1.9s ease-in .05s 2 both;">🍌</span>
+          <span style="position:absolute; left:26%; top:0; font-size:20px; animation:bananaFall 1.6s ease-in .4s 2 both;">🍌</span>
+          <span style="position:absolute; left:47%; top:0; font-size:30px; animation:bananaFall 2s ease-in .2s 2 both;">🍌</span>
+          <span style="position:absolute; left:64%; top:0; font-size:22px; animation:bananaFall 1.7s ease-in .55s 2 both;">🍌</span>
+          <span style="position:absolute; left:82%; top:0; font-size:26px; animation:bananaFall 1.8s ease-in .3s 2 both;">🍌</span>
+        </div>
+      </sc-if>
+      <!-- vermilion swap decree fx -->
+      <sc-if value="{{ itvSwap }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; inset:0; z-index:28; pointer-events:none;">
+          <div style="position:absolute; left:50%; top:44%; width:230px; height:230px; border-radius:50%; background:rgba(43,39,51,.8); animation:inkBloom 1.1s ease-out both;"></div>
+          <span style="position:absolute; left:50%; top:44%; transform:translate(-50%,-50%); font-size:52px; filter:drop-shadow(3px 3px 0 rgba(0,0,0,.4)); animation:cutZoom .5s cubic-bezier(.3,1.5,.5,1) both;">🖌</span>
+        </div>
+      </sc-if>
+      <!-- time-stop cut-in overlay -->
+      <sc-if value="{{ cutOn }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeCut }}" style="position:absolute; inset:0; z-index:30; background:rgba(28,26,32,.84); display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;">
+        <div style="position:absolute; left:50%; top:50%; width:900px; height:900px; transform:translate(-50%,-50%); background:repeating-conic-gradient(rgba(241,237,228,.08) 0deg 6deg, transparent 6deg 12deg); animation:burstSpin 18s linear infinite;"></div>
+        <div style="position:absolute; top:12px; left:16px; background:#2b2733; color:#f1ede4; border:2.5px solid rgba(241,237,228,.5); border-radius:10px; padding:5px 10px; font:800 10.5px/1 'Baloo 2',sans-serif; letter-spacing:2px;">{{ t.timeStop }}</div>
+        <div style="position:absolute; top:12px; right:16px; background:#a4726a; color:#f1ede4; border:2.5px solid #f1ede4; border-radius:10px; padding:5px 10px; font:400 12px/1.2 {{ dispFont }}; letter-spacing:1px; transform:rotate(2deg);">{{ cutKind }}</div>
+        <sc-if value="{{ cutSolo }}" hint-placeholder-val="{{ true }}">
+          <div style="position:relative; width:320px; height:212px; animation:cutZoom .4s cubic-bezier(.3,1.5,.5,1) both;">
+            <div style="position:absolute; left:56px; right:56px; bottom:6px; height:5px; border-radius:3px; background:rgba(241,237,228,.3);"></div>
+            <div style="position:absolute; left:105px; top:64px; width:110px; height:110px; border-radius:50%; border:5px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ cutBg }}); box-shadow:0 0 0 6px #b2a181, 8px 9px 0 rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; font-size:62px; z-index:3; animation:{{ cutAv }};">{{ cutHead }}</div>
+            <sc-for list="{{ cutProps }}" as="pr" hint-placeholder-count="2">
+              <span style="position:absolute; left:{{ pr.x }}; top:{{ pr.y }}; width:{{ pr.w }}; height:{{ pr.h }}; background:{{ pr.bg }}; border:{{ pr.bd }}; border-radius:{{ pr.rad }}; color:{{ pr.col }}; font:400 {{ pr.fs }}/1 {{ dispFont }}; filter:{{ pr.flt }}; z-index:{{ pr.z }}; display:flex; align-items:center; justify-content:center; pointer-events:none; animation:{{ pr.anim }};">{{ pr.t }}</span>
+            </sc-for>
+          </div>
+          <div style="margin-top:8px; position:relative; background:#a4726a; color:#f1ede4; border:2.5px solid #f1ede4; border-radius:10px; padding:4px 12px; font:400 13px/1.2 {{ dispFont }}; letter-spacing:1px;">{{ cutName }}</div>
+          <div style="margin-top:10px; position:relative; max-width:300px; text-align:center; font:400 17px/1.45 {{ dispFont }}; color:#f1ede4;">{{ cutCaption }}</div>
+        </sc-if>
+        <sc-if value="{{ cutDuo }}" hint-placeholder-val="{{ false }}">
+          <div style="position:relative; display:flex; align-items:center; gap:20px; animation:cutZoom .4s cubic-bezier(.3,1.5,.5,1) both;">
+            <div style="width:98px; height:98px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ cutLBg }}); box-shadow:0 0 0 5px #a4726a, 6px 7px 0 rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; font-size:56px; animation:lungeR .8s ease-in-out infinite;">{{ cutLHead }}</div>
+            <span style="font-size:30px; animation:sparkle .9s ease-in-out infinite; filter:drop-shadow(2px 2px 0 rgba(0,0,0,.5));">⚡</span>
+            <div style="width:98px; height:98px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ cutRBg }}); box-shadow:0 0 0 5px #b2a181, 6px 7px 0 rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; font-size:56px; animation:lungeL .8s ease-in-out infinite;">{{ cutRHead }}</div>
+          </div>
+          <div style="margin-top:14px; position:relative; font:400 40px/1 {{ dispFont }}; color:#b2a181; -webkit-text-stroke:2.5px #2b2733; paint-order:stroke fill; text-shadow:4px 5px 0 rgba(0,0,0,.5); letter-spacing:3px; animation:cutZoom .45s .1s cubic-bezier(.3,1.5,.5,1) both;">{{ cutWord }}</div>
+          <div style="margin-top:12px; position:relative; display:flex; gap:12px;">
+            <span style="background:#a4726a; color:#f1ede4; border:2.5px solid #f1ede4; border-radius:9px; font:400 12px/1.2 {{ dispFont }}; padding:3px 10px;">{{ cutLName }}</span>
+            <span style="background:#b2a181; color:#2b2733; border:2.5px solid #f1ede4; border-radius:9px; font:400 12px/1.2 {{ dispFont }}; padding:3px 10px;">{{ cutRName }}</span>
+          </div>
+        </sc-if>
+      </div>
+      </sc-if>
+      <!-- featured duel · two-hander -->
+      <div style="position:absolute; left:50%; bottom:158px; transform:translateX(-50%); z-index:9; max-width:310px; width:max-content;">
+        <div style="position:relative; background:#f7f4ec; color:#2b2733; border:4px solid #2b2733; border-radius:16px; box-shadow:5px 5px 0 rgba(0,0,0,.45); padding:10px 14px; font:400 17px/1.35 {{ dispFont }}; text-align:center;">{{ duelLine }}
+          <span style="position:absolute; right:-14px; top:-16px; color:#a4726a; font-size:24px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.2s ease-in-out infinite;">💢</span>
+          <div style="position:absolute; left:{{ duelTailLeft }}; bottom:-15px; width:0; height:0; border-left:8px solid transparent; border-right:13px solid transparent; border-top:15px solid #2b2733;"></div>
+        </div>
+      </div>
+      <div style="position:absolute; left:0; right:0; bottom:12px; z-index:8; display:flex; justify-content:center; align-items:flex-end; gap:40px;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+          <div style="width:82px; height:82px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ duelL.bg }}); box-shadow:0 0 0 5px #a4726a, 5px 6px 0 rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; font-size:48px; animation:{{ duelLeftAnim }};">{{ duelL.head }}</div>
+          <span style="background:#a4726a; color:#f1ede4; border:2.5px solid #f1ede4; border-radius:9px; font:400 11px/1.2 {{ dispFont }}; padding:3px 8px; white-space:nowrap;">{{ duelL.name }}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding-bottom:26px;">
+          <span style="font-size:24px; animation:sparkle 1s ease-in-out infinite; filter:drop-shadow(2px 2px 0 rgba(0,0,0,.5));">⚡</span>
+          <div style="width:32px; height:32px; border-radius:50%; border:3px solid #f1ede4; background:#2b2733; display:flex; align-items:center; justify-content:center; font:400 11px/1 'Lilita One',sans-serif; color:#f1ede4; box-shadow:2px 2px 0 rgba(0,0,0,.4);">VS</div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+          <div style="width:82px; height:82px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ duelR.bg }}); box-shadow:0 0 0 5px #b2a181, 5px 6px 0 rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; font-size:48px; animation:{{ duelRightAnim }};">{{ duelR.head }}</div>
+          <span style="background:#b2a181; color:#2b2733; border:2.5px solid #f1ede4; border-radius:9px; font:400 11px/1.2 {{ dispFont }}; padding:3px 8px; white-space:nowrap;">{{ duelR.name }}</span>
+        </div>
+      </div>
+    </div>
+    <!-- intervention sheet -->
+    <sc-if value="{{ itvOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeItv }}" style="position:absolute; inset:0; z-index:45; background:rgba(28,26,32,.55); display:flex; flex-direction:column; justify-content:flex-end;">
+      <div onClick="{{ stopIt }}" style="background:#f1ede4; color:#2b2733; border-top:4px solid #2b2733; border-radius:22px 22px 0 0; padding:18px 18px calc(22px + env(safe-area-inset-bottom)); animation:riseIn .3s cubic-bezier(.2,.9,.2,1) both;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between;">
+          <span style="font:400 24px/1.1 {{ dispFont }}; letter-spacing:3px;">🖐 {{ t.itvTitle }}</span>
+          <span style="font:400 11px/1 {{ altFont }}; color:#847d88; letter-spacing:1px;">{{ t.itvSub }}</span>
+        </div>
+        <div style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
+          <sc-for list="{{ itvOptions }}" as="o" hint-placeholder-count="3">
+            <button onClick="{{ o.pick }}" style="all:unset; display:flex; align-items:center; gap:12px; background:#f7f4ec; border:3px solid #2b2733; border-radius:14px; box-shadow:3.5px 3.5px 0 #2b2733; padding:11px 14px; cursor:pointer;" style-active="transform:translate(2px,2px); box-shadow:1.5px 1.5px 0 #2b2733;">
+              <span style="font-size:26px;">{{ o.icon }}</span>
+              <span style="flex:1;">
+                <span style="display:block; font:400 17px/1.2 {{ dispFont }};">{{ o.label }}</span>
+                <span style="display:block; margin-top:2px; font:700 11px/1.3 'Baloo 2',sans-serif; color:#847d88;">{{ o.sub }}</span>
+              </span>
+              <span style="font:400 16px/1 'Lilita One',sans-serif; color:#a4726a;">→</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="margin-top:12px; display:flex; align-items:center; gap:8px;">
+          <span style="flex:1; height:2px; background:rgba(43,39,51,.22);"></span>
+          <span style="font:400 12px/1 {{ altFont }}; color:#847d88; letter-spacing:2px;">{{ t.itvOrLabel }}</span>
+          <span style="flex:1; height:2px; background:rgba(43,39,51,.22);"></span>
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <input value="{{ itvCustom }}" onChange="{{ itvCustomChange }}" placeholder="{{ t.itvCustomPh }}" style="flex:1; min-width:0; border:3px solid #2b2733; border-radius:12px; background:#f7f4ec; padding:11px 12px; font:600 14px 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#2b2733; outline:none; box-shadow:2.5px 2.5px 0 #2b2733;">
+          <button onClick="{{ itvCustomGo }}" style="all:unset; background:#a4726a; color:#f1ede4; border:3px solid #2b2733; border-radius:12px; box-shadow:2.5px 2.5px 0 #2b2733; padding:0 16px; display:flex; align-items:center; cursor:pointer;" style-active="transform:translate(2px,2px); box-shadow:.5px .5px 0 #2b2733;"><span style="font:400 16px/1 {{ dispFont }}; letter-spacing:2px;">{{ t.itvCustomBtn }}</span></button>
+        </div>
+        <button onClick="{{ closeItv }}" style="all:unset; display:block; width:100%; text-align:center; margin-top:12px; font:400 14px/1.2 {{ dispFont }}; color:#847d88; letter-spacing:2px; cursor:pointer;">{{ t.itvCancel }}</button>
+      </div>
+    </div>
+    </sc-if>
+    <!-- storyboard -->
+    <div style="padding:13px 18px calc(15px + env(safe-area-inset-bottom)); border-top:4px solid #f1ede4;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline;">
+        <span style="font:800 10.5px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#a9a3ab;">{{ t.sbLabel }}</span>
+        <span style="font:400 13px/1 {{ altFont }}; color:#b2a181;">{{ actNo }}</span>
+      </div>
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <sc-for list="{{ acts }}" as="a" hint-placeholder-count="5">
+          <button onClick="{{ a.go }}" style="all:unset; flex:1; text-align:center; padding:8px 0 9px; border:3px solid {{ a.bd }}; border-radius:12px; background:{{ a.bg }}; color:{{ a.fg }}; cursor:pointer; box-shadow:{{ a.shadow }};">
+            <div style="font:400 16px/1 'Lilita One',sans-serif;">{{ a.no }}</div>
+            <div style="margin-top:3px; font:400 11px/1.1 {{ dispFont }}; letter-spacing:1px;">{{ a.label }}</div>
+          </button>
+        </sc-for>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button onClick="{{ openItv }}" style="all:unset; flex:1.3; background:#b2a181; color:#2b2733; border:3px solid #f1ede4; border-radius:14px; box-shadow:4px 4px 0 rgba(0,0,0,.4); text-align:center; padding:13px 0; cursor:pointer; animation:wiggle 1.7s ease-in-out infinite;"><span style="font:400 16px/1.1 {{ dispFont }}; letter-spacing:1px;">🖐 {{ t.intervene }}</span></button>
+        <button onClick="{{ playCut }}" style="all:unset; flex:1; background:#a4726a; color:#f1ede4; border:3px solid #f1ede4; border-radius:14px; box-shadow:4px 4px 0 rgba(0,0,0,.4); text-align:center; padding:13px 0; cursor:pointer;"><span style="font:400 16px/1.1 {{ dispFont }}; letter-spacing:1px;">🎬 {{ t.closeupBtn }}</span></button>
+        <button onClick="{{ go5 }}" style="all:unset; flex:1; border:3px solid rgba(241,237,228,.55); border-radius:14px; color:#f1ede4; text-align:center; padding:13px 0; cursor:pointer; animation:{{ ruleAnim }};"><span style="font:400 16px/1.1 {{ dispFont }}; letter-spacing:1px;">👑 {{ t.ruleNow }}</span></button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============================== SCREEN 5 · VERDICT ============================== -->
+  <sc-if value="{{ scr5 }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="05 判决" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#a4726a; color:#f1ede4;">
+    <div style="position:absolute; left:50%; top:38%; width:1000px; height:1000px; background:repeating-conic-gradient(rgba(241,237,228,.13) 0deg 8deg, transparent 8deg 16deg); border-radius:50%; animation:burstSpin 26s linear infinite;"></div>
+    <div style="padding:calc(16px + env(safe-area-inset-top)) 18px 0; display:flex; justify-content:space-between; align-items:center; font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px; position:relative;">
+      <span>{{ t.verKicker }}</span>
+      <span style="background:#2b2733; border:2.5px solid #f1ede4; border-radius:10px; padding:4px 9px; transform:rotate(-2deg);">{{ t.verChip }}</span>
+    </div>
+    <div style="flex:1; position:relative; padding:0 38px 0 18px; display:flex; flex-direction:column; justify-content:center; overflow:hidden;">
+      <span style="position:absolute; right:20px; top:24px; color:#b2a181; font-size:30px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.3s ease-in-out infinite;">✦</span>
+      <span style="position:absolute; left:16px; bottom:30px; color:#b2a181; font-size:22px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.7s .4s ease-in-out infinite;">✦</span>
+      <div style="position:relative; animation:riseIn .6s cubic-bezier(.2,.9,.2,1) both;">
+        <div style="font:{{ t.verTitleFont }}; letter-spacing:-1px; color:#b2a181; -webkit-text-stroke:4px #2b2733; paint-order:stroke fill; text-shadow:6px 7px 0 #2b2733;">{{ t.verTitle1 }}<span style="color:transparent; -webkit-text-stroke:3px #f1ede4; text-shadow:none;">{{ t.verTitle2 }}</span></div>
+        <div style="margin-top:14px; font:400 19px/1.5 {{ dispFont }}; color:#f1ede4;">{{ t.decree }}</div>
+        <div style="margin-top:18px; display:flex; align-items:baseline; gap:13px;">
+          <span style="font:400 54px/1 'Lilita One',sans-serif; text-shadow:4px 4px 0 #2b2733;">6</span>
+          <span style="font:400 15px/1.1 {{ dispFont }};">{{ t.proWord }}</span>
+          <span style="font:400 30px/1 'Lilita One',sans-serif; color:rgba(241,237,228,.6);">:</span>
+          <span style="font:400 54px/1 'Lilita One',sans-serif; color:#b2a181; text-shadow:4px 4px 0 #2b2733;">3</span>
+          <span style="font:400 15px/1.1 {{ dispFont }};">{{ t.conWord }}</span>
+          <span style="font:400 30px/1 'Lilita One',sans-serif; color:rgba(241,237,228,.6);">:</span>
+          <span style="font:400 54px/1 'Lilita One',sans-serif; color:rgba(241,237,228,.7); text-shadow:4px 4px 0 #2b2733;">2</span>
+          <span style="font:400 15px/1.1 {{ dispFont }}; color:rgba(241,237,228,.8);">{{ t.abstainWord }}</span>
+        </div>
+      </div>
+      <!-- collectible ticket -->
+      <div style="position:relative; margin-top:24px; background:#f7f4ec; color:#2b2733; border:4px solid #2b2733; border-radius:16px; display:flex; animation:stampIn .55s .35s cubic-bezier(.2,1.2,.3,1) both; box-shadow:0 0 0 4px #b2a181, 8px 9px 0 rgba(43,39,51,.4); overflow:hidden;">
+        <div style="flex:1; padding:13px 15px;">
+          <div style="font:800 10px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#a4726a;">{{ t.ticketKicker }} ★★★☆</div>
+          <div style="margin-top:7px; font:400 20px/1.3 {{ dispFont }};">{{ t.ticketQuote }}</div>
+          <div style="margin-top:4px; font:700 11.5px/1.35 'Baloo 2',sans-serif; color:#847d88;">{{ t.ticketByline }}</div>
+        </div>
+        <div style="width:88px; border-left:3px dashed rgba(43,39,51,.35); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:#eae4d6;">
+          <div style="width:52px; height:52px; border-radius:50%; border:3px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, #e8e0dc); box-shadow:0 0 0 3.5px #a4726a; display:flex; align-items:center; justify-content:center; font-size:30px;">🐰</div>
+          <span style="font:800 9px/1 'Baloo 2',sans-serif; letter-spacing:1px;">{{ t.rareTag }}</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; position:relative;">
+      <button onClick="{{ noopBtn }}" style="all:unset; flex:1.4; background:#2b2733; color:#f1ede4; text-align:center; padding:18px 0 calc(18px + env(safe-area-inset-bottom)); cursor:pointer;"><span style="font:400 21px/1.1 {{ dispFont }}; letter-spacing:{{ t.ctaSpacing }};">🎴 {{ t.collectMain }}</span></button>
+      <button onClick="{{ go1 }}" style="all:unset; flex:1; background:#b2a181; color:#2b2733; text-align:center; padding:18px 0 calc(18px + env(safe-area-inset-bottom)); cursor:pointer;"><span style="font:400 21px/1.1 {{ dispFont }}; letter-spacing:{{ t.ctaSpacing }};">{{ t.tomorrow }} →</span></button>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============================== FLOATING CONTROLS ============================== -->
+  <div style="position:absolute; top:50%; right:calc(6px + env(safe-area-inset-right)); transform:translateY(-50%); z-index:40; display:flex; flex-direction:column; gap:7px; align-items:center;">
+    <button onClick="{{ toggleLang }}" title="{{ t.langTip }}" style="all:unset; width:26px; padding:7px 0; border-radius:13px; border:2.5px solid {{ langBd }}; background:{{ langBg }}; color:{{ langFg }}; font:800 10px/1.1 'Baloo 2','ZCOOL KuaiLe',sans-serif; text-align:center; cursor:pointer; box-shadow:2px 2px 0 rgba(43,39,51,.35); margin-bottom:5px;">{{ langBtnLabel }}</button>
+    <sc-for list="{{ dots }}" as="d" hint-placeholder-count="5">
+      <button onClick="{{ d.go }}" title="{{ d.label }}" style="all:unset; width:24px; height:24px; border-radius:50%; border:2.5px solid {{ d.bd }}; background:{{ d.bg }}; color:{{ d.fg }}; font:800 9px/24px 'Baloo 2',sans-serif; text-align:center; cursor:pointer; box-shadow:{{ d.shadow }};">{{ d.no }}</button>
+    </sc-for>
+  </div>
+
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 390, &quot;height&quot;: 844 },
+  &quot;startScreen&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;opening&quot;, &quot;cast&quot;, &quot;petition&quot;, &quot;debate&quot;, &quot;verdict&quot;], &quot;default&quot;: &quot;opening&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;预览&quot; },
+  &quot;lang&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;zh&quot;, &quot;en&quot;], &quot;default&quot;: &quot;zh&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;语言&quot; }
+}">
+class Component extends DCLogic {
+  state = { screen: 1, lang: 'zh', duelTurn: 0, poke: null, lobPhase: 0, lobSc: 'A', fishCamp: 'pro', rotTick: 0, itvOpen: false, itv: null, castPoke: null, pairIdx: 0, cut: null };
+
+  componentDidMount() {
+    const p = this.props.startScreen;
+    if (p && p !== 'opening') {
+      const map = { cast: 2, petition: 3, debate: 4, verdict: 5 };
+      if (map[p]) this.setState({ screen: map[p] });
+    }
+    let lang = null;
+    try { lang = localStorage.getItem('mm_lang'); } catch (e) {}
+    lang = lang || this.props.lang;
+    if (lang === 'en' || lang === 'zh') this.setState({ lang });
+    this._duel = setInterval(() => this.setState(st => ({ duelTurn: (st.duelTurn + 1) % 4 })), 2800);
+    this._lobT = [];
+    const runLobby = () => {
+      const sc = this.state.fishCamp === 'pro' ? 'A' : 'B';
+      this.setState({ lobSc: sc, lobPhase: 1 });
+      this._lobT = [
+        setTimeout(() => this.setState({ lobPhase: 2 }), 1500),
+        setTimeout(() => this.setState({ lobPhase: 3 }), 3900),
+        setTimeout(() => this.setState({ lobPhase: 0, fishCamp: sc === 'A' ? 'con' : 'pro' }), 5700),
+      ];
+    };
+    this._lobI = setInterval(runLobby, 10000);
+    this._rot = setInterval(() => this.setState(st => ({ rotTick: (st.rotTick + 1) % 4 })), 7000);
+    // time-stop cut-ins: alternate duo clash (rotates the duel pair) and solo signature closeups
+    this._cutFlip = false;
+    this._soloIdx = 0;
+    this._cutI = setInterval(() => {
+      if (this.state.itvOpen || this.state.itv) return;
+      this._cutFlip = !this._cutFlip;
+      if (this._cutFlip) {
+        this.setState(st => ({ pairIdx: (st.pairIdx + 1) % 4, cut: { mode: 'duo' } }));
+        clearTimeout(this._cutT);
+        this._cutT = setTimeout(() => this.setState({ cut: null }), 2500);
+      } else {
+        this.showSolo();
+      }
+    }, 9500);
+    this._lobT.push(setTimeout(runLobby, 3000));
+  }
+
+  componentWillUnmount() {
+    clearInterval(this._duel);
+    clearInterval(this._lobI);
+    clearInterval(this._rot);
+    clearInterval(this._cutI);
+    clearTimeout(this._cutT);
+    clearTimeout(this._itvT);
+    (this._lobT || []).forEach(clearTimeout);
+    clearTimeout(this._pk);
+    clearTimeout(this._cpT);
+  }
+
+  pickItv(type) {
+    clearTimeout(this._itvT);
+    const upd = { itvOpen: false, itv: type, cut: null };
+    if (type === 'swap') upd.pairIdx = (this.state.pairIdx + 1) % 4;
+    this.setState(upd);
+    this._itvT = setTimeout(() => this.setState({ itv: null }), 3200);
+  }
+
+  pair() {
+    return [['rabbit','fox'],['horse','raccoon'],['banana','snake'],['collie','moth']][this.state.pairIdx % 4];
+  }
+
+  minMeta() {
+    return {
+      rabbit:  { head:'🐰', bg:'#e8e0dc', zh:'跺脚将军', en:'GEN. THUMP' },
+      fox:     { head:'🦊', bg:'#e2e4e1', zh:'维斯帕',   en:'VESPER' },
+      horse:   { head:'🐴', bg:'#e9e2d0', zh:'奔骥',     en:'GALLOP' },
+      raccoon: { head:'🦝', bg:'#eae6dc', zh:'拾荒',     en:'TRASH' },
+      banana:  { head:'🍌', bg:'#ece8da', zh:'香蕉',     en:'BANANA' },
+      snake:   { head:'🐍', bg:'#e3e6e1', zh:'西利斯',   en:'SSYLITH' },
+      collie:  { head:'🐶', bg:'#e6e3e8', zh:'枫律',     en:'MAPLE' },
+      moth:    { head:'🦋', bg:'#e6e3e8', zh:'结茧',     en:'SILK' },
+      fish:    { head:'🐟', bg:'#e2e5e8', zh:'咕噜',     en:'GLUB' },
+      sheep:   { head:'🐑', bg:'#efece3', zh:'伍尔西',   en:'WOOLSEY' },
+      octopus: { head:'🐙', bg:'#e8e1de', zh:'章鱼宰相', en:'OCTAVIA' },
+    };
+  }
+
+  sig() {
+    return {
+      fox:     { anim:'sigShake .55s ease-in-out 3',             fx:'💢', zh:'三思！三思！再三思！',   en:'"THINK! THINK AGAIN!"' },
+      rabbit:  { anim:'sigHop .8s cubic-bezier(.3,1.4,.5,1) 2',  fx:'⚡', zh:'现在！立刻！马上！',     en:'"NOW! THIS INSTANT!"' },
+      horse:   { anim:'sigDash 1s ease-in-out 2',                fx:'💨', zh:'跑起来再想！',           en:'"RUN FIRST, THINK LATER!"' },
+      collie:  { anim:'sigSpin .9s cubic-bezier(.4,.1,.4,1) 2',  fx:'📜', zh:'第42条，白纸黑字！',     en:'"CLAUSE 42, IN INK!"' },
+      raccoon: { anim:'sigShake .5s ease-in-out 4',              fx:'🧾', zh:'你去年说的话，我都记着', en:'"I REMEMBER EVERYTHING."' },
+      snake:   { anim:'sigDizzy 1.6s ease-in-out 1',             fx:'🔮', zh:'嘶——卦已成',            en:'"SSS — THE HEXAGRAM IS CAST."' },
+      fish:    { anim:'sigShrink .9s ease-in-out 2',             fx:'😱', zh:'完了完了全完了',         en:'"DOOM. DOOM. DOOM."' },
+      sheep:   { anim:'sigHop .8s cubic-bezier(.3,1.4,.5,1) 2',  fx:'❓', zh:'大家跳我也跳！',         en:'"IF EVERYONE JUMPS, I JUMP!"' },
+      moth:    { anim:'sigSpin 1.2s ease-in-out 1',              fx:'🌀', zh:'茧里啥都知道',           en:'"THE COCOON KNOWS ALL."' },
+      banana:  { anim:'sigDive 1.1s cubic-bezier(.4,.1,.4,1) 2', fx:'🍌', zh:'香蕉滑一个！',           en:'"BANANA SLIP!"' },
+      octopus: { anim:'sigDizzy 1.1s ease-in-out 2',             fx:'🤝', zh:'八只手都同意～',         en:'"ALL EIGHT HANDS AGREE~"' },
+    };
+  }
+
+  showSolo() {
+    const ids = ['rabbit','fox','horse','raccoon','banana','snake','collie','moth','fish','sheep','octopus'];
+    this._soloIdx = ((this._soloIdx || 0) + 1) % ids.length;
+    const id = ids[this._soloIdx];
+    this._vc = this._vc || {};
+    this._vc[id] = ((this._vc[id] === undefined ? -1 : this._vc[id]) + 1) % this.vig()[id].length;
+    clearTimeout(this._cutT);
+    this.setState({ cut: { mode: 'solo', id, v: this._vc[id] } });
+    this._cutT = setTimeout(() => this.setState({ cut: null }), 3600);
+  }
+
+  // signature-move vignettes: variants cycle each appearance; props are emoji/word/shape layers on the close-up stage
+  vig() {
+    const S = (x, y, fs, anim, extra) => Object.assign({ x, y, fs, anim }, extra || {});
+    return {
+      snake: [
+        { av:'sigDizzy 2.4s ease-in-out infinite', zh:'「牌面已现——嘶。」', en:'"THE CARDS HAVE SPOKEN — SSS."', props:[
+          S('52px','30px','30px','sigFlip 1.6s ease-in-out infinite',{t:'🎴'}),
+          S('140px','8px','36px','sigFlip 1.6s .35s ease-in-out infinite',{t:'🎴'}),
+          S('228px','30px','30px','sigFlip 1.6s .7s ease-in-out infinite',{t:'🎴'}),
+          S('96px','66px','18px','sparkle 1.2s ease-in-out infinite',{t:'✦',col:'#b2a181'}),
+        ]},
+        { av:'vGaze 2.2s ease-in-out infinite', zh:'「水晶球云：大凶。」', en:'"THE ORB SAYS: VERY NO."', props:[
+          S('212px','108px','44px','idleBob 1.6s ease-in-out infinite',{t:'🔮'}),
+          S('204px','78px','20px','sparkle 1.1s ease-in-out infinite',{t:'✨'}),
+          S('256px','96px','16px','sparkle 1.4s .4s ease-in-out infinite',{t:'✦',col:'#b2a181'}),
+          S('228px','58px','18px','vRise 1.8s .6s ease-out infinite',{t:'凶',tEn:'DOOM',col:'#a4726a'}),
+        ]},
+        { av:'idleBob 2.2s ease-in-out infinite', zh:'「龟甲铜钱曰：不。」', en:'"SHELL AND COINS SAY NO."', props:[
+          S('212px','120px','44px','sigShake .55s ease-in-out 5',{t:'🐢'}),
+          S('196px','86px','20px','vPop 2.4s .4s ease-out infinite',{t:'🪙'}),
+          S('248px','78px','16px','vPop 2.4s .7s ease-out infinite',{t:'🪙'}),
+          S('222px','48px','26px','vPop 2.4s 1s ease-out infinite',{t:'卦',tEn:'☯',col:'#b2a181'}),
+        ]},
+      ],
+      fox: [
+        { av:'vRam 1.4s ease-in-out infinite', zh:'「陛下不纳谏，臣就撞死在这柱上！」', en:'"HEED ME, OR I RAM THIS PILLAR!"', props:[
+          S('254px','32px','10px','sigShake 1.4s .5s ease-in-out infinite',{t:'',w:'26px',h:'138px',bg:'#b2a181',bd:'3.5px solid #2b2733',rad:'9px'}),
+          S('240px','8px','24px','sparkle .9s ease-in-out infinite',{t:'💫'}),
+          S('182px','2px','22px','vPop 1.4s ease-out infinite',{t:'咚!',tEn:'BONK!',col:'#f1ede4'}),
+        ]},
+        { av:'sigDive 1.5s ease-in-out infinite', zh:'「臣！以！头！呛！地！」', en:'"MY HEAD! MEETS! THE FLOOR!"', props:[
+          S('196px','170px','26px','vPuff 1.5s ease-out infinite',{t:'💨'}),
+          S('232px','140px','20px','vPop 1.5s .2s ease-out infinite',{t:'💫'}),
+        ]},
+        { av:'sigShake 1.3s ease-in-out infinite', zh:'「呜呜呜——昏君误国啊！」', en:'"WAAAH — MY FOOLISH LIEGE!"', props:[
+          S('126px','130px','20px','vTear 1.1s ease-in infinite',{t:'💧'}),
+          S('178px','130px','20px','vTear 1.1s .5s ease-in infinite',{t:'💧'}),
+          S('222px','56px','20px','vRise 1.8s ease-out infinite',{t:'呜——',tEn:'SOB—',col:'#b2a181'}),
+        ]},
+      ],
+      rabbit: [
+        { av:'vDash 1.5s linear infinite', zh:'「跑起来！现在！立刻！马上！」', en:'"RUN! NOW! THIS INSTANT!"', props:[
+          S('30px','130px','24px','sparkle .8s ease-in-out infinite',{t:'💨'}),
+          S('254px','130px','24px','sparkle .8s .4s ease-in-out infinite',{t:'💨'}),
+        ]},
+        { av:'sigShake .55s ease-in-out 5', zh:'「急死了！碗都给你摔咯！」', en:'"THAT\'S IT — THE BOWL GOES!"', props:[
+          S('228px','60px','36px','vBowl 2s ease-in infinite',{t:'🥣'}),
+          S('222px','152px','30px','vPop 2s ease-out infinite',{t:'💥'}),
+          S('200px','134px','16px','vPop 2s .12s ease-out infinite',{t:'✦',col:'#b2a181'}),
+          S('264px','138px','14px','vPop 2s .2s ease-out infinite',{t:'✦',col:'#f1ede4'}),
+        ]},
+        { av:'vKick .8s ease-in-out infinite', zh:'「后腿都蹬冒烟了！快点啊！」', en:'"MY LEGS ARE SMOKING — GO!"', props:[
+          S('62px','144px','26px','vPuff .8s ease-out infinite',{t:'💨'}),
+          S('84px','108px','22px','vPop .8s .1s ease-out infinite',{t:'💢'}),
+        ]},
+      ],
+      horse: [
+        { av:'vDash 1.1s linear infinite', zh:'「先冲过线，再谈道理！」', en:'"CROSS THE LINE FIRST, TALK LATER!"', props:[
+          S('264px','28px','30px','wiggle 1.2s ease-in-out infinite',{t:'🏁'}),
+          S('34px','132px','24px','sparkle .7s ease-in-out infinite',{t:'💨'}),
+        ]},
+        { av:'lungeR .75s ease-in-out infinite', zh:'「赛场上没有同僚！啊呜！」', en:'"NO FRIENDS ON THE TRACK — CHOMP!"', props:[
+          S('230px','94px','54px','recoilR .75s .1s ease-in-out infinite',{t:'🐴'}),
+          S('258px','58px','24px','vPop .75s .15s ease-out infinite',{t:'💢'}),
+        ]},
+        { av:'vTrot 2.6s ease-in-out infinite', zh:'「瞧好了，这叫帝王舞步。」', en:'"BEHOLD: THE ROYAL DRESSAGE."', props:[
+          S('144px','4px','28px','idleBob 1.3s ease-in-out infinite',{t:'🎩'}),
+          S('68px','60px','20px','sparkle 1.2s ease-in-out infinite',{t:'✨'}),
+          S('238px','60px','20px','sparkle 1.2s .5s ease-in-out infinite',{t:'✨'}),
+        ]},
+      ],
+      collie: [
+        { av:'idleBob .55s ease-in-out infinite', zh:'「容本官算算……哈！有空子！」', en:'"LET ME COMPUTE… HA! A LOOPHOLE!"', props:[
+          S('208px','114px','46px','sigShake .45s ease-in-out infinite',{t:'🧮'}),
+          S('238px','70px','18px','vRise 1.3s ease-out infinite',{t:'+3',col:'#b2a181'}),
+          S('196px','78px','18px','vRise 1.3s .6s ease-out infinite',{t:'−7',col:'#f1ede4'}),
+        ]},
+        { av:'sigShake .5s ease-in-out infinite', zh:'「汪！你行你咋不上呢？！」', en:'"WOOF! WHY DON\'T *YOU* GO?!"', props:[
+          S('220px','48px','22px','vRise 1s ease-out infinite',{t:'汪！',tEn:'WOOF!',col:'#b2a181'}),
+          S('62px','62px','18px','vRise 1s .5s ease-out infinite',{t:'汪！',tEn:'WOOF!',col:'#f1ede4'}),
+        ]},
+      ],
+      fish: [
+        { av:'idleBob .9s ease-in-out infinite', zh:'「先看风向……再看脸色……」', en:'"READ THE ROOM… READ IT AGAIN…"', props:[
+          S('137px','24px','34px','vDart 1.3s ease-in-out infinite',{t:'👀'}),
+          S('64px','78px','18px','sparkle 1.5s ease-in-out infinite',{t:'❓'}),
+        ]},
+        { av:'vDead 1.6s ease-in-out both', zh:'「鱼已死，有事烧纸。」', en:'"FISH IS DEAD. LEAVE A NOTE."', props:[
+          S('210px','52px','24px','sparkle 1.4s .8s ease-in-out infinite',{t:'💀'}),
+          S('84px','40px','22px','vRise 2s 1s ease-out infinite',{t:'💤'}),
+        ]},
+      ],
+      raccoon: [
+        { av:'vRum 1.8s ease-in-out infinite', zh:'「翻到了！金粑粑、银粑粑——全是你去年说的话！」', en:'"FOUND THEM! GOLD, SILVER — ALL YOUR OLD PROMISES!"', props:[
+          S('226px','106px','52px','sigShake .6s ease-in-out infinite',{t:'🗑'}),
+          S('112px','26px','26px','bounceIn .5s .9s cubic-bezier(.3,1.7,.5,1) both',{t:'💩',flt:'sepia(1) saturate(4) hue-rotate(-12deg) brightness(1.2)'}),
+          S('116px','58px','13px','bounceIn .4s 1.05s both',{t:'金',tEn:'GOLD',col:'#b2a181'}),
+          S('166px','6px','24px','bounceIn .5s 1.5s cubic-bezier(.3,1.7,.5,1) both',{t:'💩',flt:'grayscale(1) brightness(1.35)'}),
+          S('170px','38px','13px','bounceIn .4s 1.65s both',{t:'银',tEn:'SILVER',col:'#f1ede4'}),
+          S('220px','28px','22px','bounceIn .5s 2.1s cubic-bezier(.3,1.7,.5,1) both',{t:'💩'}),
+          S('220px','58px','13px','bounceIn .4s 2.25s both',{t:'普通',tEn:'MEH',col:'#a9a3ab'}),
+        ]},
+      ],
+      sheep: [
+        { av:'vStagger 1.9s ease-in-out infinite', zh:'「大家转我也转……哪边是大流？」', en:'"EVERYONE SPINS, SO I SPIN… WHICH WAY?"', props:[
+          S('140px','8px','30px','sigSpin 1.1s linear infinite',{t:'🌀'}),
+          S('82px','36px','22px','sparkle 1.2s ease-in-out infinite',{t:'💫'}),
+          S('218px','40px','18px','sparkle 1.5s .5s ease-in-out infinite',{t:'✨'}),
+        ]},
+      ],
+      moth: [
+        { av:'sigSpin 1s ease-in-out 1', zh:'「不听不听——茧里啥都知道。」', en:'"LA LA LA — THE COCOON KNOWS ALL."', props:[
+          S('76px','44px','20px','sigSpin .9s linear 2',{t:'🧵'}),
+          S('222px','76px','20px','sigSpin .9s .3s linear 2',{t:'🧵'}),
+          S('92px','52px','10px','bounceIn .6s .9s cubic-bezier(.3,1.7,.5,1) both',{t:'',w:'136px',h:'140px',bg:'#efece3',bd:'4px solid #2b2733',rad:'50% 50% 46% 46% / 60% 60% 42% 42%',z:4}),
+          S('126px','104px','20px','bounceIn .4s 1.4s both',{t:'……',tEn:'…',col:'#847d88',z:5}),
+          S('150px','30px','20px','vRise 1.8s 1.6s ease-out infinite',{t:'💤',z:5}),
+          S('66px','120px','16px','sparkle 1.3s 1s ease-in-out infinite',{t:'✨'}),
+        ]},
+      ],
+      banana: [
+        { av:'sigDive 1.2s cubic-bezier(.4,.1,.4,1) infinite', zh:'「香蕉滑一个！」', en:'"BANANA SLIP!"', props:[
+          S('196px','158px','24px','vPuff 1.2s ease-out infinite',{t:'💨'}),
+          S('236px','120px','22px','vPop 1.2s .15s ease-out infinite',{t:'💫'}),
+        ]},
+        { av:'idleBob .7s ease-in-out infinite', zh:'「灵感来了！要不……全员开猫咖？」', en:'"IDEA! WHAT IF… EVERYONE OPENS A CAFÉ?"', props:[
+          S('146px','8px','28px','vPop 1.6s ease-out infinite',{t:'💡'}),
+          S('70px','44px','22px','vRise 1.6s .4s ease-out infinite',{t:'🛸'}),
+          S('226px','44px','22px','vRise 1.6s .9s ease-out infinite',{t:'🦄'}),
+        ]},
+      ],
+      octopus: [
+        { av:'sigDizzy 1.3s ease-in-out infinite', zh:'「八只手，都同意～」', en:'"ALL EIGHT HANDS AGREE~"', props:[
+          S('212px','52px','24px','vPop 1.4s ease-out infinite',{t:'🤝'}),
+          S('80px','52px','24px','vPop 1.4s .35s ease-out infinite',{t:'🤝'}),
+          S('72px','128px','24px','vPop 1.4s .7s ease-out infinite',{t:'🤝'}),
+          S('220px','128px','24px','vPop 1.4s 1.05s ease-out infinite',{t:'🤝'}),
+        ]},
+        { av:'sigShrink 1.4s ease-in-out infinite', zh:'「情况不对——喷墨！溜！」', en:'"ABORT — INK! FLEE!"', props:[
+          S('118px','78px','10px','vPuff 1.4s .3s ease-out infinite',{t:'',w:'86px',h:'86px',bg:'#2b2733',rad:'50%',z:4}),
+          S('190px','60px','10px','vPuff 1.4s .5s ease-out infinite',{t:'',w:'56px',h:'56px',bg:'rgba(43,39,51,.8)',rad:'50%',z:4}),
+          S('86px','130px','10px','vPuff 1.4s .65s ease-out infinite',{t:'',w:'44px',h:'44px',bg:'rgba(43,39,51,.7)',rad:'50%',z:4}),
+          S('238px','120px','20px','sparkle 1s ease-in-out infinite',{t:'💦'}),
+        ]},
+      ],
+    };
+  }
+
+  pokeM(id) {
+    clearTimeout(this._pk);
+    this.setState({ poke: id });
+    this._pk = setTimeout(() => this.setState({ poke: null }), 2200);
+  }
+
+  renderVals() {
+    const s = this.state.screen;
+    const zh = this.state.lang === 'zh';
+    const go = (n) => () => this.setState({ screen: n });
+    const D = zh ? "'ZCOOL KuaiLe','Baloo 2',sans-serif" : "'Lilita One','Baloo 2',sans-serif";
+    const A = zh ? "'ZCOOL KuaiLe',sans-serif" : "'Lilita One',sans-serif";
+
+    const T_ZH = {
+      epChip:'EP.108 · 每日一集',
+      titleFont:"400 100px/0.98 " + D, title1:'众卿', title2:'议事',
+      subFont:"400 20px/1.4 " + D, sub1:'一部每天上朝的荒诞喜剧，', sub2:'主演：十一位不靠谱大臣。',
+      sealText:'朕即真理', statusLine:'正在开庭 · 卿等速来',
+      axis:'猫皇御前・十一大臣・吵完就裁', axisSize:'16px', axisSpacing:'7px',
+      ticker:'上朝 ▸ 有事启奏 ▸ 御前辩论 ▸ 无事退朝 ▸ 卿等平身 ▸ 上朝 ▸ 有事启奏 ▸ 御前辩论 ▸ 无事退朝 ▸ 卿等平身 ▸ ',
+      ctaSpacing:'6px', cta1Main:'上朝！', cta1Sub:'御门已开',
+      castKicker:'INDEX — 名冊', castChip:'十一位大臣',
+      castTitleFont:"400 60px/0.95 " + D, castTitle:'名冊', castSub1:'按混乱程度', castSub2:'排序',
+      cta2Main:'呈递奏章', cta2Sub:'有事启奏',
+      petKicker:'PETITION — 奏章', petChip:'第 108 号', petLabel:'有事启奏 · 写下你的议题',
+      qFont:"400 40px/1.3 " + D, q1:'要不要辞职，', q2:'去开一家猫咖？',
+      stakes:'存款够撑十个月，但房东明年涨租；老板刚升了我的职，可我每天早上都不想睁眼……',
+      rerunTitle:'御前荐题', rerunSub:'OR PICK A RERUN',
+      cta3Main:'呈上・开议', cta3Sub:'让他们吵去',
+      actTicker:'第三幕 — 廷议白热化 ⚡ 直播中 02:31 ⚡ 第三幕 — 廷议白热化 ⚡ 直播中 02:31 ⚡ ',
+      heatWord:'白熱化', heatSize:'84px', nowSpeaking:'正在陈词',
+      quoteFont:"400 23px/1.35 " + D,
+      qPre:'「辞什么职！', qHot:'先斩后奏', qPost:'，周末就去偷师！」',
+      speakerChip:'跺脚将军 · 主战', speakerSide:'第一武将',
+      clashLeft:'跺脚将军', clashRight:'维斯帕', clashWord:'交锋！', clashSub:'第三幕', objWord:'异议！',
+      proLabel:'赞成', conLabel:'反对', swingLabel:'摇摆',
+      sbLabel:'本集分镜 — 点击插手', actNo:'第 3/5 幕',
+      intervene:'插手这一幕', ruleNow:'圣裁',
+      verKicker:'VERDICT — 判決', verChip:'第108集 · 终审',
+      verTitleFont:"400 70px/1 " + D, verTitle1:'聖裁', verTitle2:'已下',
+      decree:'缓辞三月，周末试营业，九十日后再奏。',
+      proWord:'赞成', conWord:'反对', abstainWord:'弃权',
+      ticketKicker:'可收集 · 今日名场面', ticketQuote:'「辞职？不如先斩后奏！」',
+      ticketByline:'跺脚将军 · 本集 MVP · 说服两位同僚倒戈', rareTag:'稀有',
+      collectMain:'收入卡册', tomorrow:'明日再朝', langTip:'Switch to English',
+      stampChar:'吵', stampFont:"400 30px/1 'ZCOOL KuaiLe',sans-serif", stickerTag:'荒诞认证',
+      railHead:'今日吵什么？', railSub:'十一大臣・吵完就裁',
+      throneTag:'YOU · 猫皇', tapHint:'点一点大臣，听他嘀咕',
+      lobbyBanner:'游说进行中…', whisperA:'「跟我走，有小鱼干…」', whisperB:'「回来！赢了请你喝鱼汤」', lobThought:'「有道理…！」',
+      itvTitle:'圣意如何？', itvSub:'INTERVENE', itvCancel:'再看看 ↓', silenceCry:'肃静！！',
+      itvOpt1:'拍案肃静', itvOpt1Sub:'拍案震殿，满堂闭嘴', itvOpt2:'朱笔换将', itvOpt2Sub:'朱笔一挥，换新对手上台', itvOpt3:'宣香蕉发言', itvOpt3Sub:'香蕉雨伺候，让最离谱的上台',
+      itvToastSilence:'奉旨：满殿肃静！', itvToastSwap:'奉旨：朱笔一挥，换将再战！', itvToastBanana:'奉旨：宣香蕉大臣发言！',
+      timeStop:'时停 · 特写', cutSoloTag:'单人特写', cutDuoTag:'双人交锋', closeupBtn:'特写',
+    };
+    const T_EN = {
+      epChip:'EP.108 · A DAILY SHOW',
+      titleFont:"400 68px/1.02 " + D, title1:'COURT', title2:'IS ON!',
+      subFont:"400 18px/1.35 " + D, sub1:'A COURTROOM COMEDY, STARRING', sub2:'ELEVEN TERRIBLE ADVISORS.',
+      sealText:'I AM LAW', statusLine:'COURT IS IN SESSION',
+      axis:'THE CAT EMPEROR · 11 MINISTERS · VERDICT DAILY', axisSize:'11px', axisSpacing:'3px',
+      ticker:'COURT IS ON ▸ HEAR YE ▸ NO MERCY, ONLY MEMOS ▸ ALL RISE ▸ COURT IS ON ▸ HEAR YE ▸ NO MERCY, ONLY MEMOS ▸ ALL RISE ▸ ',
+      ctaSpacing:'1.5px', cta1Main:'TO COURT!', cta1Sub:'THE GATES ARE OPEN',
+      castKicker:'INDEX — THE CAST', castChip:'11 MINISTERS',
+      castTitleFont:"400 46px/1 " + D, castTitle:'THE CAST', castSub1:'RANKED', castSub2:'BY CHAOS',
+      cta2Main:'FILE A PETITION', cta2Sub:'SPEAK YOUR MATTER',
+      petKicker:'PETITION — No.108', petChip:'No.108', petLabel:'WRITE YOUR MATTER',
+      qFont:"400 32px/1.25 " + D, q1:'SHOULD I QUIT MY JOB', q2:'FOR A CAT CAFÉ?',
+      stakes:'Savings cover ten months, but the landlord raises rent next year. The boss just promoted me — and every morning I can\u2019t open my eyes\u2026',
+      rerunTitle:'RERUNS', rerunSub:'御前荐题',
+      cta3Main:'ACTION!', cta3Sub:'LET THEM FIGHT',
+      actTicker:'ACT 3 — THE FLOOR IGNITES ⚡ LIVE 02:31 ⚡ ACT 3 — THE FLOOR IGNITES ⚡ LIVE 02:31 ⚡ ',
+      heatWord:'ON FIRE', heatSize:'52px', nowSpeaking:'NOW SPEAKING',
+      quoteFont:"400 19px/1.3 " + D,
+      qPre:'"WHY QUIT AT ALL? ', qHot:'STRIKE FIRST', qPost:' — APPRENTICE ON WEEKENDS!"',
+      speakerChip:'GEN. THUMP · PRO', speakerSide:'FIRST GENERAL',
+      clashLeft:'GEN. THUMP', clashRight:'VESPER', clashWord:'CLASH!', clashSub:'ACT 3', objWord:'OBJECTION!',
+      proLabel:'PRO', conLabel:'CON', swingLabel:'SWING',
+      sbLabel:'STORYBOARD — TAP TO STEP IN', actNo:'ACT 3/5',
+      intervene:'INTERVENE', ruleNow:'RULE NOW',
+      verKicker:'VERDICT — FINAL', verChip:'EP.108 · FINAL',
+      verTitleFont:"400 52px/1.02 " + D, verTitle1:'DECREE ', verTitle2:'IS OUT',
+      decree:'Keep the job. Pilot the cat café on weekends. Report back in 90 days.',
+      proWord:'PRO', conWord:'CON', abstainWord:'ABSTAIN',
+      ticketKicker:'COLLECTIBLE · SCENE OF THE DAY', ticketQuote:'"QUIT? STRIKE FIRST!"',
+      ticketByline:'GEN. THUMP · EPISODE MVP · FLIPPED TWO VOTES', rareTag:'RARE',
+      collectMain:'COLLECT', tomorrow:'BACK TOMORROW', langTip:'切换到中文',
+      stampChar:'OY!', stampFont:"400 15px/1 'Lilita One',sans-serif", stickerTag:'CERTIFIED SILLY',
+      railHead:"TODAY'S FUSS?", railSub:'11 MINISTERS · 1 VERDICT',
+      throneTag:'YOU · EMPEROR', tapHint:'TAP A MINISTER',
+      lobbyBanner:'LOBBYING…', whisperA:'"COME — I HAVE SARDINES…"', whisperB:'"COME BACK — FISH SOUP ON ME!"', lobThought:'"FAIR POINT…!"',
+      itvTitle:'YOUR WILL, SIRE?', itvSub:'插手', itvCancel:'JUST WATCHING ↓', silenceCry:'SILENCE!!',
+      itvOpt1:'SLAM — SILENCE!', itvOpt1Sub:'The bench rattles. Everyone shuts up.', itvOpt2:'VERMILION SWAP', itvOpt2Sub:'One brushstroke — fresh duelists', itvOpt3:'CALL ON BANANA', itvOpt3Sub:'Banana rain. Chaos has the floor.',
+      itvToastSilence:'BY DECREE: SILENCE!', itvToastSwap:'BY DECREE: NEW DUELISTS TAKE THE FLOOR!', itvToastBanana:'BY DECREE: BANANA HAS THE FLOOR!',
+      timeStop:'TIME STOP · CLOSE-UP', cutSoloTag:'SOLO', cutDuoTag:'DUO CLASH', closeupBtn:'CLOSE-UP',
+    };
+    const t = zh ? T_ZH : T_EN;
+
+    const dotPal = (s === 4)
+      ? { on:'#b2a181', onFg:'#2b2733', off:'rgba(241,237,228,.5)', offFg:'rgba(241,237,228,.8)', offBg:'#2b2733' }
+      : (s === 5
+        ? { on:'#2b2733', onFg:'#f1ede4', off:'rgba(241,237,228,.7)', offFg:'#f1ede4', offBg:'#a4726a' }
+        : { on:'#a4726a', onFg:'#f1ede4', off:'rgba(43,39,51,.4)', offFg:'#847d88', offBg:'#f1ede4' });
+
+    const castData = [
+      { no:'01', hanzi:'狐', en:'VESPER',  zhName:'维斯帕', roleZh:'谨慎派 · 步步为营',   roleEn:'THE CAUTION',    head:'🦊', ring:'#8f9c90', bg:'#e2e4e1', dur:'2.2s' },
+      { no:'02', hanzi:'兔', en:'THUMP',   zhName:'跺脚',   roleZh:'主战派 · 现在就上',   roleEn:'ACTION NOW',     head:'🐰', ring:'#a4726a', bg:'#e8e0dc', dur:'1.6s' },
+      { no:'03', hanzi:'马', en:'GALLOP',  zhName:'奔骥',   roleZh:'争胜 · 输赢即一切',   roleEn:'GLORY HOUND',    head:'🐴', ring:'#b2a181', bg:'#e9e2d0', dur:'1.9s' },
+      { no:'04', hanzi:'犬', en:'MAPLE',   zhName:'枫律',   roleZh:'钻律 · 条款之王',     roleEn:'THE LOOPHOLE',   head:'🐶', ring:'#a9a3ab', bg:'#e6e3e8', dur:'2.4s' },
+      { no:'05', hanzi:'浣', en:'TRASH',   zhName:'拾荒',   roleZh:'翻旧账 · 过目不忘',   roleEn:'OLD PROMISES',   head:'🦝', ring:'#b0a99a', bg:'#eae6dc', dur:'2.1s' },
+      { no:'06', hanzi:'蛇', en:'SSYLITH', zhName:'西利斯', roleZh:'神算 · 卦不虚发',     roleEn:'THE MYSTIC',     head:'🐍', ring:'#8f9c90', bg:'#e3e6e1', dur:'2.6s' },
+      { no:'07', hanzi:'鱼', en:'GLUB',    zhName:'咕噜',   roleZh:'刷末日 · 天要塌了',   roleEn:'THE DOOMSCROLL', head:'🐟', ring:'#a2a8ae', bg:'#e2e5e8', dur:'1.7s' },
+      { no:'08', hanzi:'羊', en:'WOOLSEY', zhName:'伍尔西', roleZh:'随大流 · 都行都好',   roleEn:'THE CONSENSUS',  head:'🐑', ring:'#b2a181', bg:'#efece3', dur:'2.3s' },
+      { no:'09', hanzi:'蝶', en:'SILK',    zhName:'结茧',   roleZh:'信息茧 · 只信自己',   roleEn:'THE COCOON',     head:'🦋', ring:'#a9a3ab', bg:'#e6e3e8', dur:'2.0s' },
+      { no:'10', hanzi:'蕉', en:'BANANA',  zhName:'香蕉',   roleZh:'脑洞 · 不按剧本',     roleEn:'THE WHIM',       head:'🍌', ring:'#b2a181', bg:'#ece8da', dur:'1.8s' },
+      { no:'11', hanzi:'章', en:'OCTAVIA', zhName:'章鱼',   roleZh:'宰相 · 八手周旋',     roleEn:'THE CHANCELLOR', head:'🐙', ring:'#a4726a', bg:'#e8e1de', dur:'2.5s' },
+    ];
+
+    const topicsZh = [
+      { icon:'🔥', label:'该不该裸辞？' }, { icon:'🐟', label:'猫粮又涨价了' },
+      { icon:'🏠', label:'要不要买房' },   { icon:'💸', label:'年终奖梭哈可乎' },
+      { icon:'💘', label:'相亲对象是老板' }, { icon:'🤒', label:'周四装病请假' },
+      { icon:'🎓', label:'三十岁读博' },   { icon:'⛰️', label:'搬去大理躺平' },
+    ];
+    const topicsEn = [
+      { icon:'🔥', label:'QUIT WITH NO PLAN?' }, { icon:'🐟', label:'CAT FOOD PRICES UP' },
+      { icon:'🏠', label:'BUY THE HOUSE?' },     { icon:'💸', label:'ALL-IN ON STOCKS?' },
+      { icon:'💘', label:'DATE THE BOSS?' },     { icon:'🤒', label:'FAKE SICK THURSDAY' },
+      { icon:'🎓', label:'PHD AT THIRTY' },      { icon:'⛰️', label:'MOVE TO THE HILLS' },
+    ];
+    const topicMeta = [
+      { x:'6%',  dur:'15s', delay:'-3s',  size:'15px', rot:'-4deg' },
+      { x:'58%', dur:'18s', delay:'-11s', size:'13px', rot:'3deg' },
+      { x:'30%', dur:'16s', delay:'-7s',  size:'16px', rot:'-2deg' },
+      { x:'66%', dur:'14s', delay:'-1s',  size:'14px', rot:'5deg' },
+      { x:'12%', dur:'19s', delay:'-14s', size:'13px', rot:'2deg' },
+      { x:'44%', dur:'13s', delay:'-9s',  size:'15px', rot:'-5deg' },
+      { x:'74%', dur:'17s', delay:'-6s',  size:'14px', rot:'-3deg' },
+      { x:'22%', dur:'20s', delay:'-16s', size:'13px', rot:'4deg' },
+    ];
+
+    const rerunsZh = [
+      { icon:'💸', text:'年终奖全梭进股市，可乎？', tag:'FINANCE' },
+      { icon:'💍', text:'见家长要不要坦白纹身？',   tag:'FAMILY' },
+      { icon:'🎓', text:'三十岁读博，勇耶？逃耶？', tag:'DESTINY' },
+    ];
+    const rerunsEn = [
+      { icon:'💸', text:'ALL-IN THE BONUS ON STOCKS?', tag:'FINANCE' },
+      { icon:'💍', text:'CONFESS THE TATTOO TO HER PARENTS?', tag:'FAMILY' },
+      { icon:'🎓', text:'A PHD AT 30 — BRAVE OR FLEEING?', tag:'DESTINY' },
+    ];
+
+    const actLabels = zh ? ['开题','首轮','白热化','游说','终幕'] : ['OPEN','CLASH','IGNITE','LOBBY','FINALE'];
+    const cS = this.state.cut;
+    const soloV = (cS && cS.mode === 'solo') ? this.vig()[cS.id][cS.v || 0] : null;
+
+    return {
+      scr1: s === 1, scr2: s === 2, scr3: s === 3, scr4: s === 4, scr5: s === 5,
+      go1: go(1), go2: go(2), go3: go(3), go4: go(4), go5: go(5),
+      noopBtn: () => {},
+      t, dispFont: D, altFont: A,
+      itvOpen: this.state.itvOpen,
+      openItv: () => this.setState({ itvOpen: true }),
+      closeItv: () => this.setState({ itvOpen: false }),
+      stopIt: (e) => e.stopPropagation(),
+      silenceOn: this.state.itv === 'silence',
+      itvToastOn: !!this.state.itv,
+      itvToast: { silence: t.itvToastSilence, swap: t.itvToastSwap, banana: t.itvToastBanana }[this.state.itv] || '',
+      itvOptions: [
+        { icon:'💥', label:t.itvOpt1, sub:t.itvOpt1Sub, type:'silence' },
+        { icon:'🖌', label:t.itvOpt2, sub:t.itvOpt2Sub, type:'swap' },
+        { icon:'🍌', label:t.itvOpt3, sub:t.itvOpt3Sub, type:'banana' },
+      ].map(o => Object.assign({}, o, { pick: () => this.pickItv(o.type) })),
+      stageAnim: this.state.itv === 'silence' ? 'stageShake .6s ease-in-out' : 'none',
+      itvBanana: this.state.itv === 'banana',
+      itvSwap: this.state.itv === 'swap',
+      duelLine: this.state.itv === 'silence' ? (zh ? '「……」' : '"…"') : (zh
+        ? [
+            ['「辞什么职！先斩后奏！」','「预算呢？！房租谁付？！」','「周末试营业，怕什么！」','「猫毛过敏的客人呢？！」'],
+            ['「跑起来再想，冲！」','「你去年开花店也这么说！」','「这次不一样！」','「三本旧账，本本有你！」'],
+            ['「不如改开香蕉咖！」','「卦象大凶，勿动。」','「凶什么凶，滑一个！」','「嘶——勿谓言之不预。」'],
+            ['「第42条：辞职自由！」','「茧里早看穿了。」','「白纸黑字，抵赖无用！」','「你的合同，茧知道。」'],
+          ]
+        : [
+            ['"WHY QUIT?! STRIKE FIRST!"','"WHAT BUDGET?! WHO PAYS RENT?!"','"PILOT ON WEEKENDS — EASY!"','"AND THE ALLERGIC CUSTOMERS?!"'],
+            ['"RUN FIRST, THINK LATER!"','"YOU SAID THAT ABOUT THE FLOWER SHOP!"','"THIS TIME IS DIFFERENT!"','"THREE LEDGERS SAY OTHERWISE!"'],
+            ['"MAKE IT A BANANA CAFÉ!"','"THE OMENS SAY: DO NOT."','"THE OMENS CAN\'T SLIP LIKE ME!"','"SSS — YOU WERE WARNED."'],
+            ['"CLAUSE 42: FREE TO QUIT!"','"THE COCOON SAW THROUGH IT."','"IN INK — NO TAKEBACKS!"','"THE COCOON READ YOUR CONTRACT."'],
+          ]
+      )[this.state.pairIdx % 4][this.state.duelTurn],
+      duelTailLeft: (this.state.duelTurn % 2 === 0) ? '24%' : '72%',
+      duelL: (() => { const M = this.minMeta()[this.pair()[0]]; return { head: M.head, bg: M.bg, name: zh ? M.zh : M.en }; })(),
+      duelR: (() => { const M = this.minMeta()[this.pair()[1]]; return { head: M.head, bg: M.bg, name: zh ? M.zh : M.en }; })(),
+      cutOn: !!this.state.cut,
+      cutSolo: !!this.state.cut && this.state.cut.mode === 'solo',
+      cutDuo: !!this.state.cut && this.state.cut.mode === 'duo',
+      cutKind: this.state.cut ? (this.state.cut.mode === 'solo' ? t.cutSoloTag : t.cutDuoTag) : '',
+      cutHead: soloV ? this.minMeta()[cS.id].head : '',
+      cutBg: soloV ? this.minMeta()[cS.id].bg : '#f1ede4',
+      cutAv: soloV ? soloV.av : 'none',
+      cutName: soloV ? (zh ? this.minMeta()[cS.id].zh : this.minMeta()[cS.id].en) : '',
+      cutCaption: soloV ? (zh ? soloV.zh : soloV.en) : '',
+      cutProps: soloV ? soloV.props.map(p => ({ x:p.x, y:p.y, fs:p.fs || '24px', anim:p.anim || 'none', t:(zh ? p.t : (p.tEn || p.t)) || '', w:p.w || 'auto', h:p.h || 'auto', bg:p.bg || 'transparent', bd:p.bd || 'none', rad:p.rad || '0', col:p.col || '#f1ede4', flt:p.flt || 'none', z:p.z || 2 })) : [],
+      closeCut: () => { clearTimeout(this._cutT); this.setState({ cut: null }); },
+      playCut: () => this.showSolo(),
+      cutLHead: this.minMeta()[this.pair()[0]].head,
+      cutLBg: this.minMeta()[this.pair()[0]].bg,
+      cutLName: zh ? this.minMeta()[this.pair()[0]].zh : this.minMeta()[this.pair()[0]].en,
+      cutRHead: this.minMeta()[this.pair()[1]].head,
+      cutRBg: this.minMeta()[this.pair()[1]].bg,
+      cutRName: zh ? this.minMeta()[this.pair()[1]].zh : this.minMeta()[this.pair()[1]].en,
+      cutWord: t.clashWord,
+      duelLeftAnim: this.state.itv === 'silence' ? 'recoilL .9s ease-in-out infinite' : ((this.state.duelTurn % 2 === 0) ? 'lungeR .85s ease-in-out infinite' : 'recoilL 1.1s ease-in-out infinite'),
+      duelRightAnim: this.state.itv === 'silence' ? 'recoilR .9s ease-in-out infinite' : ((this.state.duelTurn % 2 === 1) ? 'lungeL .85s ease-in-out infinite' : 'recoilR 1.1s ease-in-out infinite'),
+      plaza: [
+        { id:'rabbit',  head:'🐰', x:'5%',  y:'31%', z:3, scale:'.82', dur:'1.6s', ring:'#a4726a', bg:'#e8e0dc', wander:'none', lineZh:'「现在！立刻！马上！」', lineEn:'"NOW! THIS INSTANT!"' },
+        { id:'fox',     head:'🦊', x:'80%', y:'31%', z:3, scale:'.82', dur:'2.2s', ring:'#8f9c90', bg:'#e2e4e1', wander:'none', lineZh:'「三思！再三思！」', lineEn:'"THINK! THINK AGAIN!"' },
+        { id:'horse',   head:'🐴', x:'5%',  y:'31%', z:3, scale:'.82', dur:'1.9s', ring:'#b2a181', bg:'#e9e2d0', wander:'none', lineZh:'「比就完了！」', lineEn:'"RACE ME!"' },
+        { id:'collie',  head:'🐶', x:'21%', y:'38%', z:4, scale:'.92', dur:'2.4s', ring:'#a9a3ab', bg:'#e6e3e8', wander:'none', lineZh:'「合同第几条？」', lineEn:'"WHICH CLAUSE?"' },
+        { id:'banana',  head:'🍌', x:'7%',  y:'47%', z:5, scale:'1',   dur:'1.8s', ring:'#b2a181', bg:'#ece8da', wander:'none', lineZh:'「不如开香蕉咖！」', lineEn:'"BANANA CAFÉ!"' },
+        { id:'fish',    head:'🐟', x:'23%', y:'55%', z:6, scale:'1.06',dur:'1.7s', ring:'#a2a8ae', bg:'#e2e5e8', wander:'none', lineZh:'「要完要完……」', lineEn:'"DOOM… DOOM…"' },
+        { id:'raccoon', head:'🦝', x:'80%', y:'31%', z:3, scale:'.82', dur:'2.1s', ring:'#b0a99a', bg:'#eae6dc', wander:'none', lineZh:'「你去年也这么说！」', lineEn:'"YOU SAID THAT LAST YEAR!"' },
+        { id:'moth',    head:'🦋', x:'64%', y:'38%', z:4, scale:'.92', dur:'2.0s', ring:'#a9a3ab', bg:'#e6e3e8', wander:'none', lineZh:'「我早就知道。」', lineEn:'"I ALREADY KNEW."' },
+        { id:'snake',   head:'🐍', x:'78%', y:'47%', z:5, scale:'1',   dur:'2.6s', ring:'#8f9c90', bg:'#e3e6e1', wander:'none', lineZh:'「卦象不利。」', lineEn:'"THE OMENS SAY NO."' },
+        { id:'octopus', head:'🐙', x:'56%', y:'24%', z:2, scale:'.74', dur:'2.5s', ring:'#a4726a', bg:'#e8e1de', wander:'none', lineZh:'「都有道理嘛～」', lineEn:'"ALL FAIR POINTS~"' },
+        { id:'sheep',   head:'🐑', x:'32%', y:'26%', z:2, scale:'.74', dur:'2.3s', ring:'#b2a181', bg:'#efece3', wander:'wander 11s ease-in-out infinite', lineZh:'「哪边人多？」', lineEn:'"WHICH SIDE IS BIGGER?"' },
+      ].filter(p => this.pair().indexOf(p.id) < 0).map(p => {
+        const q = Object.assign({}, p, {
+          poked: this.state.poke === p.id,
+          line: zh ? p.lineZh : p.lineEn,
+          poke: () => this.pokeM(p.id),
+        });
+        // influence rotation: camp members swap podium slots (front = louder)
+        const slotsPro = [
+          { x:'5%',  y:'31%', scale:'.82',  z:3, dur:'1.9s' },
+          { x:'21%', y:'38%', scale:'.92',  z:4, dur:'2.4s' },
+          { x:'7%',  y:'47%', scale:'1',    z:5, dur:'1.8s' },
+          { x:'23%', y:'55%', scale:'1.06', z:6, dur:'1.7s' },
+        ];
+        const slotsCon = [
+          { x:'80%', y:'31%', scale:'.82',  z:3, dur:'2.1s' },
+          { x:'64%', y:'38%', scale:'.92',  z:4, dur:'2.0s' },
+          { x:'78%', y:'47%', scale:'1',    z:5, dur:'2.6s' },
+          { x:'58%', y:'55%', scale:'1.06', z:6, dur:'1.7s' },
+        ];
+        const duo = this.pair();
+        const proIds = ['rabbit','horse','collie','banana'].filter(id => id !== duo[0]);
+        const conIds = ['fox','raccoon','moth','snake'].filter(id => id !== duo[1]);
+        (this.state.fishCamp === 'pro' ? proIds : conIds).push('fish');
+        const rot = this.state.rotTick;
+        let iP = proIds.indexOf(q.id), iC = conIds.indexOf(q.id);
+        if (iP >= 0) Object.assign(q, slotsPro[(iP + rot) % 4]);
+        if (iC >= 0) Object.assign(q, slotsCon[(iC + rot) % 4]);
+        // secondary speaker: one camp-mate backs up the current duel line
+        const supMap = { 0:'horse', 1:'raccoon', 2:'banana', 3:'snake' };
+        const supLines = zh
+          ? { horse:'「附议！比就完了！」', raccoon:'「反对！旧账为证！」', banana:'「香蕉附议！」', snake:'「卦象亦言否。」' }
+          : { horse:'"SECONDED!"', raccoon:'"OBJECTION — THE RECORDS!"', banana:'"BANANA SECONDS!"', snake:'"THE OMENS AGREE — NO."' };
+        q.sup = supMap[this.state.duelTurn] === q.id && !q.poked;
+        if (q.sup) { q.supLine = supLines[q.id]; q.z = 11; }
+        // decree reactions
+        if (this.state.itv === 'banana' && q.id === 'banana' && !q.poked) {
+          q.poked = true; q.line = zh ? '「陛下圣明！香蕉附议自己！」' : '"WISE, SIRE! BANANA SECONDS HIMSELF!"'; q.z = 12; q.sup = false;
+        }
+        if (this.state.itv === 'swap' && q.id === 'octopus' && !q.poked) {
+          q.poked = true; q.line = zh ? '「换将！有请下一对～」' : '"NEXT DUELISTS, PLEASE~"'; q.z = 12; q.sup = false;
+        }
+        if (this.state.itv === 'silence') { q.poked = false; q.sup = false; }
+        // bubble alignment: right camp opens leftwards, left camp rightwards, neutrals centered
+        if (conIds.indexOf(q.id) >= 0) {
+          q.bLeft = 'auto'; q.bRight = '0'; q.bXform = 'translateX(0)'; q.bRad = '12px 12px 3px 12px';
+        } else if (proIds.indexOf(q.id) >= 0) {
+          q.bLeft = '0'; q.bRight = 'auto'; q.bXform = 'translateX(0)'; q.bRad = '12px 12px 12px 3px';
+        } else {
+          q.bLeft = '50%'; q.bRight = 'auto'; q.bXform = 'translateX(-50%)'; q.bRad = '12px 12px 12px 3px';
+        }
+        const ph = this.state.lobPhase, sc = this.state.lobSc;
+        if (ph >= 1 && sc === 'A' && q.id === 'raccoon') { q.x = '37%'; q.y = '52%'; q.z = ph >= 2 ? 12 : 7; }
+        if (ph >= 1 && sc === 'B' && q.id === 'horse')   { q.x = '42%'; q.y = '52%'; q.z = ph >= 2 ? 12 : 7; }
+        if (ph === 3 && q.id === 'fish') { q.z = 12; }
+        if (ph === 2 && ((sc === 'A' && q.id === 'raccoon') || (sc === 'B' && q.id === 'horse'))) {
+          q.poked = true; q.line = '🤫 ' + (sc === 'A' ? t.whisperA : t.whisperB);
+        }
+        if (ph === 3 && q.id === 'fish') { q.poked = true; q.line = '💭 ' + t.lobThought; }
+        return q;
+      }),
+      lobActive: this.state.lobPhase >= 1,
+      proCount: this.state.fishCamp === 'pro' ? '05' : '04',
+      conCount: this.state.fishCamp === 'pro' ? '04' : '05',
+      toggleLang: () => {
+        const lang = zh ? 'en' : 'zh';
+        try { localStorage.setItem('mm_lang', lang); } catch (e) {}
+        this.setState({ lang });
+      },
+      langBtnLabel: zh ? 'EN' : '中',
+      langBd: '#2b2733',
+      langBg: (s === 4) ? '#b2a181' : (s === 5 ? '#2b2733' : '#a4726a'),
+      langFg: (s === 4) ? '#2b2733' : '#f1ede4',
+      floatTopics: (zh ? topicsZh : topicsEn).map((x, i) => Object.assign({}, x, topicMeta[i])),
+      reruns: zh ? rerunsZh : rerunsEn,
+      dots: [1,2,3,4,5].map(n => ({
+        no: String(n),
+        label: zh ? ['开场','名册','奏章','辩论','判决'][n-1] : ['OPENING','CAST','PETITION','DEBATE','VERDICT'][n-1],
+        go: go(n),
+        bd: n === s ? '#2b2733' : dotPal.off,
+        bg: n === s ? dotPal.on : dotPal.offBg,
+        fg: n === s ? dotPal.onFg : dotPal.offFg,
+        shadow: n === s ? '2px 2px 0 rgba(43,39,51,.45)' : 'none',
+      })),
+      cast: castData.map(m => Object.assign({}, m, {
+        primary: zh ? m.zhName : m.en,
+        secondary: zh ? m.en : m.zhName,
+        roleLine: zh ? m.roleZh : m.roleEn,
+        roleColor: '#a4726a',
+        avAnim: 'idleBob ' + m.dur + ' ease-in-out infinite',
+      })),
+      acts: [
+        { no:'01', label:actLabels[0], bg:'transparent', bd:'rgba(241,237,228,.4)', fg:'rgba(241,237,228,.65)', shadow:'none' },
+        { no:'02', label:actLabels[1], bg:'transparent', bd:'rgba(241,237,228,.4)', fg:'rgba(241,237,228,.65)', shadow:'none' },
+        { no:'03', label:actLabels[2], bg:'#b2a181', bd:'#2b2733', fg:'#2b2733', shadow:'3px 3px 0 rgba(0,0,0,.45)' },
+        { no:'04', label:actLabels[3], bg:'transparent', bd:'rgba(241,237,228,.22)', fg:'rgba(241,237,228,.4)', shadow:'none' },
+        { no:'05', label:actLabels[4], bg:'transparent', bd:'rgba(241,237,228,.22)', fg:'rgba(241,237,228,.4)', shadow:'none' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

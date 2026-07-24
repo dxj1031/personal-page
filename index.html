@@ -388,8 +388,11 @@ document.addEventListener('DOMContentLoaded', async function() {
   </script>
 <script>
 (function () {
-  var DEMO = './ecotank/';
-  var CSS = "#ch2 .eco-glow{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .4s ease;background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(170,190,255,.14),rgba(170,190,255,0) 60%);}#ch2:hover .eco-glow{opacity:1;}a.eco-hit{position:absolute;inset:0;z-index:30;display:block;cursor:pointer;}#eco-tip{position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;display:none;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;color:#eef1ff;background:rgba(18,22,38,.92);border:1px solid rgba(170,190,255,.45);border-radius:8px;padding:7px 12px;white-space:nowrap;}#eco-tip.show{display:block;}#eco-tip .eco-arrow{color:#aeb8ff;}";
+  var DEMOS = [
+    { sec: 'ch2', href: './ecotank/', label: 'Open the EcoTank demo' },
+    { sec: 'ch6', href: './ministers/', label: 'Open The Ministers demo' }
+  ];
+  var CSS = ".eco-sec .eco-glow{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .4s ease;background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(170,190,255,.14),rgba(170,190,255,0) 60%);}.eco-sec:hover .eco-glow{opacity:1;}a.eco-hit{position:absolute;inset:0;z-index:30;display:block;cursor:pointer;}#eco-tip{position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;display:none;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;color:#eef1ff;background:rgba(18,22,38,.92);border:1px solid rgba(170,190,255,.45);border-radius:8px;padding:7px 12px;white-space:nowrap;}#eco-tip.show{display:block;}#eco-tip .eco-arrow{color:#aeb8ff;}";
   function ensureStyle() {
     // runtime replaces the document, so styles go into the live head after render
     if (!document.getElementById('eco-style')) {
@@ -406,39 +409,43 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     return tip;
   }
-  // idempotent: the runtime re-renders #ch2, so this has to survive being run again
+  // idempotent: the runtime re-renders the chapters, so this has to survive being run again
   function wire() {
-    var s = document.getElementById('ch2');
-    if (!s) return;
     ensureStyle();
-    // drop the "Runtime Design · Explainability" card floating over the tank
-    var rd = [].slice.call(s.querySelectorAll('div')).filter(function (x) {
-      return x.childElementCount === 0 && /Runtime Design/i.test(x.textContent);
-    })[0];
-    if (rd) {
-      var p = rd;
-      while (p && p !== s && getComputedStyle(p).position !== 'absolute') { p = p.parentElement; }
-      if (p && p !== s) { p.remove(); }
-    }
-    if (s.firstElementChild) { s.firstElementChild.style.position = 'relative'; s.firstElementChild.style.zIndex = '2'; }
-    if (!s.querySelector('.eco-glow')) {
-      var g = document.createElement('div'); g.className = 'eco-glow'; s.appendChild(g);
-    }
-    // real link covering the whole chapter — window.open() here gets popup-blocked
-    if (!s.querySelector('a.eco-hit')) {
-      var hit = document.createElement('a'); hit.className = 'eco-hit';
-      hit.href = DEMO; hit.target = '_blank'; hit.rel = 'noopener noreferrer';
-      hit.setAttribute('aria-label', 'Open the EcoTank demo');
-      s.appendChild(hit);
-    }
+    DEMOS.forEach(function (d) {
+      var s = document.getElementById(d.sec);
+      if (!s) return;
+      s.classList.add('eco-sec');
+      if (d.sec === 'ch2') {
+        // drop the "Runtime Design · Explainability" card floating over the tank
+        var rd = [].slice.call(s.querySelectorAll('div')).filter(function (x) {
+          return x.childElementCount === 0 && /Runtime Design/i.test(x.textContent);
+        })[0];
+        if (rd) {
+          var p = rd;
+          while (p && p !== s && getComputedStyle(p).position !== 'absolute') { p = p.parentElement; }
+          if (p && p !== s) { p.remove(); }
+        }
+      }
+      if (s.firstElementChild) { s.firstElementChild.style.position = 'relative'; s.firstElementChild.style.zIndex = '2'; }
+      if (!s.querySelector('.eco-glow')) {
+        var g = document.createElement('div'); g.className = 'eco-glow'; s.appendChild(g);
+      }
+      // real link covering the whole chapter — window.open() here gets popup-blocked
+      if (!s.querySelector('a.eco-hit')) {
+        var hit = document.createElement('a'); hit.className = 'eco-hit';
+        hit.href = d.href; hit.target = '_blank'; hit.rel = 'noopener noreferrer';
+        hit.setAttribute('aria-label', d.label);
+        s.appendChild(hit);
+      }
+    });
     document.querySelectorAll('a[target="_blank"]:not([rel])').forEach(function (a) { a.rel = 'noopener noreferrer'; });
   }
   // delegated on document: node-level listeners are lost when the runtime clones #ch2
   document.addEventListener('mousemove', function (e) {
-    var s = document.getElementById('ch2');
-    var inside = s && e.target && e.target.closest && e.target.closest('#ch2');
+    var s = e.target && e.target.closest && e.target.closest('.eco-sec');
     var tip = ensureTip();
-    if (inside) {
+    if (s) {
       tip.classList.add('show');
       tip.style.left = (e.clientX + 16) + 'px';
       tip.style.top = (e.clientY + 18) + 'px';
