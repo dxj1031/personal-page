@@ -449,10 +449,10 @@
 <script type="text/x-dc" data-dc-script data-props="{
   &quot;$preview&quot;: { &quot;width&quot;: 390, &quot;height&quot;: 844 },
   &quot;startScreen&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;opening&quot;, &quot;cast&quot;, &quot;petition&quot;, &quot;debate&quot;, &quot;verdict&quot;], &quot;default&quot;: &quot;opening&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;预览&quot; },
-  &quot;lang&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;zh&quot;, &quot;en&quot;], &quot;default&quot;: &quot;zh&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;语言&quot; }
+  &quot;lang&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;zh&quot;, &quot;en&quot;], &quot;default&quot;: &quot;en&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;语言&quot; }
 }">
 class Component extends DCLogic {
-  state = { screen: 1, lang: 'zh', duelTurn: 0, poke: null, lobPhase: 0, lobSc: 'A', fishCamp: 'pro', rotTick: 0, itvOpen: false, itv: null, castPoke: null, pairIdx: 0, cut: null };
+  state = { screen: 1, lang: 'en', duelTurn: 0, poke: null, lobPhase: 0, lobSc: 'A', fishCamp: 'pro', rotTick: 0, itvOpen: false, itv: null, castPoke: null, pairIdx: 0, cut: null };
 
   componentDidMount() {
     const p = this.props.startScreen;
