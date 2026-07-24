@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 <script>
 (function () {
   var DEMO = './ecotank/';
-  var CSS = "#ch2 .eco-glow{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .4s ease;background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(170,190,255,.14),rgba(170,190,255,0) 60%);}#ch2:hover .eco-glow{opacity:1;}a.eco-link{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:#aeb8ff;text-decoration:none;display:inline-flex;align-items:center;gap:6px;border-bottom:1px solid rgba(170,190,255,0);transition:color .25s,border-color .25s;}a.eco-link:hover{color:#eef1ff;border-color:#aeb8ff;}a.eco-link .eco-arrow{display:inline-block;transition:transform .25s;}a.eco-link:hover .eco-arrow{transform:translate(2px,-2px);}";
+  var CSS = "#ch2 .eco-glow{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .4s ease;background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(170,190,255,.14),rgba(170,190,255,0) 60%);}#ch2:hover .eco-glow{opacity:1;}a.eco-hit{position:absolute;inset:0;z-index:30;display:block;cursor:pointer;}.eco-tip{position:fixed;left:0;top:0;z-index:99999;pointer-events:none;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;color:#eef1ff;background:rgba(18,22,38,.88);border:1px solid rgba(170,190,255,.42);border-radius:8px;padding:7px 12px;backdrop-filter:blur(6px);white-space:nowrap;opacity:0;transform:translateY(4px);transition:opacity .18s ease,transform .18s ease;}.eco-tip.show{opacity:1;transform:translateY(0);}.eco-tip .eco-arrow{color:#aeb8ff;}";
   function wire() {
     var s = document.getElementById('ch2');
     if (!s || s.dataset.ecoWired) return !!s;
@@ -399,19 +399,32 @@ document.addEventListener('DOMContentLoaded', async function() {
       var st = document.createElement('style'); st.id = 'eco-style'; st.textContent = CSS;
       document.head.appendChild(st);
     }
+    // drop the "Runtime Design · Explainability" card floating over the tank
+    var rd = [].slice.call(s.querySelectorAll('div')).filter(function (x) {
+      return x.childElementCount === 0 && /Runtime Design/i.test(x.textContent);
+    })[0];
+    if (rd) {
+      var p = rd;
+      while (p && p !== s && getComputedStyle(p).position !== 'absolute') { p = p.parentElement; }
+      if (p && p !== s) { p.remove(); }
+    }
     if (s.firstElementChild) { s.firstElementChild.style.position = 'relative'; s.firstElementChild.style.zIndex = '2'; }
     var g = document.createElement('div'); g.className = 'eco-glow'; s.appendChild(g);
-    // native CTA: sits at the right end of the "01 EcoTank" header row
-    var label = [].slice.call(s.querySelectorAll('span')).filter(function (x) { return x.textContent.trim() === 'EcoTank'; })[0];
-    var a = document.createElement('a'); a.className = 'eco-link';
-    a.href = DEMO; a.target = '_blank'; a.rel = 'noopener noreferrer';
-    a.setAttribute('aria-label', 'Open the EcoTank demo');
-    a.innerHTML = 'Open demo <span class="eco-arrow">↗</span>';
-    (label && label.parentElement ? label.parentElement : s).appendChild(a);
+    // real link covering the whole chapter — window.open() here gets popup-blocked
+    var hit = document.createElement('a'); hit.className = 'eco-hit';
+    hit.href = DEMO; hit.target = '_blank'; hit.rel = 'noopener noreferrer';
+    hit.setAttribute('aria-label', 'Open the EcoTank demo');
+    s.appendChild(hit);
+    var tip = document.createElement('div'); tip.className = 'eco-tip';
+    tip.innerHTML = 'Open demo <span class="eco-arrow">→</span>';
+    document.body.appendChild(tip);
+    hit.addEventListener('mouseenter', function () { tip.classList.add('show'); });
+    hit.addEventListener('mouseleave', function () { tip.classList.remove('show'); });
     s.addEventListener('mousemove', function (e) {
       var r = s.getBoundingClientRect();
       s.style.setProperty('--mx', (e.clientX - r.left) + 'px');
       s.style.setProperty('--my', (e.clientY - r.top) + 'px');
+      tip.style.transform = 'translate(' + (e.clientX + 16) + 'px,' + (e.clientY + 18) + 'px)';
     });
     return true;
   }
