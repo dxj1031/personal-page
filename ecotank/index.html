@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EcoTank · 多智能体行为树生态缸</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23081418'/%3E%3Ccircle cx='32' cy='34' r='9' fill='%235eead4'/%3E%3Cpath d='M8 22h48M8 46h48' stroke='%23244' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./ecotank.css" />
+  </head>
+  <body>
+    <div class="ambient" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="wordmark">
+        <span class="mark" aria-hidden="true"></span>
+        <div class="wordmark-text">
+          <h1>EcoTank <em data-en="Ecosystem Behavior Trees">生态行为树</em></h1>
+          <p class="eyebrow" data-en="Multi-agent · Behavior trees · Interactive paper demo">多智能体 · 行为树 · 交互式论文演示</p>
+        </div>
+      </div>
+
+      <div class="control-cluster">
+        <div class="transport">
+          <button id="runToggle" class="primary">Run</button>
+          <button id="stepButton">Step</button>
+          <button id="resetButton">Reset</button>
+        </div>
+        <button id="scriptButton" class="outline" data-en="Demo Script">演示脚本</button>
+        <button id="langButton" class="outline" title="中文 / English">English</button>
+        <label class="speed-control" for="speedRange">
+          <span class="eyebrow">Speed</span>
+          <input id="speedRange" type="range" min="0.4" max="2.8" step="0.1" value="1.2" />
+        </label>
+      </div>
+    </header>
+
+    <nav class="tabbar" aria-label="main tabs">
+      <div class="tab-set">
+        <button class="tab-button active" data-tab="demo">
+          <span class="tab-index">01</span> <span data-en="Tech Demo">技术展示 Demo</span>
+        </button>
+        <button class="tab-button" data-tab="monitor">
+          <span class="tab-index">02</span> <span data-en="Monitor">监控台</span>
+        </button>
+      </div>
+      <button id="fullscreenButton" class="ghost" data-en="Fullscreen Tab">当前 Tab 全屏</button>
+    </nav>
+
+    <main class="app-shell">
+      <section id="demoTab" class="tab-page active">
+        <div class="demo-layout">
+          <section class="exhibit">
+            <div class="exhibit-head">
+              <div class="exhibit-title">
+                <p class="eyebrow accent">LIVE SIMULATION</p>
+                <h2 data-en="Side-View Ecotank">侧视生态缸</h2>
+                <p id="demoSubtitle" class="sub" data-en="Pixel-art simulation: lifecycle, emotion, events and search results act on every individual at once.">
+                  像素风仿真：生命状态、情绪、事件与搜索结果同时作用于每一个个体。
+                </p>
+              </div>
+              <div class="food-chain" aria-hidden="true">
+                <span class="dot" style="--c: #ffb45f"></span><span data-en="Big fish">大鱼</span>
+                <span class="arrow">→</span>
+                <span class="dot" style="--c: #6fc6ff"></span><span data-en="Small fish">小鱼</span>
+                <span class="arrow">→</span>
+                <span class="dot" style="--c: #ff8aa5"></span><span data-en="Shrimp">虾米</span>
+                <span class="arrow">→</span>
+                <span class="dot" style="--c: #78d669"></span><span data-en="Plants">水草</span>
+              </div>
+            </div>
+
+            <div id="metricStrip" class="metric-strip"></div>
+
+            <div class="tank-wrap">
+              <canvas id="tankCanvas" width="1120" height="640" aria-label="EcoTank simulation"></canvas>
+              <div class="canvas-overlays">
+                <span class="overlay-label" data-en="Layers">图层</span>
+                <button id="overlayAll" type="button" title="显示/隐藏所有连线" data-en-title="Show/hide all link lines" data-en="All lines">全部连线</button>
+                <label><input id="overlayPerception" type="checkbox" /> <span data-en="Perception">感知</span></label>
+                <label><input id="overlayMessages" type="checkbox" /> <span data-en="Messages">通信</span></label>
+                <label><input id="overlaySubgoals" type="checkbox" /> <span data-en="Subgoals">子目标</span></label>
+                <label><input id="overlayIntentions" type="checkbox" /> <span data-en="Intentions">意图</span></label>
+              </div>
+              <div class="zoom-controls">
+                <span id="zoomHud" class="zoom-hud">1.0× · —</span>
+                <div class="zoom-btns">
+                  <button id="zoomOut" type="button" title="缩小" aria-label="缩小" data-en-title="Zoom out">−</button>
+                  <button id="zoomIn" type="button" title="放大" aria-label="放大" data-en-title="Zoom in">＋</button>
+                  <button id="zoomFollow" type="button" title="跟随选中个体" data-en-title="Follow selected agent" data-en="Follow">跟随</button>
+                  <button id="zoomReset" type="button" title="复位视图" data-en-title="Reset view" data-en="Reset">复位</button>
+                </div>
+                <span class="zoom-hint" data-en="Scroll to zoom · Drag to pan · Click to select">滚轮缩放 · 拖拽平移 · 点击选中个体</span>
+              </div>
+            </div>
+
+            <div class="control-deck">
+              <fieldset>
+                <legend data-en="Search Strategy">搜索策略</legend>
+                <div id="searchMode" class="segmented">
+                  <button data-value="bt">BT</button>
+                  <button data-value="mcts">MCTS</button>
+                  <button data-value="decmcts">Dec-MCTS</button>
+                  <button data-value="decsgts" class="active">Dec-SGTS</button>
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend data-en="Communication Mode">通信模式</legend>
+                <div id="commMode" class="segmented">
+                  <button data-value="qra">QRA</button>
+                  <button data-value="qru">QRU</button>
+                  <button data-value="eu">EU</button>
+                  <button data-value="ebu" class="active">EBU</button>
+                </div>
+              </fieldset>
+
+              <fieldset class="switch-field">
+                <legend data-en="Feature Toggles">技术开关</legend>
+                <label><input id="emotionToggle" type="checkbox" checked /> Emotional BT</label>
+                <label><input id="eventToggle" type="checkbox" checked /> EDBT</label>
+                <label><input id="lifecycleToggle" type="checkbox" checked /> <span data-en="Lifecycle">生命周期</span></label>
+              </fieldset>
+
+              <fieldset class="range-field">
+                <legend data-en="Comm Radius">通信半径</legend>
+                <div class="range-row">
+                  <input id="commRange" type="range" min="70" max="240" step="10" value="150" />
+                  <output id="commRangeValue">150</output>
+                </div>
+              </fieldset>
+            </div>
+          </section>
+
+          <aside class="demo-side">
+            <section class="panel-section selected-panel">
+              <div class="section-head compact">
+                <div>
+                  <p class="eyebrow accent">FOCUS AGENT</p>
+                  <h3 id="selectedName" data-en="None selected">未选择</h3>
+                </div>
+                <select id="agentSelect" aria-label="select organism"></select>
+              </div>
+              <div id="selectedSummary" class="selected-summary"></div>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">INTERVENTION</p>
+                  <h3 data-en="Interventions">干预</h3>
+                </div>
+              </div>
+              <div class="intervention-grid">
+                <button data-action="feed" data-en="Drop plankton">投喂浮游食物</button>
+                <button data-action="plant" data-en="Plant a bed">种一片水草</button>
+                <button data-action="shrimp" data-en="Add shrimp">加入虾米</button>
+                <button data-action="snail" data-en="Add snail">加入螺</button>
+                <button data-action="smallfish" data-en="Add small fish">加入小鱼</button>
+                <button data-action="cleaner" data-en="Add cleaner fish">加入清洁鱼</button>
+                <button data-action="bigfish" data-en="Add big fish">加入大鱼</button>
+                <button data-action="louse" data-en="Release lice">释放鱼虱</button>
+                <button data-action="tap" data-en="Tap the tank">敲击鱼缸</button>
+              </div>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">SPECIES INTERACTION NETWORK</p>
+                  <h3 data-en="Interaction Network">关系网络</h3>
+                </div>
+              </div>
+              <div id="relationshipGraph" class="relationship-graph"></div>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">SCRIPTED WALKTHROUGH</p>
+                  <h3 data-en="Demo Script">演示脚本</h3>
+                </div>
+              </div>
+              <div id="scriptPanel" class="script-panel"></div>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">EVENT LOG</p>
+                  <h3 data-en="Ecosystem Events">生态事件</h3>
+                </div>
+              </div>
+              <div id="eventFeed" class="event-feed"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section id="monitorTab" class="tab-page">
+        <div class="monitor-layout">
+          <section class="monitor-column">
+            <div class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow accent">POPULATION</p>
+                  <h3 data-en="System Status">系统状态</h3>
+                </div>
+              </div>
+              <div id="populationPanel" class="population-panel"></div>
+            </div>
+            <div class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">BEHAVIOR TREE</p>
+                  <h3 data-en="Behavior Tree Ticks">行为树 Tick</h3>
+                </div>
+              </div>
+              <div id="btTree" class="bt-tree"></div>
+            </div>
+          </section>
+
+          <section class="monitor-column wide">
+            <div class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">BLACKBOARD · EMOTION · LIFECYCLE</p>
+                  <h3 data-en="Blackboard / Emotion / Lifecycle">黑板 / 情绪 / 生命周期</h3>
+                </div>
+              </div>
+              <div id="blackboardPanel" class="blackboard-panel"></div>
+            </div>
+            <div class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">SEARCH · SUBGOALS</p>
+                  <h3 data-en="Search &amp; Subgoals">搜索与子目标</h3>
+                </div>
+              </div>
+              <div id="searchPanel" class="search-panel"></div>
+            </div>
+            <div class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">COMMUNICATION · KNOWLEDGE TRANSFER</p>
+                  <h3 data-en="Communication &amp; Knowledge Transfer">通信与知识转移</h3>
+                </div>
+              </div>
+              <div id="communicationPanel" class="communication-panel"></div>
+            </div>
+          </section>
+
+          <section class="monitor-column">
+            <div class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow accent">PAPER MAPPING</p>
+                  <h3 data-en="Paper Techniques Live Map">论文技术点 Live Map</h3>
+                </div>
+              </div>
+              <div id="techMap" class="tech-map"></div>
+            </div>
+            <div class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">FIGURES</p>
+                  <h3 data-en="Paper Figures">论文图示</h3>
+                </div>
+              </div>
+              <div id="paperFigures" class="paper-figures"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="./ecotank.js"></script>
+  </body>
+</html>
