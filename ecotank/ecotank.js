@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const LANG = localStorage.getItem("ecotank-lang") === "en" ? "en" : "zh";
+  const LANG = localStorage.getItem("ecotank-lang") === "zh" ? "zh" : "en";
   const tr = (zh, en) => (LANG === "en" ? en : zh);
   function applyStaticI18n() {
     if (LANG !== "en") return;
