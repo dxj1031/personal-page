@@ -702,7 +702,7 @@ const boot = () => {
 
     const spec = SPECIES[agent.species];
     const grow = clamp(0.45 + 0.55 * (agent.age / Math.max(1, spec.matureAge)), 0.45, 1);
-    const len = spec.size * 3.1 * PX * grow;
+    const len = spec.size * 2.3 * PX * grow;
     S.set(len, len, len);
     M.compose(P, Q, S);
     pool.mesh.setMatrixAt(index, M);
@@ -1378,7 +1378,7 @@ const boot = () => {
       agentPos(a, P);
       halo.position.copy(P);
       halo.lookAt(camera.position);
-      const s = SPECIES[a.species].size * 2.1 * PX * (1 + 0.07 * Math.sin(clock * 7));
+      const s = SPECIES[a.species].size * 1.7 * PX * (1 + 0.07 * Math.sin(clock * 7));
       halo.scale.set(s, s, 1);
       halo.visible = true;
     } else {
