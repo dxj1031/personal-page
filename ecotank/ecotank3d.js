@@ -77,6 +77,33 @@ const CAUSTIC = /* glsl */`
     return pow(c, 6.0);
   }`;
 
+/* Cel shading. Everything below is in service of one rule: no smooth gradients.
+   band() quantises a value into flat tones with an edge narrow enough to read as
+   ink, and ribbon() cuts a hard-edged strip out of a field — contour a smooth
+   field with it and you get the closed hand-drawn foam loops that the reference
+   water is built from. */
+const TOON = /* glsl */`
+  float band(float x, float steps) {
+    float s = max(steps, 1.0);
+    float xs = clamp(x, 0.0, 1.0) * s;
+    return (floor(xs) + smoothstep(0.35, 0.65, fract(xs))) / s;
+  }
+  float ribbon(float x, float a, float b, float soft) {
+    return smoothstep(a - soft, a + soft, x) - smoothstep(b - soft, b + soft, x);
+  }`;
+
+// A smooth, slowly drifting scalar field. caustic() is already pow()-crushed
+// toward zero, which makes it useless to contour; this one stays evenly spread
+// across 0..1 so its level sets are clean loops.
+const FLOW = /* glsl */`
+  float flow(vec3 p, float t) {
+    vec3 q = p * 0.048;
+    return 0.5 + 0.5 * sin(
+        sin(q.x * 2.10 + t * 0.50) * 1.6
+      + sin(q.y * 1.70 - t * 0.40) * 1.4
+      + sin(q.z * 2.40 + t * 0.60) * 1.5);
+  }`;
+
 const boot = () => {
   const E = window.EcoTank;
   if (!E) return;
@@ -86,12 +113,17 @@ const boot = () => {
   if (!canvas) return;
 
   /* ---------------------------------------------------------------- stage */
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setClearColor(0x010306, 1);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  // low exposure on purpose: the water is meant to be near-black so the
-  // emissive organisms are the only thing with any real luminance
-  renderer.toneMappingExposure = 0.75;
+  // preserveDrawingBuffer costs a per-frame copy, so it is only on for local
+  // development, where it is the difference between being able to read the
+  // rendered frame back out of the canvas and not. Production never pays it.
+  const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const renderer = new THREE.WebGLRenderer({
+    canvas, antialias: true, preserveDrawingBuffer: isDev,
+  });
+  renderer.setClearColor(0x030811, 1);
+  // No tone mapping: a filmic curve is a gradient generator, and it turns every
+  // flat cel band back into a ramp. Values are authored to land in range instead.
+  renderer.toneMapping = THREE.NoToneMapping;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 4000);
@@ -109,7 +141,8 @@ const boot = () => {
   // is what tone-maps and encodes, so the passes in front of it stay linear.
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.30, 0.50, 0.80);
+  // gentle: heavy bloom over flat colour is how cel shading turns back to mush
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.20, 0.40, 0.68);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
 
@@ -180,22 +213,35 @@ const boot = () => {
       uniform float uTime; uniform vec3 uSun; uniform float uSunI;
       uniform float uMurk; uniform float uFlash; uniform vec3 uTint;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
-      ${CAUSTIC}
+      ${TOON}
+      ${FLOW}
       void main() {
         vec3 n = normalize(vN); vec3 v = normalize(vView);
-        // the hemisphere the sun is over is daylight, the far side is night,
-        // and both sweep round as the sun arcs from east to west
         vec3 dir = normalize(vPos);
-        float lit = smoothstep(-0.35, 0.75, dot(dir, uSun)) * uSunI;
-        float fres = pow(1.0 - abs(dot(n, v)), 2.6);
-        float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), 40.0);
-        float film = caustic(vPos * 1.6, uTime * 0.7) * 0.5;
-        vec3 rim  = mix(vec3(0.04, 0.11, 0.19), uTint, lit) * fres * 1.15;
-        vec3 glint = vec3(0.72, 1.00, 0.98) * spec * 0.9 * lit * (1.0 - uMurk * 0.7);
-        vec3 skin = uTint * 0.55 * film * (0.20 + fres) * lit;
-        vec3 bolt = vec3(0.72, 0.86, 1.0) * uFlash * (0.35 + fres);
-        gl_FragColor = vec4(rim + glint + skin + bolt,
-          clamp(fres * (0.30 + 0.75 * lit) + film * 0.20 * lit + spec * lit + uFlash * 0.5, 0.0, 1.0));
+        // daylight is the hemisphere the sun is over, quantised so the
+        // terminator is a drawn edge rather than a fade
+        float day = band(smoothstep(-0.35, 0.75, dot(dir, uSun)), 3.0) * uSunI;
+        float edge = 1.0 - abs(dot(n, v));
+
+        // One level set of the flow field, inked white and pushed toward the
+        // silhouette. Contouring the whole ball turned it into a topographic
+        // map: on a flat water plane the level sets read as ripples because you
+        // see the plane edge-on, but on a sphere you see it face-on everywhere.
+        float f = flow(vPos, uTime);
+        float grazing = smoothstep(0.30, 0.80, edge);
+        float foam = (ribbon(f, 0.46, 0.505, 0.008)
+                   + ribbon(f, 0.80, 0.828, 0.007) * 0.55) * grazing;
+        foam *= 0.30 + 0.70 * day;
+
+        // near-black water body: the organisms are supposed to be the light
+        vec3 body = mix(vec3(0.010, 0.026, 0.042), uTint * 0.17, day);
+        float rimLine = smoothstep(0.70, 0.755, edge) - smoothstep(0.965, 0.99, edge);
+        vec3 rim = mix(uTint, vec3(0.92, 1.0, 1.0), 0.30) * rimLine * (0.22 + 0.60 * day);
+        vec3 ink = vec3(0.80, 0.96, 1.0) * foam * 0.60;
+        vec3 bolt = vec3(0.72, 0.86, 1.0) * uFlash * 0.7;
+
+        float a = clamp(0.10 + 0.20 * day + rimLine * 0.55 + foam * 0.55 + uFlash * 0.4, 0.0, 1.0);
+        gl_FragColor = vec4(body + rim + ink + bolt, a * (1.0 - uMurk * 0.25));
       }`,
   });
   const surface = new THREE.Mesh(shellGeo, surfaceMat);
@@ -229,24 +275,25 @@ const boot = () => {
       uniform float uTime; uniform vec3 uSun; uniform float uInside;
       uniform float uSunI; uniform float uMurk; uniform float uFlash; uniform vec3 uTint;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
-      ${CAUSTIC}
+      ${TOON}
+      ${FLOW}
       void main() {
         vec3 dir = normalize(vPos);
-        // depth still darkens the column, but which hemisphere is in daylight
-        // is the sun's call, so the two effects multiply rather than compete
-        float depth = smoothstep(-0.95, 0.85, dir.y);
-        float lit = smoothstep(-0.30, 0.80, dot(dir, uSun)) * uSunI * (0.35 + 0.65 * depth);
-        float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.8);
-        vec3 body = mix(vec3(0.004, 0.012, 0.022), uTint * 0.17, lit * (0.45 + fres));
-        // shafts: a cone around the sun, cut into blades by the angle around it
-        // so it reads as light coming through a broken surface
+        // depth darkens the column; the sun decides which half is day. Banded,
+        // so the water body is a few flat plates of colour.
+        float depth = band(smoothstep(-0.95, 0.85, dir.y), 3.0);
+        float lit = band(smoothstep(-0.30, 0.80, dot(dir, uSun)), 3.0) * uSunI * (0.30 + 0.70 * depth);
+        vec3 body = mix(vec3(0.008, 0.022, 0.038), uTint * 0.30, lit);
+        // hard-edged wedges around the sun instead of a soft cone
         float axis = max(dot(dir, uSun), 0.0);
-        float blades = 0.55 + 0.45 * sin(atan(dir.z, dir.x) * 13.0 + uTime * 0.35);
-        float shaft = pow(axis, 4.0) * blades * uSunI * (1.0 - uMurk * 0.55);
-        float net = caustic(vPos, uTime) * lit;
+        float wedge = step(0.35, 0.5 + 0.5 * sin(atan(dir.z, dir.x) * 11.0 + uTime * 0.30));
+        float shaft = step(0.45, axis) * wedge * uSunI * (1.0 - uMurk * 0.55);
+        float caust = ribbon(flow(vPos * 1.35, uTime * 0.8), 0.55, 0.60, 0.010) * lit;
         gl_FragColor = vec4(
-          body + uTint * shaft * 0.34 + uTint * 0.82 * net * 0.20 + vec3(0.6, 0.75, 1.0) * uFlash * 0.35,
-          (0.08 + 0.30 * lit + shaft * 0.34 + net * 0.16 + uFlash * 0.3) * mix(1.0, 0.40, uInside));
+          body * 0.7 + uTint * shaft * 0.10 + vec3(0.80, 0.97, 1.0) * caust * 0.22
+               + vec3(0.6, 0.75, 1.0) * uFlash * 0.25,
+          (0.10 + 0.24 * lit + shaft * 0.10 + caust * 0.28 + uFlash * 0.25)
+            * mix(1.0, 0.35, uInside));
       }`,
   });
   const volume = new THREE.Mesh(shellGeo, volumeMat);
@@ -291,25 +338,24 @@ const boot = () => {
     fragmentShader: `
       uniform float uTime; uniform vec3 uSun; uniform float uSunI; uniform float uFlash;
       varying vec3 vN; varying vec3 vPos; varying vec3 vView;
-      ${CAUSTIC}
+      ${TOON}
+      ${FLOW}
       void main() {
-        // The cap is a bowl at the bottom of the ball, so its outward face points
-        // away from the sun and lighting it by that normal renders it invisible.
-        // What actually lights a seabed is downwelling light on the face turned
-        // up into the water, so flip the normal on backfaces and use that.
         vec3 n = normalize(vN);
         // Front faces of the cap point out of the ball, i.e. downward, so the
         // face turned up into the water is the negated one. Using the *displaced*
-        // normal here (not the smooth radial) is what makes the dunes read as
-        // relief rather than a flat grey disc.
+        // normal is what makes the dunes read as relief and not a flat disc.
         vec3 nUp = gl_FrontFacing ? -n : n;
-        float lam = max(dot(nUp, uSun), 0.0) * uSunI;
-        float net = caustic(vPos * 2.4, uTime * 1.1) * (0.35 + 0.65 * uSunI);
-        float fres = pow(1.0 - abs(dot(n, normalize(vView))), 2.0);
-        vec3 rock = vec3(0.026, 0.036, 0.044) + vec3(0.055, 0.080, 0.086) * lam;
-        vec3 wet  = vec3(0.13, 0.52, 0.60) * net * (0.22 + lam * 0.78);
-        vec3 rim  = vec3(0.10, 0.44, 0.54) * fres * 0.70;
-        gl_FragColor = vec4(rock + wet + rim + vec3(0.5, 0.62, 0.8) * uFlash * 0.4, 1.0);
+        float lam = band(max(dot(nUp, uSun), 0.0), 3.0) * uSunI;
+        // caustics as hard bright patches cast on the sand
+        float caust = ribbon(flow(vPos * 2.0, uTime * 0.9), 0.52, 0.66, 0.02)
+                    * (0.30 + 0.70 * uSunI);
+        float fres = 1.0 - abs(dot(n, normalize(vView)));
+        float inkEdge = smoothstep(0.80, 0.90, fres);        // contour on the rim
+        vec3 sand = mix(vec3(0.075, 0.105, 0.125), vec3(0.17, 0.30, 0.32), lam);
+        vec3 wet  = vec3(0.30, 0.72, 0.74) * caust * (0.30 + lam * 0.70);
+        vec3 ink  = vec3(0.02, 0.06, 0.09) * inkEdge;
+        gl_FragColor = vec4(sand + wet - ink + vec3(0.5, 0.62, 0.8) * uFlash * 0.4, 1.0);
       }`,
   }));
   scene.add(seabed);
@@ -493,31 +539,37 @@ const boot = () => {
 
   /* ===================================================== ORGANISM MATERIAL */
 
-  // Dark body, emissive rim, luminous flank stripes that pulse with energy.
-  // aTint/aPhase/aGlow are per-instance so one material serves a whole species.
+  /* The swim deformation is needed by both the body and its outline hull, so it
+     lives in one string that both vertex shaders include. */
+  const SWIM_VERT = /* glsl */`
+    attribute float aSpine;
+    attribute float aPhase;
+    attribute float aGlow;
+    attribute float aBeat;
+    uniform float uTime; uniform float uSwim; uniform float uFreq;
+    vec3 swim(vec3 pos, float spine) {
+      // travelling wave down the body; amplitude vanishes at the head so the
+      // fish swims instead of shearing sideways
+      float k = pow(1.0 - spine, 1.7);
+      pos.z += sin(spine * uFreq - uTime * aBeat + aPhase) * uSwim * k;
+      return pos;
+    }`;
+
+  // Cel body: flat tones off the sun, one hard rim light, inked flank stripes.
+  // Opaque on purpose — flat shapes with outlines want depth, not blending.
   function organismMaterial(species, swim, freq) {
     return new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
-      transparent: true,
-      depthWrite: true,
       uniforms: {
         uTime: { value: 0 }, uSwim: { value: swim }, uFreq: { value: freq },
+        uSun: { value: SUN.clone() }, uSunI: { value: 1 },
         uBase: { value: new THREE.Color(COLORS[species]) },
       },
       vertexShader: `
-        attribute float aSpine;
-        attribute float aPhase;
-        attribute float aGlow;
-        attribute float aBeat;
-        uniform float uTime; uniform float uSwim; uniform float uFreq;
+        ${SWIM_VERT}
         varying vec3 vN; varying vec3 vView; varying float vSpine; varying float vGlow;
         void main() {
-          // travelling wave down the body; amplitude vanishes at the head so
-          // the fish swims instead of shearing sideways
-          float k = pow(1.0 - aSpine, 1.7);
-          float w = sin(aSpine * uFreq - uTime * aBeat + aPhase) * uSwim * k;
-          vec3 p = position; p.z += w;
-          vec4 world = instanceMatrix * vec4(p, 1.0);
+          vec4 world = instanceMatrix * vec4(swim(position, aSpine), 1.0);
           vec4 mv = modelViewMatrix * world;
           vN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
           vView = normalize(-mv.xyz);
@@ -525,18 +577,49 @@ const boot = () => {
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: `
-        uniform vec3 uBase; uniform float uTime;
+        uniform vec3 uBase; uniform float uTime; uniform vec3 uSun; uniform float uSunI;
         varying vec3 vN; varying vec3 vView; varying float vSpine; varying float vGlow;
+        ${TOON}
         void main() {
           vec3 n = normalize(vN); vec3 v = normalize(vView);
-          float fres = pow(1.0 - abs(dot(n, v)), 2.2);
-          float stripe = smoothstep(0.62, 0.98, abs(sin(vSpine * 16.0)));
-          float pulse = 0.78 + 0.22 * sin(uTime * 2.2 + vSpine * 3.0);
-          vec3 col = uBase * 0.055                       // near-black body
-                   + uBase * fres * 1.55 * vGlow         // emissive rim
-                   + uBase * stripe * 0.55 * vGlow * pulse;
-          gl_FragColor = vec4(col, 0.30 + fres * 0.70 + stripe * 0.3);
+          // two flat tones, hard terminator
+          float sh = band(dot(n, uSun) * 0.5 + 0.5, 2.0);
+          float lit = 0.55 + 0.45 * uSunI;
+          // hard rim light, and inked stripes rather than soft banding
+          float rim = smoothstep(0.58, 0.66, 1.0 - abs(dot(n, v)));
+          float stripe = step(0.74, abs(sin(vSpine * 15.0)));
+          float pulse = 0.80 + 0.20 * sin(uTime * 2.2 + vSpine * 3.0);
+          vec3 col = uBase * (0.34 + 0.52 * sh) * lit
+                   + uBase * rim * 1.05 * (0.45 + 0.55 * vGlow)
+                   + vec3(0.95, 1.0, 0.98) * stripe * 0.22 * vGlow * pulse;
+          gl_FragColor = vec4(col, 1.0);
         }`,
+    });
+  }
+
+  /* Inverted-hull outline: the same mesh pushed out along its normals and drawn
+     back-faces-only, so what survives is a constant band around the silhouette.
+     Cheaper and steadier than any screen-space edge filter, and it needs no
+     extra pass. The hull shares the body's instanceMatrix, so it costs one draw
+     call and zero per-frame bookkeeping. */
+  function outlineMaterial(swim, freq, width) {
+    return new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      uniforms: {
+        uTime: { value: 0 }, uSwim: { value: swim }, uFreq: { value: freq },
+        uWidth: { value: width },
+        uInk: { value: new THREE.Color(0x03080e) },
+      },
+      vertexShader: `
+        ${SWIM_VERT}
+        uniform float uWidth;
+        void main() {
+          vec3 p = swim(position, aSpine) + normal * uWidth;
+          gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
+        }`,
+      fragmentShader: `
+        uniform vec3 uInk;
+        void main() { gl_FragColor = vec4(uInk, 1.0); }`,
     });
   }
 
@@ -564,7 +647,15 @@ const boot = () => {
     mesh.count = 0;
     mesh.renderOrder = 10;
     scene.add(mesh);
-    pools[species] = { mesh, glow, beat, cap, ids: [] };
+
+    const hull = new THREE.InstancedMesh(GEOMETRY[species], outlineMaterial(swim, freq, 0.032), cap);
+    hull.frustumCulled = false;
+    hull.instanceMatrix = mesh.instanceMatrix;   // shared: no copy, no drift
+    hull.count = 0;
+    hull.renderOrder = 9;
+    scene.add(hull);
+
+    pools[species] = { mesh, hull, glow, beat, cap, ids: [] };
   });
 
   /* --------------------------------------------------- placing an organism
@@ -634,6 +725,7 @@ const boot = () => {
     Object.keys(pools).forEach((s) => {
       const pool = pools[s];
       pool.mesh.count = pool.ids.length;
+      pool.hull.count = pool.ids.length;
       pool.mesh.instanceMatrix.needsUpdate = true;
       pool.mesh.geometry.getAttribute('aGlow').needsUpdate = true;
       pool.mesh.geometry.getAttribute('aBeat').needsUpdate = true;
@@ -665,33 +757,65 @@ const boot = () => {
   })();
 
   const PLANT_CAP = 460;
+  const SWAY_VERT = /* glsl */`
+    attribute float aPhase;
+    uniform float uTime;
+    vec3 sway(vec3 p) {
+      float t = p.y;
+      float bend = sin(uTime * 0.85 + aPhase) * 0.30 + sin(uTime * 1.9 + aPhase * 1.7) * 0.10;
+      p.x += bend * t * t;
+      p.z += cos(uTime * 0.7 + aPhase * 1.3) * 0.16 * t * t;
+      return p;
+    }`;
+
   const plantMat = new THREE.ShaderMaterial({
-    side: THREE.DoubleSide, transparent: true, depthWrite: true,
-    uniforms: { uTime: { value: 0 }, uBase: { value: new THREE.Color(COLORS.plant) } },
+    side: THREE.DoubleSide,
+    uniforms: {
+      uTime: { value: 0 }, uSunI: { value: 1 },
+      uBase: { value: new THREE.Color(COLORS.plant) },
+    },
     vertexShader: `
-      attribute float aPhase;
-      uniform float uTime;
+      ${SWAY_VERT}
       varying vec2 vUv; varying float vT;
       void main() {
-        vec3 p = position;
-        float t = position.y;
-        float bend = sin(uTime * 0.85 + aPhase) * 0.30 + sin(uTime * 1.9 + aPhase * 1.7) * 0.10;
-        p.x += bend * t * t;
-        p.z += cos(uTime * 0.7 + aPhase * 1.3) * 0.16 * t * t;
-        vUv = uv; vT = t;
+        vUv = uv; vT = position.y;
+        gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(sway(position), 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 uBase; uniform float uTime; uniform float uSunI;
+      varying vec2 vUv; varying float vT;
+      ${TOON}
+      void main() {
+        // two flat greens split along the blade, plus one inked highlight
+        // stripe down the length — a drawn leaf, not a shaded one
+        float shade = band(vT, 2.0);
+        float across = vUv.x;
+        float spine = ribbon(across, 0.30, 0.44, 0.03);
+        vec3 dark = uBase * 0.30;
+        vec3 light = mix(uBase, vec3(0.72, 1.0, 0.80), 0.30);
+        vec3 col = mix(dark, light, shade) * (0.55 + 0.45 * uSunI)
+                 + vec3(0.80, 1.0, 0.86) * spine * 0.30;
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+
+  const plantInkMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: { uTime: { value: 0 }, uWidth: { value: 0.055 }, uInk: { value: new THREE.Color(0x04140d) } },
+    vertexShader: `
+      ${SWAY_VERT}
+      uniform float uWidth;
+      void main() {
+        vec3 p = sway(position);
+        // the ribbon is flat, so its normals are useless for a hull; widen it
+        // across and lengthen it slightly instead
+        p.x += sign(uv.x - 0.5) * uWidth;
+        p.y += uWidth * 0.5;
         gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
       }`,
     fragmentShader: `
-      uniform vec3 uBase; uniform float uTime;
-      varying vec2 vUv; varying float vT;
-      void main() {
-        float edge = 1.0 - abs(vUv.x * 2.0 - 1.0);
-        // luminous margin and tip, dark centre — reads as a glowing leaf
-        float rib = smoothstep(0.0, 0.35, edge);
-        float tip = pow(vT, 2.2);
-        vec3 col = uBase * (0.10 + 0.55 * tip) + uBase * (1.0 - rib) * 0.85 + vec3(0.55, 1.0, 0.75) * tip * 0.22;
-        gl_FragColor = vec4(col, 0.35 + rib * 0.5 + tip * 0.3);
-      }`,
+      uniform vec3 uInk;
+      void main() { gl_FragColor = vec4(uInk, 1.0); }`,
   });
   const plants = new THREE.InstancedMesh(bladeGeo, plantMat, PLANT_CAP);
   plants.frustumCulled = false;
@@ -702,7 +826,15 @@ const boot = () => {
     bladeGeo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(ph, 1));
   }
   plants.count = 0;
+  plants.renderOrder = 10;
   scene.add(plants);
+
+  const plantInk = new THREE.InstancedMesh(bladeGeo, plantInkMat, PLANT_CAP);
+  plantInk.frustumCulled = false;
+  plantInk.instanceMatrix = plants.instanceMatrix;
+  plantInk.count = 0;
+  plantInk.renderOrder = 9;
+  scene.add(plantInk);
 
   const POLE = new THREE.Vector3(0, 1, 0);
   const tA = new THREE.Vector3();
@@ -751,6 +883,7 @@ const boot = () => {
       }
     }
     plants.count = i;
+    plantInk.count = i;
     plants.instanceMatrix.needsUpdate = true;
   }
 
@@ -807,9 +940,10 @@ const boot = () => {
       uniform float uTime; uniform float uSunI; uniform float uMurk; uniform vec3 uTint;
       varying float vAlong; varying float vSeed;
       void main() {
-        float fade = pow(1.0 - vAlong, 1.9);                       // dies out with depth
-        float flick = 0.62 + 0.38 * sin(uTime * 0.7 + vSeed * 2.3);
-        float a = fade * flick * uSunI * (1.0 - uMurk * 0.5) * 0.16;
+        // stepped falloff, so a beam is a stack of flat plates
+        float fade = floor((1.0 - vAlong) * 3.0) / 3.0;
+        float flick = 0.65 + 0.35 * step(0.0, sin(uTime * 0.7 + vSeed * 2.3));
+        float a = fade * flick * uSunI * (1.0 - uMurk * 0.5) * 0.13;
         gl_FragColor = vec4(uTint * a, a);
       }`,
   });
@@ -1194,7 +1328,7 @@ const boot = () => {
     };
     set(surfaceMat); set(volumeMat); set(seabed.material); set(shaftMat);
     // bioluminescence is what you see at night, so let bloom off the leash then
-    bloom.strength = 0.30 + (1 - sky.sun) * 0.35;
+    bloom.strength = 0.20 + (1 - sky.sun) * 0.30;
   }
 
   const HUD = document.getElementById('skyHud');
@@ -1265,8 +1399,16 @@ const boot = () => {
     seabed.material.uniforms.uTime.value = clock;
     shaftMat.uniforms.uTime.value = clock;
     plantMat.uniforms.uTime.value = clock;
+    plantMat.uniforms.uSunI.value = sky.sun;
+    plantInkMat.uniforms.uTime.value = clock;
     pushSky();
-    Object.keys(pools).forEach((s) => { pools[s].mesh.material.uniforms.uTime.value = clock; });
+    Object.keys(pools).forEach((s) => {
+      const u = pools[s].mesh.material.uniforms;
+      u.uTime.value = clock;
+      u.uSun.value.copy(SUN);
+      u.uSunI.value = sky.sun;
+      pools[s].hull.material.uniforms.uTime.value = clock;
+    });
 
     controls.update();
     composer.render();
