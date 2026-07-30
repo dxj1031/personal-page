@@ -29,17 +29,17 @@
      glow term in ecotank3d.js as well as to the monitor's dots and bars, and
      the two must not drift apart. */
   const COLORS = {
-    bigfish: "#ffb04a",
-    smallfish: "#4ff0ff",
-    shrimp: "#ff5ea8",
-    snail: "#e0e34f",
-    cleaner: "#7dffb0",
-    louse: "#c77dff",
-    plant: "#2fe08a",
-    food: "#ffe9a3",
-    danger: "#ff4d6d",
-    message: "#46f0d8",
-    subgoal: "#8b9bff",
+    bigfish: "#f2a65a",
+    smallfish: "#56d8e6",
+    shrimp: "#f2879e",
+    snail: "#c9b877",
+    cleaner: "#79e6b8",
+    louse: "#9ba7e0",
+    plant: "#46c98a",
+    food: "#ffe1a0",
+    danger: "#ff6f7d",
+    message: "#5fe0d6",
+    subgoal: "#98a6e8",
   };
 
   // relationship-type palette (cross-species + intraspecies interactions)

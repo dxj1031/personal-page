@@ -543,16 +543,21 @@ const boot = () => {
      lives in one string that both vertex shaders include. */
   const SWIM_VERT = /* glsl */`
     attribute float aSpine;
-    attribute float aPhase;
     attribute float aGlow;
     attribute float aBeat;
     uniform float uTime; uniform float uSwim; uniform float uFreq;
-    vec3 swim(vec3 pos, float spine) {
+    vec3 swim(vec3 pos, float spine, float phase) {
       // travelling wave down the body; amplitude vanishes at the head so the
       // fish swims instead of shearing sideways
       float k = pow(1.0 - spine, 1.7);
-      pos.z += sin(spine * uFreq - uTime * aBeat + aPhase) * uSwim * k;
+      pos.z += sin(spine * uFreq - uTime * aBeat + phase) * uSwim * k;
       return pos;
+    }
+    // stable per-fish phase from where it is, not which instance slot it landed
+    // in — the slot reshuffles every frame, the position does not
+    float phaseFromPos(mat4 im) {
+      vec3 t = vec3(im[3][0], im[3][1], im[3][2]);
+      return t.x * 0.7 + t.y * 1.3 + t.z * 0.9;
     }`;
 
   // Cel body: flat tones off the sun, one hard rim light, inked flank stripes.
@@ -569,7 +574,7 @@ const boot = () => {
         ${SWIM_VERT}
         varying vec3 vN; varying vec3 vView; varying float vSpine; varying float vGlow;
         void main() {
-          vec4 world = instanceMatrix * vec4(swim(position, aSpine), 1.0);
+          vec4 world = instanceMatrix * vec4(swim(position, aSpine, phaseFromPos(instanceMatrix)), 1.0);
           vec4 mv = modelViewMatrix * world;
           vN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
           vView = normalize(-mv.xyz);
@@ -614,7 +619,7 @@ const boot = () => {
         ${SWIM_VERT}
         uniform float uWidth;
         void main() {
-          vec3 p = swim(position, aSpine) + normal * uWidth;
+          vec3 p = swim(position, aSpine, phaseFromPos(instanceMatrix)) + normal * uWidth;
           gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
         }`,
       fragmentShader: `
@@ -637,18 +642,15 @@ const boot = () => {
     const mesh = new THREE.InstancedMesh(GEOMETRY[species], organismMaterial(species, swim, freq), cap);
     mesh.frustumCulled = false;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    const phase = new Float32Array(cap);
     const glow = new Float32Array(cap);
     const beat = new Float32Array(cap);
-    for (let i = 0; i < cap; i += 1) phase[i] = Math.random() * 6.283;
-    mesh.geometry.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phase, 1));
     mesh.geometry.setAttribute('aGlow', new THREE.InstancedBufferAttribute(glow, 1));
     mesh.geometry.setAttribute('aBeat', new THREE.InstancedBufferAttribute(beat, 1));
     mesh.count = 0;
     mesh.renderOrder = 10;
     scene.add(mesh);
 
-    const hull = new THREE.InstancedMesh(GEOMETRY[species], outlineMaterial(swim, freq, 0.032), cap);
+    const hull = new THREE.InstancedMesh(GEOMETRY[species], outlineMaterial(swim, freq, 0.018), cap);
     hull.frustumCulled = false;
     hull.instanceMatrix = mesh.instanceMatrix;   // shared: no copy, no drift
     hull.count = 0;
@@ -756,15 +758,15 @@ const boot = () => {
     return g;
   })();
 
-  const PLANT_CAP = 460;
+  const PLANT_CAP = 260;
   const SWAY_VERT = /* glsl */`
-    attribute float aPhase;
     uniform float uTime;
-    vec3 sway(vec3 p) {
+    vec3 sway(vec3 p, mat4 im) {
+      float ph = im[3][0] * 0.6 + im[3][2] * 1.1;   // per-blade, from position
       float t = p.y;
-      float bend = sin(uTime * 0.85 + aPhase) * 0.30 + sin(uTime * 1.9 + aPhase * 1.7) * 0.10;
+      float bend = sin(uTime * 0.85 + ph) * 0.30 + sin(uTime * 1.9 + ph * 1.7) * 0.10;
       p.x += bend * t * t;
-      p.z += cos(uTime * 0.7 + aPhase * 1.3) * 0.16 * t * t;
+      p.z += cos(uTime * 0.7 + ph * 1.3) * 0.16 * t * t;
       return p;
     }`;
 
@@ -779,7 +781,7 @@ const boot = () => {
       varying vec2 vUv; varying float vT;
       void main() {
         vUv = uv; vT = position.y;
-        gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(sway(position), 1.0);
+        gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(sway(position, instanceMatrix), 1.0);
       }`,
     fragmentShader: `
       uniform vec3 uBase; uniform float uTime; uniform float uSunI;
@@ -806,7 +808,7 @@ const boot = () => {
       ${SWAY_VERT}
       uniform float uWidth;
       void main() {
-        vec3 p = sway(position);
+        vec3 p = sway(position, instanceMatrix);
         // the ribbon is flat, so its normals are useless for a hull; widen it
         // across and lengthen it slightly instead
         p.x += sign(uv.x - 0.5) * uWidth;
@@ -820,11 +822,6 @@ const boot = () => {
   const plants = new THREE.InstancedMesh(bladeGeo, plantMat, PLANT_CAP);
   plants.frustumCulled = false;
   plants.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  {
-    const ph = new Float32Array(PLANT_CAP);
-    for (let i = 0; i < PLANT_CAP; i += 1) ph[i] = Math.random() * 6.283;
-    bladeGeo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(ph, 1));
-  }
   plants.count = 0;
   plants.renderOrder = 10;
   scene.add(plants);
@@ -864,7 +861,7 @@ const boot = () => {
       tA.copy(Math.abs(up.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : POLE).cross(up).normalize();
       tB.copy(up).cross(tA).normalize();
 
-      const blades = 2 + Math.min(2, Math.floor(plant.biomass / 30));
+      const blades = 1 + Math.min(1, Math.floor(plant.biomass / 40));
       for (let b = 0; b < blades && i < PLANT_CAP; b += 1, i += 1) {
         const spin = (b / blades) * Math.PI * 2 + plant.sway;
         fwd.copy(tA).multiplyScalar(Math.cos(spin)).addScaledVector(tB, Math.sin(spin)).normalize();
@@ -1372,7 +1369,7 @@ const boot = () => {
     syncOrganisms(world);
     setPoints(foodPoints, world.food);
     stepSnow();
-    if (plantTimer-- <= 0) { rebuildPlants(world); plantTimer = 20; }
+    if (plantTimer-- <= 0) { rebuildPlants(world); plantTimer = 30; }
     buildLines(world);
     syncFx(world);
 
