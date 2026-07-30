@@ -11,7 +11,8 @@
     document.querySelectorAll("[data-en-title]").forEach((el) => { el.title = el.dataset.enTitle; });
   }
 
-  const WORLD = { width: 1120, height: 640, waterTop: 46, floor: 582 };
+  // depth is render-only — it exists so the water sphere has a latitude axis
+  const WORLD = { width: 1120, height: 640, waterTop: 46, floor: 582, depth: 520 };
   const SAFE_MARGIN = 22;
   const DECISION_PERIOD = 7;
   const MIN_ACTION_AGE = 18;
@@ -23,28 +24,32 @@
   const RECRUITMENT_PACE = { bigfish: 1, smallfish: 2, shrimp: 6, snail: 3, cleaner: 1 };
   const STATUS = { running: "running", success: "success", failure: "failure", idle: "idle" };
 
+  /* Bioluminescent palette. The water is near-black, so every organism colour is
+     an *emitter* rather than a surface tint — these are the values fed to the
+     glow term in ecotank3d.js as well as to the monitor's dots and bars, and
+     the two must not drift apart. */
   const COLORS = {
-    bigfish: "#ffb45f",
-    smallfish: "#6fc6ff",
-    shrimp: "#ff8aa5",
-    snail: "#c9a24b",
-    cleaner: "#7effc4",
-    louse: "#b98cff",
-    plant: "#78d669",
-    food: "#f4d37d",
-    danger: "#ff6b6b",
-    message: "#5eead4",
-    subgoal: "#c398ff",
+    bigfish: "#ffb04a",
+    smallfish: "#4ff0ff",
+    shrimp: "#ff5ea8",
+    snail: "#e0e34f",
+    cleaner: "#7dffb0",
+    louse: "#c77dff",
+    plant: "#2fe08a",
+    food: "#ffe9a3",
+    danger: "#ff4d6d",
+    message: "#46f0d8",
+    subgoal: "#8b9bff",
   };
 
   // relationship-type palette (cross-species + intraspecies interactions)
   const REL_COLORS = {
-    predation: "#ff6b6b",   // 捕食
-    mutualism: "#3ce8a0",   // 共生 (cleaner <-> host)
-    parasitism: "#b98cff",  // 寄生 (louse -> host)
-    competition: "#ffb347", // 跨物种竞争
-    intraspecific: "#ff86c2", // 物种内竞争
-    cooperation: "#5ec8ff", // 合作
+    predation: "#ff4d6d",   // 捕食
+    mutualism: "#4dffc3",   // 共生 (cleaner <-> host)
+    parasitism: "#c77dff",  // 寄生 (louse -> host)
+    competition: "#ffa23a", // 跨物种竞争
+    intraspecific: "#ff7ab8", // 物种内竞争
+    cooperation: "#58c8ff", // 合作
   };
 
   const SPECIES = {
@@ -160,6 +165,15 @@
   // which species a louse can attach to, and which hosts a cleaner services
   const HOST_SPECIES = ["bigfish", "smallfish"];
 
+  // One board per species. Derived from SPECIES rather than written out, because
+  // publishIntentions() indexes it by agent.species with no guard — a hand-listed
+  // subset here throws the moment a species outside the list runs Dec-MCTS/Dec-SGTS.
+  function emptyIntentionBoards() {
+    const boards = {};
+    Object.keys(SPECIES).forEach((species) => { boards[species] = {}; });
+    return boards;
+  }
+
   const ZONES = [
     { id: "grass-left", label: tr("左侧水草床", "Left plant bed"), x: 185, y: 510, w: 250, h: 126, risk: 0.26, food: 0.86 },
     { id: "cave", label: tr("岩洞安全区", "Cave shelter"), x: 545, y: 520, w: 190, h: 105, risk: 0.16, safety: 0.9 },
@@ -268,8 +282,10 @@
   let world;
   let running = false;
   let selectedId = "";
-  const camera = { zoom: 1, cx: WORLD.width / 2, cy: WORLD.height / 2, follow: false };
-  const MAX_ZOOM = 6.5;
+  // camera state shared with the WebGL renderer (ecotank3d.js) — it owns the actual
+  // orbit camera, this is only what the HUD reads back
+  const view = { zoom: 1, follow: false };
+  let renderHook = null;
   let frameHandle = 0;
   let lastFrame = 0;
   let accumulator = 0;
@@ -409,102 +425,11 @@
     syncOverlayAllButton();
     ui.agentSelect.addEventListener("change", () => {
       selectedId = ui.agentSelect.value;
-      if (camera.follow) centerOnSelected();
       renderAll();
     });
     document.querySelectorAll("[data-action]").forEach((button) => {
       button.addEventListener("click", () => handleIntervention(button.dataset.action));
     });
-    bindCameraControls();
-    window.addEventListener("resize", () => {
-      resizeCanvas();
-      draw();
-    });
-  }
-
-  function centerOnSelected() {
-    const a = getAgent(selectedId);
-    if (a && a.alive) { camera.cx = (a.__vis || a).x; camera.cy = (a.__vis || a).y; }
-  }
-
-  function applyZoom(nextZoom, anchorPx, anchorPy) {
-    const fit = canvasFit();
-    // world point under the anchor before zooming
-    const wx = anchorPx == null ? camera.cx : (anchorPx - fit.offsetX) / fit.scale;
-    const wy = anchorPy == null ? camera.cy : (anchorPy - fit.offsetY) / fit.scale;
-    camera.zoom = clamp(nextZoom, 1, MAX_ZOOM);
-    const scale2 = fit.base * camera.zoom;
-    // keep that world point pinned under the cursor
-    camera.cx = wx - (anchorPx == null ? 0 : (anchorPx - ui.canvas.width / 2) / scale2);
-    camera.cy = wy - (anchorPy == null ? 0 : (anchorPy - ui.canvas.height / 2) / scale2);
-    if (camera.zoom <= 1.001) { camera.zoom = 1; camera.cx = WORLD.width / 2; camera.cy = WORLD.height / 2; }
-    updateZoomHud();
-    if (!running) draw();
-  }
-
-  function canvasPx(event) {
-    const rect = ui.canvas.getBoundingClientRect();
-    return {
-      px: (event.clientX - rect.left) * (ui.canvas.width / rect.width),
-      py: (event.clientY - rect.top) * (ui.canvas.height / rect.height),
-    };
-  }
-
-  function bindCameraControls() {
-    // wheel = zoom toward cursor
-    ui.canvas.addEventListener("wheel", (event) => {
-      event.preventDefault();
-      const { px, py } = canvasPx(event);
-      const factor = Math.exp(-event.deltaY * 0.0016);
-      camera.follow = false;
-      applyZoom(camera.zoom * factor, px, py);
-      syncFollowButton();
-    }, { passive: false });
-
-    // pointer: click to select, drag to pan (when zoomed in)
-    let down = null;
-    ui.canvas.addEventListener("pointerdown", (event) => {
-      const { px, py } = canvasPx(event);
-      down = { px, py, cx: camera.cx, cy: camera.cy, moved: false, id: event.pointerId };
-      ui.canvas.setPointerCapture(event.pointerId);
-    });
-    ui.canvas.addEventListener("pointermove", (event) => {
-      if (!down) return;
-      const { px, py } = canvasPx(event);
-      const dx = px - down.px, dy = py - down.py;
-      if (!down.moved && Math.hypot(dx, dy) > 5) down.moved = true;
-      if (down.moved && camera.zoom > 1.001) {
-        const fit = canvasFit();
-        camera.follow = false;
-        syncFollowButton();
-        camera.cx = down.cx - dx / fit.scale;
-        camera.cy = down.cy - dy / fit.scale;
-        ui.canvas.style.cursor = "grabbing";
-        if (!running) draw();
-      }
-    });
-    const endDrag = (event) => {
-      if (!down) return;
-      if (!down.moved) selectFromCanvas(event);
-      down = null;
-      ui.canvas.style.cursor = "";
-    };
-    ui.canvas.addEventListener("pointerup", endDrag);
-    ui.canvas.addEventListener("pointercancel", () => { down = null; ui.canvas.style.cursor = ""; });
-
-    if (ui.zoomIn) ui.zoomIn.addEventListener("click", () => applyZoom(camera.zoom * 1.5, ui.canvas.width / 2, ui.canvas.height / 2));
-    if (ui.zoomOut) ui.zoomOut.addEventListener("click", () => applyZoom(camera.zoom / 1.5, ui.canvas.width / 2, ui.canvas.height / 2));
-    if (ui.zoomReset) ui.zoomReset.addEventListener("click", () => { camera.follow = false; syncFollowButton(); applyZoom(1); });
-    if (ui.zoomFollow) ui.zoomFollow.addEventListener("click", () => {
-      camera.follow = !camera.follow;
-      syncFollowButton();
-      if (camera.follow) {
-        centerOnSelected();
-        if (camera.zoom < 2.4) applyZoom(2.8); else updateZoomHud();
-      }
-      if (!running) draw();
-    });
-    updateZoomHud();
   }
 
   function syncOverlayAllButton() {
@@ -512,14 +437,14 @@
   }
 
   function syncFollowButton() {
-    if (ui.zoomFollow) ui.zoomFollow.classList.toggle("active", camera.follow);
+    if (ui.zoomFollow) ui.zoomFollow.classList.toggle("active", view.follow);
   }
 
   function updateZoomHud() {
     if (!ui.zoomHud) return;
     const a = world ? getAgent(selectedId) : null;
     const who = a ? `${a.id} ${SPECIES[a.species].label}` : "—";
-    ui.zoomHud.textContent = `${camera.zoom.toFixed(1)}× · ${camera.follow ? tr("跟随 ", "Follow ") + who : who}`;
+    ui.zoomHud.textContent = `${view.zoom.toFixed(1)}× · ${view.follow ? tr("跟随 ", "Follow ") + who : who}`;
   }
 
   function resetWorld() {
@@ -547,7 +472,7 @@
         cooperation: 0,
       },
       ids: { bigfish: 0, smallfish: 0, shrimp: 0, snail: 0, cleaner: 0, louse: 0, plant: 0, food: 0 },
-      sharedIntentions: { bigfish: {}, smallfish: {}, shrimp: {}, snail: {}, cleaner: {}, louse: {} },
+      sharedIntentions: emptyIntentionBoards(),
       relLinks: [],
       script: { active: false, phase: 0, phaseStart: 0 },
       activeTech: "decsgts",
@@ -716,7 +641,7 @@
       organism.subgoals = [];
       organism.intention = {};
     });
-    world.sharedIntentions = { bigfish: {}, smallfish: {}, shrimp: {} };
+    world.sharedIntentions = emptyIntentionBoards();
     renderAll();
   }
 
@@ -1878,132 +1803,26 @@
   }
 
   /* =====================================================================
-     ARTISTIC RENDER LAYER  (rewritten — simulation logic untouched)
-     Render-only smoothing + naturalistic motion + art-directed aquarium.
-     All sim state is read-only here; visual state is stashed under __ keys.
+     RENDER LAYER — this file no longer draws anything.
+     It keeps the per-agent visual smoothing (position easing, heading, and
+     the render-only depth axis) and hands the result to ecotank3d.js, which
+     owns the WebGL ecosphere. All sim state is read-only from here on;
+     visual state is stashed under __ keys.
      ===================================================================== */
 
-  function hexToRgb(hex) {
-    const c = hex.replace('#', '');
-    const n = parseInt(c.length === 3 ? c.split('').map(function (x) { return x + x; }).join('') : c, 16);
-    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-  }
-  function rgba(hex, a) {
-    const c = hexToRgb(hex);
-    return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + a + ')';
-  }
-  function mix(hexA, hexB, t) {
-    const a = hexToRgb(hexA), b = hexToRgb(hexB);
-    const r = Math.round(a.r + (b.r - a.r) * t);
-    const g = Math.round(a.g + (b.g - a.g) * t);
-    const bl = Math.round(a.b + (b.b - a.b) * t);
-    return 'rgb(' + r + ',' + g + ',' + bl + ')';
-  }
-
+  /* ---------- render dispatch ----------
+     The 2D side-view tank was replaced by the WebGL water sphere in ecotank3d.js.
+     This file still owns the simulation, the per-agent visual smoothing and the
+     organism artwork; the renderer registers itself through EcoTank.setRenderer(). */
   function draw() {
-    resizeCanvas();
-    // follow the selected agent when locked on, so zoom tracks its behavior
-    if (camera.follow && camera.zoom > 1.02) {
-      const a = getAgent(selectedId);
-      if (a && a.alive) {
-        const v = a.__vis || a;
-        camera.cx += (v.x - camera.cx) * 0.16;
-        camera.cy += (v.y - camera.cy) * 0.16;
-      }
-    }
-
-    const ctx = ui.canvas.getContext('2d');
-    const fit = canvasFit();
+    if (!world) return;
     world.__frame = (world.__frame || 0) + 1;
-    const F = world.__frame;
-
-    // per-frame render smoothing toward simulation truth
     stepVisuals();
-
-    // screen shake on glass tap
-    let sx = 0, sy = 0;
-    if (world.glassShock > 0) {
-      const k = world.glassShock / 92;
-      sx = Math.sin(F * 1.7) * 7 * k;
-      sy = Math.cos(F * 1.9) * 5 * k;
-    }
-
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
-    ctx.fillStyle = '#040a10';
-    ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
-    ctx.setTransform(fit.scale, 0, 0, fit.scale, fit.offsetX + sx * fit.scale, fit.offsetY + sy * fit.scale);
-    ctx.imageSmoothingEnabled = true;
-
-    // clip to the tank so glows never spill onto the letterbox
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, WORLD.width, WORLD.height);
-    ctx.clip();
-
-    drawWater(ctx, F);
-    drawBackdrop(ctx, F);
-    drawGodRays(ctx, F);
-    if (settings.overlays.subgoals) drawSubgoals(ctx);
-    drawSubstrate(ctx, F);
-    drawMarineSnow(ctx, F);
-    drawPlants(ctx, F);
-    drawFood(ctx, F);
-    if (settings.overlays.messages) drawMessages(ctx, F);
-    if (settings.overlays.intentions) drawIntentions(ctx);
-
-    // schooling cohesion filaments (group behavior made legible)
-    drawSchooling(ctx);
-
-    // painter's-depth ordering: far (small y) first
-    const drawList = world.organisms.filter(function (a) { return a.alive; })
-      .slice().sort(function (a, b) { return (a.__vis ? a.__vis.y : a.y) - (b.__vis ? b.__vis.y : b.y); });
-    drawList.forEach(function (agent) { drawOrganism(ctx, agent, F); });
-
-    // lifecycle FX — death ghosts, birth bursts
-    drawFx(ctx, F);
-
-    if (settings.overlays.perception) drawPerception(ctx, F);
-    drawSelectionSpotlight(ctx, F);
-
-    drawBubbles(ctx, F);
-    drawCausticSurface(ctx, F);
-    drawVignette(ctx);
-
-    // glass-tap white flash
-    if (world.glassShock > 0) {
-      ctx.fillStyle = rgba('#e8fffb', (world.glassShock / 92) * 0.32);
-      ctx.fillRect(0, 0, WORLD.width, WORLD.height);
-    }
-    ctx.restore();
+    if (renderHook) renderHook.frame(world.__frame);
   }
 
   function resizeCanvas() {
-    const rect = ui.canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const width = Math.max(640, Math.round(rect.width * dpr));
-    const height = Math.max(420, Math.round(rect.height * dpr));
-    if (ui.canvas.width !== width || ui.canvas.height !== height) {
-      ui.canvas.width = width;
-      ui.canvas.height = height;
-    }
-  }
-
-  function canvasFit() {
-    const base = Math.min(ui.canvas.width / WORLD.width, ui.canvas.height / WORLD.height);
-    const scale = base * camera.zoom;
-    // half the viewport measured in world units
-    const halfW = ui.canvas.width / 2 / scale;
-    const halfH = ui.canvas.height / 2 / scale;
-    // clamp camera center so we never pan past the tank walls
-    camera.cx = halfW >= WORLD.width / 2 ? WORLD.width / 2 : clamp(camera.cx, halfW, WORLD.width - halfW);
-    camera.cy = halfH >= WORLD.height / 2 ? WORLD.height / 2 : clamp(camera.cy, halfH, WORLD.height - halfH);
-    return {
-      scale: scale,
-      base: base,
-      offsetX: ui.canvas.width / 2 - camera.cx * scale,
-      offsetY: ui.canvas.height / 2 - camera.cy * scale,
-    };
+    if (renderHook) renderHook.resize();
   }
 
   /* ---------- render-only smoothing ---------- */
@@ -2012,10 +1831,15 @@
     world.organisms.forEach(function (a) {
       if (!a.alive) return;
       if (!a.__vis) {
-        a.__vis = { x: a.x, y: a.y, ang: 0, spd: 0, tail: Math.random() * 6.28, trail: [], pop: 0 };
+        a.__vis = {
+          x: a.x, y: a.y, ang: 0, spd: 0,
+          // z is render-only: the simulation stays strictly 2D, but the water sphere
+          // needs a third axis or every organism sits on one great circle
+          z: Math.random() * WORLD.depth, zVel: 0, zPhase: Math.random() * 6.28,
+        };
       }
       const v = a.__vis;
-      v.pop = v.pop == null ? 1 : v.pop + (1 - v.pop) * 0.09;
+      stepVisualDepth(a, v);
       const dx = a.x - v.x, dy = a.y - v.y;
       // snap on teleport/spawn to avoid streaks
       if (Math.abs(dx) > 240 || Math.abs(dy) > 240) { v.x = a.x; v.y = a.y; }
@@ -2029,1187 +1853,44 @@
       while (da < -Math.PI) da += Math.PI * 2;
       v.ang += da * 0.2;
       v.tail += 0.18 + v.spd * 0.16;
-      // motion trail
-      v.trail.push({ x: v.x, y: v.y });
-      if (v.trail.length > 7) v.trail.shift();
     });
   }
-  function vis(a) { return a.__vis || { x: a.x, y: a.y, ang: 0, spd: 0, tail: 0, trail: [] }; }
+  function vis(a) { return a.__vis || { x: a.x, y: a.y, ang: 0, spd: 0, z: WORLD.depth / 2, zVel: 0 }; }
+
+  /* The sphere renderer needs a third coordinate that the 2D simulation does not have.
+     Inventing a random one would scatter interacting agents across the ball — a predator
+     and its prey would show a chase line through 60° of longitude. So z is *advected*:
+     an agent drifts toward its current target's z, and wanders only when it has none.
+     Interaction partners converge in depth on their own, and nothing in the sim reads it. */
+  function stepVisualDepth(a, v) {
+    let targetZ = null;
+    if (a.action && a.action.targetId) {
+      const t = resolveTarget(a.action.targetId, a.action.targetKind);
+      if (t) targetZ = t.__vis ? t.__vis.z : WORLD.depth / 2;
+    }
+    if (targetZ == null) {
+      v.zPhase += 0.004 + v.spd * 0.0015;
+      targetZ = WORLD.depth * (0.5 + 0.42 * Math.sin(v.zPhase));
+    }
+    // zVel feeds the renderer's pitch: a fish climbing in latitude should nose up
+    v.zVel = (targetZ - v.z) * 0.035;
+    v.z = clamp(v.z + v.zVel, 0, WORLD.depth);
+  }
 
   /* ---------- environment ---------- */
-  function drawWater(ctx, F) {
-    const g = ctx.createLinearGradient(0, 0, 0, WORLD.height);
-    g.addColorStop(0, '#1e6a7c');
-    g.addColorStop(0.26, '#14526a');
-    g.addColorStop(0.58, '#0b3752');
-    g.addColorStop(0.86, '#07223a');
-    g.addColorStop(1, '#051828');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, WORLD.width, WORLD.height);
-    // horizontal light falloff — brighter center, darker glass edges
-    const hg = ctx.createLinearGradient(0, 0, WORLD.width, 0);
-    hg.addColorStop(0, rgba('#02101c', 0.32));
-    hg.addColorStop(0.22, rgba('#02101c', 0));
-    hg.addColorStop(0.78, rgba('#02101c', 0));
-    hg.addColorStop(1, rgba('#02101c', 0.32));
-    ctx.fillStyle = hg;
-    ctx.fillRect(0, 0, WORLD.width, WORLD.height);
-    // surface shimmer band
-    const sg = ctx.createLinearGradient(0, 0, 0, WORLD.waterTop + 60);
-    sg.addColorStop(0, rgba('#bff6ee', 0.22));
-    sg.addColorStop(1, rgba('#bff6ee', 0));
-    ctx.fillStyle = sg;
-    ctx.fillRect(0, 0, WORLD.width, WORLD.waterTop + 60);
-    // undulating surface line
-    ctx.strokeStyle = rgba('#d7fbf4', 0.35);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let x = 0; x <= WORLD.width; x += 12) {
-      const y = WORLD.waterTop + Math.sin(x * 0.03 + F * 0.05) * 3 + Math.sin(x * 0.08 - F * 0.03) * 1.6;
-      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
-
-  function drawBackdrop(ctx, F) {
-    // distant silhouettes for depth — far dune + slow swaying plant shapes
-    ctx.save();
-    ctx.fillStyle = rgba('#062434', 0.85);
-    ctx.beginPath();
-    ctx.moveTo(0, WORLD.floor - 26);
-    for (let x = 0; x <= WORLD.width; x += 40) {
-      ctx.lineTo(x, WORLD.floor - 26 - Math.sin(x * 0.008 + 2) * 16 - Math.sin(x * 0.021) * 8);
-    }
-    ctx.lineTo(WORLD.width, WORLD.floor + 30);
-    ctx.lineTo(0, WORLD.floor + 30);
-    ctx.closePath();
-    ctx.fill();
-    const clumps = [70, 150, 330, 780, 960, 1050];
-    clumps.forEach(function (cx, ci) {
-      const blades = 4 + (ci % 3);
-      for (let i = 0; i < blades; i += 1) {
-        const rootX = cx + (i - blades / 2) * 9;
-        const h = 90 + ((ci * 37 + i * 53) % 70);
-        const sway = Math.sin(F * 0.012 + ci * 1.3 + i * 0.6) * (8 + h * 0.05);
-        ctx.strokeStyle = rgba('#07293b', 0.9);
-        ctx.lineWidth = 7 - (i % 3) * 2;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(rootX, WORLD.floor - 10);
-        ctx.quadraticCurveTo(rootX + sway * 0.4, WORLD.floor - 10 - h * 0.55, rootX + sway, WORLD.floor - 10 - h);
-        ctx.stroke();
-      }
-    });
-    ctx.restore();
-  }
-
-  function drawGodRays(ctx, F) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const beams = 5;
-    for (let i = 0; i < beams; i += 1) {
-      const baseX = (i + 0.5) / beams * WORLD.width;
-      const drift = Math.sin(F * 0.006 + i * 1.7) * 70;
-      const top = baseX + drift;
-      const w = 46 + i * 8;
-      const skew = 130 + Math.sin(i) * 40;
-      const g = ctx.createLinearGradient(0, WORLD.waterTop, 0, WORLD.floor);
-      const a = 0.05 + 0.03 * Math.abs(Math.sin(F * 0.004 + i));
-      g.addColorStop(0, rgba('#d8fff7', a));
-      g.addColorStop(0.7, rgba('#7fe9dd', a * 0.35));
-      g.addColorStop(1, rgba('#7fe9dd', 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.moveTo(top - w / 2, WORLD.waterTop);
-      ctx.lineTo(top + w / 2, WORLD.waterTop);
-      ctx.lineTo(top + w / 2 + skew, WORLD.floor);
-      ctx.lineTo(top - w / 2 + skew, WORLD.floor);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  function drawMarineSnow(ctx, F) {
-    ctx.save();
-    for (let i = 0; i < 90; i += 1) {
-      const seed = i * 12.9898;
-      const speed = 0.15 + (i % 5) * 0.05;
-      const x = (i * 131 + Math.sin(seed) * 40 + F * (0.05 + (i % 3) * 0.02)) % WORLD.width;
-      const y = (WORLD.waterTop + (i * 71 + F * speed) % (WORLD.floor - WORLD.waterTop));
-      const r = 0.6 + (i % 3) * 0.5;
-      ctx.fillStyle = rgba('#cfeeee', 0.05 + (i % 4) * 0.02);
-      ctx.beginPath();
-      ctx.arc((x + WORLD.width) % WORLD.width, y, r, 0, 6.283);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  function drawSubstrate(ctx, F) {
-    // sandy floor with soft dunes
-    const fg = ctx.createLinearGradient(0, WORLD.floor - 18, 0, WORLD.height);
-    fg.addColorStop(0, '#caa367');
-    fg.addColorStop(0.5, '#a8814b');
-    fg.addColorStop(1, '#6f5330');
-    ctx.fillStyle = fg;
-    ctx.beginPath();
-    ctx.moveTo(0, WORLD.height);
-    ctx.lineTo(0, WORLD.floor + 6);
-    for (let x = 0; x <= WORLD.width; x += 26) {
-      const y = WORLD.floor + Math.sin(x * 0.02 + 1.2) * 6 + Math.sin(x * 0.06) * 3;
-      ctx.lineTo(x, y);
-    }
-    ctx.lineTo(WORLD.width, WORLD.height);
-    ctx.closePath();
-    ctx.fill();
-    // dune shading speckle
-    ctx.fillStyle = rgba('#5c4327', 0.35);
-    for (let i = 0; i < 60; i += 1) {
-      const x = (i * 79) % WORLD.width;
-      ctx.fillRect(x, WORLD.floor + 8 + (i % 5) * 6, 3, 2);
-    }
-    // scattered pebbles
-    for (let i = 0; i < 26; i += 1) {
-      const px = (i * 173 + 40) % WORLD.width;
-      const py = WORLD.floor + 6 + (i * 37) % 28;
-      const pr = 2.4 + (i % 4) * 1.4;
-      ctx.fillStyle = rgba(i % 3 === 0 ? '#8b9694' : '#7a6748', 0.55);
-      ctx.beginPath();
-      ctx.ellipse(px, py, pr, pr * 0.62, 0, 0, 6.283);
-      ctx.fill();
-      ctx.fillStyle = rgba('#e8ddc4', 0.18);
-      ctx.beginPath();
-      ctx.ellipse(px - pr * 0.25, py - pr * 0.22, pr * 0.45, pr * 0.26, 0, 0, 6.283);
-      ctx.fill();
-    }
-    // moving caustic light patches on the sand
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 6; i += 1) {
-      const cx2 = ((i / 6) * WORLD.width + Math.sin(F * 0.014 + i * 2.1) * 80 + WORLD.width) % WORLD.width;
-      const cg2 = ctx.createRadialGradient(cx2, WORLD.floor + 10, 0, cx2, WORLD.floor + 10, 95);
-      cg2.addColorStop(0, rgba('#ffe9b8', 0.05 + 0.03 * Math.abs(Math.sin(F * 0.02 + i))));
-      cg2.addColorStop(1, rgba('#ffe9b8', 0));
-      ctx.fillStyle = cg2;
-      ctx.beginPath();
-      ctx.ellipse(cx2, WORLD.floor + 10, 95, 26, 0, 0, 6.283);
-      ctx.fill();
-    }
-    ctx.restore();
-    // rocks
-    drawRock(ctx, 470, 560, 175, 66);
-    drawRock(ctx, 636, 566, 132, 50);
-    // cave mouth
-    ctx.save();
-    ctx.fillStyle = '#04101a';
-    ctx.beginPath();
-    ctx.ellipse(600, 566, 60, 42, 0, Math.PI, 0);
-    ctx.fill();
-    const cg = ctx.createRadialGradient(600, 560, 6, 600, 560, 66);
-    cg.addColorStop(0, rgba('#0a1f2c', 0.9));
-    cg.addColorStop(1, rgba('#0a1f2c', 0));
-    ctx.fillStyle = cg;
-    ctx.beginPath();
-    ctx.ellipse(600, 560, 60, 46, 0, Math.PI, 0);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function drawRock(ctx, x, y, w, h) {
-    ctx.save();
-    const g = ctx.createLinearGradient(0, y - h, 0, y + 4);
-    g.addColorStop(0, '#7c8a8b');
-    g.addColorStop(0.5, '#586566');
-    g.addColorStop(1, '#39474a');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.moveTo(x - w / 2, y);
-    ctx.quadraticCurveTo(x - w / 2 + 8, y - h, x - w * 0.12, y - h * 0.92);
-    ctx.quadraticCurveTo(x + w * 0.1, y - h * 1.05, x + w * 0.34, y - h * 0.72);
-    ctx.quadraticCurveTo(x + w / 2, y - h * 0.5, x + w / 2, y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = rgba('#aebbbb', 0.4);
-    ctx.beginPath();
-    ctx.ellipse(x - w * 0.1, y - h * 0.62, w * 0.22, h * 0.2, -0.3, 0, 6.283);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function drawPlants(ctx, F) {
-    world.plants.forEach(function (plant, pi) {
-      if (plant.biomass <= 1) return;
-      const height = 26 + plant.biomass * 0.85;
-      const blades = 2 + Math.floor(plant.biomass / 26);
-      for (let i = 0; i < blades; i += 1) {
-        const rootX = plant.x + (i - blades / 2) * 6;
-        const phase = plant.sway + i * 0.7 + pi * 0.4;
-        const h = height * (0.72 + (i % 3) * 0.12);
-        const tipX = rootX + Math.sin(phase + F * 0.03) * (10 + h * 0.06);
-        const midX = rootX + Math.sin(phase + F * 0.03) * (5 + h * 0.03);
-        // depth understroke, then lit blade, then tip glint
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = rgba('#123c22', 0.85);
-        ctx.lineWidth = 6.5 - (i % 2);
-        ctx.beginPath();
-        ctx.moveTo(rootX + 1.5, plant.y + 1);
-        ctx.quadraticCurveTo(midX + 1.5, plant.y - h * 0.55, tipX + 1.5, plant.y - h + 2);
-        ctx.stroke();
-        const g = ctx.createLinearGradient(rootX, plant.y, tipX, plant.y - h);
-        g.addColorStop(0, '#2f7a3a');
-        g.addColorStop(0.7, '#63c25c');
-        g.addColorStop(1, '#b6f28a');
-        ctx.strokeStyle = g;
-        ctx.lineWidth = 5 - (i % 2);
-        ctx.beginPath();
-        ctx.moveTo(rootX, plant.y);
-        ctx.quadraticCurveTo(midX, plant.y - h * 0.55, tipX, plant.y - h);
-        ctx.stroke();
-        ctx.fillStyle = rgba('#dcffc0', 0.5);
-        ctx.beginPath();
-        ctx.arc(tipX, plant.y - h, 1.6, 0, 6.283);
-        ctx.fill();
-      }
-    });
-  }
-
-  function drawFood(ctx, F) {
-    world.food.forEach(function (food, i) {
-      const pulse = 0.6 + 0.4 * Math.sin(F * 0.15 + i);
-      const g = ctx.createRadialGradient(food.x, food.y, 0, food.x, food.y, 9);
-      g.addColorStop(0, rgba('#fff6cf', 0.95));
-      g.addColorStop(0.4, rgba(COLORS.food, 0.8));
-      g.addColorStop(1, rgba(COLORS.food, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(food.x, food.y, 9 * pulse, 0, 6.283);
-      ctx.fill();
-      ctx.fillStyle = '#fffce8';
-      ctx.beginPath();
-      ctx.arc(food.x, food.y, 1.6, 0, 6.283);
-      ctx.fill();
-    });
-  }
-
   /* ---------- creatures ---------- */
-  function drawOrganism(ctx, agent, F) {
-    if (agent.species === 'shrimp') drawShrimp(ctx, agent, F);
-    else if (agent.species === 'snail') drawSnail(ctx, agent, F);
-    else if (agent.species === 'louse') drawLouse(ctx, agent, F);
-    else drawFish(ctx, agent, F);
-  }
-
-  function fishState(agent) {
-    const t = agent.action ? agent.action.type : 'idle';
-    return { fleeing: t === 'flee' || t === 'hide', hunting: t === 'hunt' || t === 'seek-known-food', resting: t === 'rest' || t === 'idle' };
-  }
-
-  function drawFish(ctx, agent, F) {
-    const spec = SPECIES[agent.species];
-    const v = vis(agent);
-    const L = spec.size;
-    const st = fishState(agent);
-    const fear = agent.emotion ? agent.emotion.fear : 0;
-    const energyFrac = clamp(agent.energy / spec.maxEnergy, 0, 1);
-    const rawBase = COLORS[agent.species] || COLORS.smallfish;
-    // low energy reads as desaturation — never as invisibility
-    const base = mix(rawBase, '#41606b', (1 - energyFrac) * 0.55);
-    const bob = Math.sin(F * 0.05 + (agent.selectedPulse || 0)) * (st.resting ? 2.4 : 1.2);
-    const x = v.x, y = v.y + bob;
-    const facing = Math.cos(v.ang) >= 0 ? 1 : -1;
-    let pitch = Math.atan2(v.vy != null ? v.vy : agent.vy, Math.abs(agent.vx) + 0.01);
-    pitch = clamp(pitch, -0.55, 0.55);
-
-    // tail beat: faster when fleeing/fast
-    const beatSpeed = 0.55 + v.spd * 0.35 + (st.fleeing ? 0.6 : 0);
-    const tailAng = Math.sin(v.tail * beatSpeed) * (0.35 + Math.min(0.5, v.spd * 0.09) + (st.fleeing ? 0.25 : 0));
-
-    // soft contact shadow on the sand
-    const floorDist = WORLD.floor - y;
-    if (floorDist > 0 && floorDist < 170) {
-      const sa = (1 - floorDist / 170) * 0.28;
-      ctx.save();
-      ctx.fillStyle = rgba('#01080e', sa);
-      ctx.beginPath();
-      ctx.ellipse(x, WORLD.floor + 6, L * 0.7, 6, 0, 0, 6.283);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(facing, 1);
-    ctx.rotate(pitch);
-    const pop = 0.45 + 0.55 * (v.pop == null ? 1 : v.pop);
-    ctx.scale(pop, pop);
-    ctx.globalAlpha = 0.88 + energyFrac * 0.12;
-
-    const halfL = L * 0.62, halfH = L * 0.34;
-
-    // soft contact shadow / depth glow
-    // dorsal + belly gradient
-    const bg = ctx.createLinearGradient(0, -halfH, 0, halfH);
-    bg.addColorStop(0, shade(base, -46));
-    bg.addColorStop(0.45, base);
-    bg.addColorStop(1, mix(base, '#ffffff', 0.5));
-
-    // tail fin (drawn first, behind body)
-    ctx.save();
-    ctx.translate(-halfL * 0.92, 0);
-    ctx.rotate(tailAng);
-    ctx.fillStyle = shade(base, -18);
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.quadraticCurveTo(-halfL * 0.5, -halfH * 0.9, -halfL * 0.72, -halfH * 1.15);
-    ctx.quadraticCurveTo(-halfL * 0.4, 0, -halfL * 0.72, halfH * 1.15);
-    ctx.quadraticCurveTo(-halfL * 0.5, halfH * 0.9, 0, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // dorsal fin
-    ctx.fillStyle = rgba(shade(base, -10), 0.9);
-    ctx.beginPath();
-    ctx.moveTo(-halfL * 0.1, -halfH * 0.9);
-    ctx.quadraticCurveTo(halfL * 0.1, -halfH * 1.7, halfL * 0.34, -halfH * 0.7);
-    ctx.closePath();
-    ctx.fill();
-
-    // pectoral fin (animated flutter)
-    const finFlutter = Math.sin(v.tail * beatSpeed + 1) * 0.3;
-    ctx.save();
-    ctx.translate(halfL * 0.05, halfH * 0.35);
-    ctx.rotate(0.5 + finFlutter);
-    ctx.fillStyle = rgba(mix(base, '#ffffff', 0.35), 0.75);
-    ctx.beginPath();
-    ctx.ellipse(0, halfH * 0.4, halfL * 0.28, halfH * 0.5, 0, 0, 6.283);
-    ctx.fill();
-    ctx.restore();
-
-    // body (teardrop)
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.moveTo(halfL, 0);
-    ctx.quadraticCurveTo(halfL * 0.4, -halfH, -halfL * 0.55, -halfH * 0.7);
-    ctx.quadraticCurveTo(-halfL * 0.95, -halfH * 0.25, -halfL * 0.95, 0);
-    ctx.quadraticCurveTo(-halfL * 0.95, halfH * 0.25, -halfL * 0.55, halfH * 0.7);
-    ctx.quadraticCurveTo(halfL * 0.4, halfH, halfL, 0);
-    ctx.closePath();
-    ctx.fill();
-    // crisp silhouette edge so fish separate from the water
-    ctx.strokeStyle = rgba(shade(base, -58), 0.85);
-    ctx.lineWidth = Math.max(1.1, L * 0.035);
-    ctx.stroke();
-
-    // top rim-light from the surface
-    ctx.strokeStyle = rgba('#eafff6', 0.5);
-    ctx.lineWidth = Math.max(1, L * 0.03);
-    ctx.beginPath();
-    ctx.moveTo(halfL * 0.82, -halfH * 0.18);
-    ctx.quadraticCurveTo(halfL * 0.3, -halfH * 0.92, -halfL * 0.5, -halfH * 0.66);
-    ctx.stroke();
-
-    // dorsal highlight
-    ctx.fillStyle = rgba('#ffffff', 0.22);
-    ctx.beginPath();
-    ctx.ellipse(-halfL * 0.05, -halfH * 0.4, halfL * 0.42, halfH * 0.22, 0, 0, 6.283);
-    ctx.fill();
-
-    // gill stripe
-    ctx.strokeStyle = rgba(shade(base, -34), 0.6);
-    ctx.lineWidth = Math.max(1, L * 0.05);
-    ctx.beginPath();
-    ctx.arc(halfL * 0.34, 0, halfH * 0.85, -1.1, 1.1);
-    ctx.stroke();
-
-    // eye
-    ctx.fillStyle = '#fbfff9';
-    ctx.beginPath();
-    ctx.arc(halfL * 0.6, -halfH * 0.22, Math.max(2.4, L * 0.11), 0, 6.283);
-    ctx.fill();
-    ctx.fillStyle = '#06121a';
-    ctx.beginPath();
-    ctx.arc(halfL * 0.63, -halfH * 0.22, Math.max(1.3, L * 0.06) * (st.fleeing ? 1.3 : 1), 0, 6.283);
-    ctx.fill();
-
-    // fear rim
-    if (fear > 0.25) {
-      ctx.globalAlpha = Math.min(0.8, fear);
-      ctx.strokeStyle = rgba(COLORS.danger, 0.9);
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(halfL, 0);
-      ctx.quadraticCurveTo(halfL * 0.4, -halfH, -halfL * 0.55, -halfH * 0.7);
-      ctx.quadraticCurveTo(-halfL * 0.95, -halfH * 0.25, -halfL * 0.95, 0);
-      ctx.quadraticCurveTo(-halfL * 0.95, halfH * 0.25, -halfL * 0.55, halfH * 0.7);
-      ctx.quadraticCurveTo(halfL * 0.4, halfH, halfL, 0);
-      ctx.closePath();
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    drawStatusMarkers(ctx, agent, x, y, L, st, energyFrac, F);
-  }
-
   /* status markers — flee alert + low-energy bar, drawn in world coords */
-  function drawStatusMarkers(ctx, agent, x, y, L, st, energyFrac, F) {
-    const top = y - L * 0.62;
-    if (st.fleeing) {
-      const bounce = Math.sin(F * 0.25) * 2;
-      ctx.save();
-      ctx.fillStyle = rgba('#170a0d', 0.85);
-      ctx.beginPath();
-      ctx.arc(x, top - 16 + bounce, 8, 0, 6.283);
-      ctx.fill();
-      ctx.strokeStyle = rgba(COLORS.danger, 0.9);
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-      ctx.fillStyle = COLORS.danger;
-      ctx.font = '700 12px "JetBrains Mono", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('!', x, top - 12 + bounce);
-      ctx.restore();
-    }
-    if (energyFrac < 0.38) {
-      const w = Math.max(22, L * 0.9);
-      const bx = x - w / 2, by = top - 7;
-      ctx.save();
-      ctx.fillStyle = rgba('#03131c', 0.78);
-      roundRectPath(ctx, bx - 1.5, by - 1.5, w + 3, 6, 3);
-      ctx.fill();
-      ctx.fillStyle = mix(COLORS.danger, '#ffd166', energyFrac / 0.38);
-      roundRectPath(ctx, bx, by, Math.max(2.5, w * energyFrac), 3, 1.5);
-      ctx.fill();
-      ctx.restore();
-    }
-    // parasite-load pips — purple dots above a burdened host
-    if (agent.parasiteLoad > 0) {
-      ctx.save();
-      const n = Math.min(5, agent.parasiteLoad);
-      for (let i = 0; i < n; i += 1) {
-        ctx.fillStyle = REL_COLORS.parasitism;
-        ctx.beginPath();
-        ctx.arc(x - (n - 1) * 3 + i * 6, top - 20, 2.1, 0, 6.283);
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-    // relationship event flash ring (共生/寄生/竞争/合作)
-    if (agent.relFlash) {
-      const rf = agent.relFlash;
-      const t = 1 - clamp(rf.f / 30, 0, 1);
-      ctx.save();
-      ctx.globalAlpha = (1 - t) * 0.8;
-      ctx.strokeStyle = REL_COLORS[rf.type] || '#fff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(x, y, L * 0.7 + t * 16, 0, 6.283);
-      ctx.stroke();
-      ctx.restore();
-    }
-    // cooperation aura
-    if (agent.coopPulse > 0) {
-      ctx.save();
-      ctx.globalAlpha = clamp(agent.coopPulse / 14, 0, 1) * 0.5;
-      ctx.strokeStyle = REL_COLORS.cooperation;
-      ctx.setLineDash([3, 4]);
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.arc(x, y, L * 0.85, 0, 6.283);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
-  }
-
-  function drawShrimp(ctx, agent, F) {
-    const v = vis(agent);
-    const st = fishState(agent);
-    const fear = agent.emotion ? agent.emotion.fear : 0;
-    const bob = Math.sin(F * 0.09 + (agent.selectedPulse || 0)) * 1.4;
-    const x = v.x, y = v.y + bob;
-    const facing = Math.cos(v.ang) >= 0 ? 1 : -1;
-    let pitch = clamp(Math.atan2(agent.vy, Math.abs(agent.vx) + 0.01), -0.5, 0.5);
-    const legPhase = Math.sin(v.tail * (0.8 + v.spd * 0.4));
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(facing, 1);
-    ctx.rotate(pitch);
-    const pop = 0.45 + 0.55 * (v.pop == null ? 1 : v.pop);
-    ctx.scale(pop, pop);
-    const shrimpEnergy = clamp(agent.energy / SPECIES.shrimp.maxEnergy, 0, 1);
-    ctx.globalAlpha = 0.9 + shrimpEnergy * 0.1;
-
-    // legs
-    ctx.strokeStyle = rgba(shade(COLORS.shrimp, -20), 0.8);
-    ctx.lineWidth = 1.2;
-    for (let i = 0; i < 4; i += 1) {
-      const lx = -4 + i * 3;
-      ctx.beginPath();
-      ctx.moveTo(lx, 3);
-      ctx.lineTo(lx - 1 + legPhase * 2, 8 + (i % 2) * 2);
-      ctx.stroke();
-    }
-    // curved body
-    const bg = ctx.createLinearGradient(0, -5, 0, 6);
-    bg.addColorStop(0, mix(COLORS.shrimp, '#ffffff', 0.35));
-    bg.addColorStop(1, shade(COLORS.shrimp, -18));
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.moveTo(8, -2);
-    ctx.quadraticCurveTo(2, -6, -6, -3);
-    ctx.quadraticCurveTo(-13, 0, -9, 5);
-    ctx.quadraticCurveTo(-4, 3, 2, 3);
-    ctx.quadraticCurveTo(6, 3, 8, -2);
-    ctx.closePath();
-    ctx.fill();
-    // tail fan
-    ctx.fillStyle = rgba(COLORS.shrimp, 0.7);
-    ctx.beginPath();
-    ctx.moveTo(-9, 4);
-    ctx.lineTo(-14, 1);
-    ctx.lineTo(-14, 7);
-    ctx.closePath();
-    ctx.fill();
-    // antennae
-    ctx.strokeStyle = rgba('#ffd1db', 0.8);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(8, -2);
-    ctx.quadraticCurveTo(15, -5 + legPhase, 20, -8 + legPhase * 2);
-    ctx.moveTo(8, -1);
-    ctx.quadraticCurveTo(15, -1 + legPhase, 21, -2 + legPhase * 2);
-    ctx.stroke();
-    // eye
-    ctx.fillStyle = '#06121a';
-    ctx.beginPath();
-    ctx.arc(6, -3, 1.4, 0, 6.283);
-    ctx.fill();
-    if (fear > 0.3) {
-      ctx.strokeStyle = rgba(COLORS.danger, Math.min(0.8, fear));
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.arc(-2, 1, 12, 0, 6.283);
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    drawStatusMarkers(ctx, agent, x, y, 22, st, shrimpEnergy, F);
-  }
-
-  function drawSnail(ctx, agent, F) {
-    const v = vis(agent);
-    const facing = Math.cos(v.ang) >= 0 ? 1 : -1;
-    const x = v.x, y = v.y;
-    const eF = clamp(agent.energy / SPECIES.snail.maxEnergy, 0, 1);
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(facing, 1);
-    const pop = 0.45 + 0.55 * (v.pop == null ? 1 : v.pop);
-    ctx.scale(pop, pop);
-    // contact shadow
-    ctx.fillStyle = rgba('#01080e', 0.3);
-    ctx.beginPath();
-    ctx.ellipse(0, 6, 12, 3, 0, 0, 6.283);
-    ctx.fill();
-    // muscular foot
-    ctx.fillStyle = mix('#d9c79a', '#8a7550', 1 - eF);
-    ctx.beginPath();
-    ctx.moveTo(-11, 5);
-    ctx.quadraticCurveTo(-13, 1, -8, 0);
-    ctx.lineTo(9, 0);
-    ctx.quadraticCurveTo(13, 1, 10, 5);
-    ctx.closePath();
-    ctx.fill();
-    // eye stalks
-    ctx.strokeStyle = '#c7b78c';
-    ctx.lineWidth = 1.2;
-    const stalk = Math.sin(F * 0.05) * 0.6;
-    ctx.beginPath();
-    ctx.moveTo(9, 0);
-    ctx.lineTo(13 + stalk, -6);
-    ctx.moveTo(7, 0);
-    ctx.lineTo(11 + stalk, -7);
-    ctx.stroke();
-    ctx.fillStyle = '#1a1207';
-    ctx.beginPath(); ctx.arc(13 + stalk, -6, 1.1, 0, 6.283); ctx.fill();
-    ctx.beginPath(); ctx.arc(11 + stalk, -7, 1.1, 0, 6.283); ctx.fill();
-    // spiral shell
-    const sg = ctx.createRadialGradient(-2, -6, 1, -2, -4, 11);
-    sg.addColorStop(0, mix(COLORS.snail, '#fff3d0', 0.5));
-    sg.addColorStop(1, shade(COLORS.snail, -34));
-    ctx.fillStyle = sg;
-    ctx.beginPath();
-    ctx.arc(-1, -4, 9, 0, 6.283);
-    ctx.fill();
-    ctx.strokeStyle = rgba(shade(COLORS.snail, -50), 0.8);
-    ctx.lineWidth = 1.3;
-    ctx.beginPath();
-    for (let a = 0; a < 6.6; a += 0.25) {
-      const r = 1.4 + a * 1.15;
-      const sx = -1 + Math.cos(a * 1.9) * r * 0.6;
-      const sy = -4 + Math.sin(a * 1.9) * r * 0.6;
-      if (a === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function drawLouse(ctx, agent, F) {
-    const v = vis(agent);
-    const x = v.x, y = v.y;
-    const wig = Math.sin(F * 0.4 + (agent.selectedPulse || 0));
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(Math.atan2(agent.vy, agent.vx));
-    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 9);
-    glow.addColorStop(0, rgba(COLORS.louse, 0.5));
-    glow.addColorStop(1, rgba(COLORS.louse, 0));
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(0, 0, 9, 0, 6.283); ctx.fill();
-    // legs
-    ctx.strokeStyle = rgba(shade(COLORS.louse, -30), 0.85);
-    ctx.lineWidth = 0.8;
-    for (let i = -1; i <= 1; i += 1) {
-      ctx.beginPath();
-      ctx.moveTo(i * 1.6, -2);
-      ctx.lineTo(i * 1.6 - 1 + wig, -5);
-      ctx.moveTo(i * 1.6, 2);
-      ctx.lineTo(i * 1.6 - 1 + wig, 5);
-      ctx.stroke();
-    }
-    // carapace
-    const bg = ctx.createLinearGradient(0, -3, 0, 3);
-    bg.addColorStop(0, mix(COLORS.louse, '#ffffff', 0.4));
-    bg.addColorStop(1, shade(COLORS.louse, -22));
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 4.4, 3, 0, 0, 6.283);
-    ctx.fill();
-    ctx.fillStyle = '#1a0f2e';
-    ctx.beginPath(); ctx.arc(2.4, 0, 0.9, 0, 6.283); ctx.fill();
-    ctx.restore();
-  }
-
   // ---------- relationship overlay: typed links between interacting agents ----------
-  function drawRelationships(ctx, F) {
-    if (!world.relLinks || !world.relLinks.length) return;
-    ctx.save();
-    world.relLinks.forEach(function (link) {
-      const a = getAgent(link.from), b = getAgent(link.to);
-      if (!a || !b || !a.alive || !b.alive) return;
-      const av = a.__vis || a, bv = b.__vis || b;
-      const col = REL_COLORS[link.type] || '#fff';
-      const dashed = link.type === 'competition' || link.type === 'intraspecific';
-      ctx.globalAlpha = 0.55;
-      ctx.strokeStyle = col;
-      ctx.lineWidth = link.type === 'cooperation' ? 1.8 : 2.2;
-      ctx.setLineDash(dashed ? [4, 4] : []);
-      const mx = (av.x + bv.x) / 2 + (bv.y - av.y) * 0.08;
-      const my = (av.y + bv.y) / 2 - (bv.x - av.x) * 0.08;
-      ctx.beginPath();
-      ctx.moveTo(av.x, av.y);
-      ctx.quadraticCurveTo(mx, my, bv.x, bv.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      // midpoint marker glyph
-      const gx = mx, gy = my;
-      const glyph = { mutualism: '✦', parasitism: '✖', competition: '⚔', intraspecific: '⚔', cooperation: '⬢', predation: '▲' }[link.type] || '';
-      ctx.globalAlpha = 0.9;
-      const pg = ctx.createRadialGradient(gx, gy, 0, gx, gy, 7);
-      pg.addColorStop(0, rgba(col, 0.9));
-      pg.addColorStop(1, rgba(col, 0));
-      ctx.fillStyle = pg;
-      ctx.beginPath(); ctx.arc(gx, gy, 7, 0, 6.283); ctx.fill();
-      ctx.fillStyle = '#06121a';
-      ctx.font = '700 9px "JetBrains Mono", monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(glyph, gx, gy + 0.5);
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
-    });
-    ctx.restore();
-  }
-
   /* ---------- group behavior ---------- */
-  function drawSchooling(ctx) {
-    ctx.save();
-    ctx.lineWidth = 1;
-    const groups = { smallfish: [], shrimp: [] };
-    world.organisms.forEach(function (a) {
-      if (a.alive && groups[a.species]) groups[a.species].push(a);
-    });
-    Object.keys(groups).forEach(function (sp) {
-      const list = groups[sp];
-      const col = COLORS[sp];
-      for (let i = 0; i < list.length; i += 1) {
-        for (let j = i + 1; j < list.length; j += 1) {
-          const a = vis(list[i]), b = vis(list[j]);
-          const d = Math.hypot(a.x - b.x, a.y - b.y);
-          if (d < 92) {
-            ctx.strokeStyle = rgba(col, (1 - d / 92) * 0.16);
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-          }
-        }
-      }
-    });
-    ctx.restore();
-  }
-
   /* ---------- communication ---------- */
-  function drawMessages(ctx, F) {
-    world.messages.forEach(function (message) {
-      const from = getAgent(message.from) || message.start;
-      const to = getAgent(message.to) || message.end;
-      if (!from || !to) return;
-      const fv = from.__vis || from, tv = to.__vis || to;
-      const alpha = clamp(message.ttl / 78, 0.1, 0.85);
-      const hard = message.priority === 'hard';
-      const col = hard ? COLORS.danger : COLORS.message;
-      const mx = (fv.x + tv.x) / 2 + (tv.y - fv.y) * 0.14;
-      const my = (fv.y + tv.y) / 2 - (tv.x - fv.x) * 0.14;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.strokeStyle = col;
-      ctx.lineWidth = hard ? 2.6 : 1.6;
-      ctx.setLineDash(message.kind === 'QRU' || message.kind === 'QRA' ? [6, 5] : []);
-      ctx.beginPath();
-      ctx.moveTo(fv.x, fv.y);
-      ctx.quadraticCurveTo(mx, my, tv.x, tv.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      // traveling pulse along the arc
-      const life = 1 - clamp(message.ttl / 78, 0, 1);
-      const t = life;
-      const px = (1 - t) * (1 - t) * fv.x + 2 * (1 - t) * t * mx + t * t * tv.x;
-      const py = (1 - t) * (1 - t) * fv.y + 2 * (1 - t) * t * my + t * t * tv.y;
-      ctx.globalAlpha = alpha;
-      const pg = ctx.createRadialGradient(px, py, 0, px, py, 9);
-      pg.addColorStop(0, rgba(hard ? '#ffd0d0' : '#d6fff7', 0.98));
-      pg.addColorStop(1, rgba(col, 0));
-      ctx.fillStyle = pg;
-      ctx.beginPath();
-      ctx.arc(px, py, 9, 0, 6.283);
-      ctx.fill();
-      // label the protocol on urgent messages
-      if (hard && message.kind) {
-        ctx.font = '700 11px "JetBrains Mono", monospace';
-        const kw = ctx.measureText(message.kind).width;
-        ctx.fillStyle = rgba('#170a0d', 0.85);
-        roundRectPath(ctx, px + 8, py - 9, kw + 10, 16, 4);
-        ctx.fill();
-        ctx.fillStyle = '#ffb3b3';
-        ctx.fillText(message.kind, px + 13, py + 3);
-      }
-      ctx.restore();
-    });
-  }
-
   /* ---------- overlays ---------- */
-  function drawSubgoals(ctx) {
-    ctx.save();
-    ZONES.forEach(function (zone) {
-      const safe = zone.safety || zone.id === 'cave';
-      const col = safe ? '#9ee27d' : COLORS.subgoal;
-      const x = zone.x - zone.w / 2, y = zone.y - zone.h / 2;
-      const r = 16;
-      ctx.fillStyle = rgba(col, 0.05);
-      ctx.strokeStyle = rgba(col, 0.4);
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([2, 6]);
-      ctx.lineCap = 'round';
-      roundRectPath(ctx, x, y, zone.w, zone.h, r);
-      ctx.fill();
-      ctx.stroke();
-      ctx.setLineDash([]);
-      // label chip
-      ctx.font = '600 15px "JetBrains Mono", monospace';
-      const tw = ctx.measureText(zone.label).width;
-      ctx.fillStyle = rgba('#03141b', 0.88);
-      roundRectPath(ctx, x + 8, y + 8, tw + 20, 25, 6);
-      ctx.fill();
-      ctx.strokeStyle = rgba(col, 0.5);
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.fillStyle = rgba(col, 1);
-      ctx.fillText(zone.label, x + 18, y + 26);
-    });
-    ctx.restore();
-  }
-
-  function roundRectPath(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-
-  function drawPerception(ctx, F) {
-    const agent = getAgent(selectedId);
-    if (!agent || !agent.alive) return;
-    const spec = SPECIES[agent.species];
-    const v = vis(agent);
-    ctx.save();
-    const g = ctx.createRadialGradient(v.x, v.y, spec.sense * 0.2, v.x, v.y, spec.sense);
-    g.addColorStop(0, rgba(COLORS.message, 0.02));
-    g.addColorStop(0.82, rgba(COLORS.message, 0.06));
-    g.addColorStop(1, rgba(COLORS.message, 0));
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(v.x, v.y, spec.sense, 0, 6.283);
-    ctx.fill();
-    ctx.strokeStyle = rgba(COLORS.message, 0.3);
-    ctx.setLineDash([3, 6]);
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.arc(v.x, v.y, spec.sense, 0, 6.283);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    // sensed dangers
-    factsByKind(agent, 'danger').slice(0, 4).forEach(function (fact) {
-      ctx.strokeStyle = rgba(COLORS.danger, 0.4);
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(v.x, v.y);
-      ctx.lineTo(fact.x, fact.y);
-      ctx.stroke();
-      ctx.fillStyle = rgba(COLORS.danger, 0.6);
-      ctx.beginPath();
-      ctx.arc(fact.x, fact.y, 4, 0, 6.283);
-      ctx.fill();
-    });
-    ctx.restore();
-  }
-
-  function drawIntentions(ctx) {
-    world.organisms.filter(function (agent) {
-      return agent.alive && agent.intention && Object.keys(agent.intention).length;
-    }).forEach(function (agent) {
-      const targetKey = Object.entries(agent.intention).sort(function (a, b) { return b[1] - a[1]; })[0];
-      if (!targetKey) return;
-      const target = resolveAnyTarget(targetKey[0]);
-      if (!target) return;
-      const v = vis(agent);
-      const tx = target.__vis ? target.__vis.x : target.x;
-      const ty = target.__vis ? target.__vis.y : target.y;
-      const col = agent.species === 'bigfish' ? COLORS.bigfish : agent.species === 'smallfish' ? COLORS.smallfish : COLORS.shrimp;
-      const mx = (v.x + tx) / 2 + (ty - v.y) * 0.1;
-      const my = (v.y + ty) / 2 - (tx - v.x) * 0.1;
-      ctx.save();
-      ctx.globalAlpha = 0.32;
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 1.4;
-      ctx.setLineDash([4, 5]);
-      ctx.beginPath();
-      ctx.moveTo(v.x, v.y);
-      ctx.quadraticCurveTo(mx, my, tx, ty);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      // arrowhead
-      const ang = Math.atan2(ty - my, tx - mx);
-      ctx.fillStyle = col;
-      ctx.translate(tx, ty);
-      ctx.rotate(ang);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-7, -3);
-      ctx.lineTo(-7, 3);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    });
-  }
-
-  function drawSelectionSpotlight(ctx, F) {
-    const agent = getAgent(selectedId);
-    if (!agent || !agent.alive) return;
-    const v = vis(agent);
-    const spec = SPECIES[agent.species];
-    const r = spec.size * 1.5 + 8;
-    ctx.save();
-    // pulsing focus ring
-    const pulse = 0.5 + 0.5 * Math.sin(F * 0.08);
-    ctx.strokeStyle = rgba('#eafff9', 0.55 + pulse * 0.25);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(v.x, v.y, r + pulse * 4, 0, 6.283);
-    ctx.stroke();
-    // tick marks
-    ctx.strokeStyle = rgba(COLORS.message, 0.8);
-    for (let i = 0; i < 4; i += 1) {
-      const a = i * Math.PI / 2 + F * 0.01;
-      ctx.beginPath();
-      ctx.moveTo(v.x + Math.cos(a) * (r + 2), v.y + Math.sin(a) * (r + 2));
-      ctx.lineTo(v.x + Math.cos(a) * (r + 9), v.y + Math.sin(a) * (r + 9));
-      ctx.stroke();
-    }
-    // label
-    const label = agent.id + ' ' + spec.label;
-    ctx.font = '600 15px "JetBrains Mono", monospace';
-    const tw = ctx.measureText(label).width;
-    const lx = v.x - tw / 2 - 10, ly = v.y - r - 38;
-    // leader line from chip down to the focus ring
-    ctx.strokeStyle = rgba(COLORS.message, 0.55);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(v.x, ly + 25);
-    ctx.lineTo(v.x, v.y - r - 2);
-    ctx.stroke();
-    ctx.fillStyle = rgba('#03141b', 0.9);
-    roundRectPath(ctx, lx, ly, tw + 20, 25, 6);
-    ctx.fill();
-    ctx.strokeStyle = rgba(COLORS.message, 0.6);
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = '#eafff9';
-    ctx.fillText(label, lx + 10, ly + 18);
-    ctx.restore();
-  }
-
   /* ---------- lifecycle FX: death & birth ---------- */
   function pushFx(fx) {
     if (!world.__fx) world.__fx = [];
     world.__fx.push(fx);
   }
 
-  function drawFx(ctx, F) {
-    if (!world.__fx || !world.__fx.length) return;
-    for (let i = world.__fx.length - 1; i >= 0; i -= 1) {
-      const fx = world.__fx[i];
-      fx.f += 1;
-      let done;
-      if (fx.type === 'death') done = drawDeathFx(ctx, fx);
-      else if (fx.type === 'contest') done = drawContestFx(ctx, fx);
-      else done = drawBirthFx(ctx, fx);
-      if (done) world.__fx.splice(i, 1);
-    }
-  }
-
-  function drawContestFx(ctx, fx) {
-    const DUR = 30;
-    if (fx.f >= DUR) return true;
-    const t = fx.f / DUR;
-    const col = REL_COLORS[fx.kind] || REL_COLORS.competition;
-    ctx.save();
-    ctx.globalAlpha = (1 - t) * 0.9;
-    // clash spark — radiating slashes
-    ctx.strokeStyle = col;
-    ctx.lineWidth = 2 * (1 - t) + 0.5;
-    const ease = 1 - Math.pow(1 - t, 2);
-    for (let i = 0; i < 7; i += 1) {
-      const a = fx.seed + i * (6.283 / 7);
-      const r0 = 3 + ease * 6;
-      const r1 = 8 + ease * 20;
-      ctx.beginPath();
-      ctx.moveTo(fx.x + Math.cos(a) * r0, fx.y + Math.sin(a) * r0);
-      ctx.lineTo(fx.x + Math.cos(a) * r1, fx.y + Math.sin(a) * r1);
-      ctx.stroke();
-    }
-    ctx.restore();
-    return false;
-  }
-
-  function drawDeathFx(ctx, fx) {
-    const DUR = 110;
-    if (fx.f >= DUR) return true;
-    const t = fx.f / DUR;
-    const spec = SPECIES[fx.species];
-    const L = (spec && spec.size) || 20;
-    const col = COLORS[fx.species] || '#9fb7c4';
-    ctx.save();
-
-    // shock ring at the moment of death (red when eaten)
-    if (fx.f < 34) {
-      const rt = fx.f / 34;
-      ctx.strokeStyle = rgba(fx.predation ? COLORS.danger : '#cfe8e4', (1 - rt) * 0.7);
-      ctx.lineWidth = 2.4 * (1 - rt) + 0.6;
-      ctx.beginPath();
-      ctx.arc(fx.x, fx.y, 6 + rt * (L * 1.9), 0, 6.283);
-      ctx.stroke();
-    }
-
-    // belly-up ghost drifting upward while fading
-    const rise = fx.f * 0.34;
-    const flip = fx.f < 26 ? Math.cos((fx.f / 26) * Math.PI) : -1;
-    const wob = Math.sin(fx.f * 0.11 + fx.seed) * 0.12;
-    const alpha = (1 - t) * 0.66;
-    ctx.save();
-    ctx.translate(fx.x, fx.y - rise);
-    ctx.rotate(wob);
-    ctx.scale(1, flip || 0.05);
-    const ghost = mix(col, '#c8d8d8', 0.55);
-    const halfL = L * 0.62, halfH = L * 0.34;
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = ghost;
-    ctx.beginPath();
-    ctx.moveTo(halfL, 0);
-    ctx.quadraticCurveTo(halfL * 0.4, -halfH, -halfL * 0.55, -halfH * 0.7);
-    ctx.quadraticCurveTo(-halfL * 0.95, -halfH * 0.25, -halfL * 0.95, 0);
-    ctx.quadraticCurveTo(-halfL * 0.95, halfH * 0.25, -halfL * 0.55, halfH * 0.7);
-    ctx.quadraticCurveTo(halfL * 0.4, halfH, halfL, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = rgba('#0a1c26', alpha * 0.8);
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    // X eye — universal "dead" glyph
-    ctx.strokeStyle = rgba('#122430', Math.min(1, alpha + 0.15));
-    ctx.lineWidth = Math.max(1.2, L * 0.05);
-    const ex = halfL * 0.6, ey = -halfH * 0.22, er = Math.max(2, L * 0.09);
-    ctx.beginPath();
-    ctx.moveTo(ex - er, ey - er); ctx.lineTo(ex + er, ey + er);
-    ctx.moveTo(ex + er, ey - er); ctx.lineTo(ex - er, ey + er);
-    ctx.stroke();
-    ctx.restore();
-
-    // rising motes
-    for (let i = 0; i < 6; i += 1) {
-      const pt = clamp(t * 1.25 - i * 0.05, 0, 1);
-      if (pt <= 0 || pt >= 1) continue;
-      const px = fx.x + Math.sin(fx.seed + i * 2.1 + pt * 5) * (8 + i * 3);
-      const py = fx.y - pt * (70 + i * 9);
-      ctx.fillStyle = rgba('#d8f5ee', (1 - pt) * 0.55);
-      ctx.beginPath();
-      ctx.arc(px, py, 1.6 + (i % 3) * 0.7, 0, 6.283);
-      ctx.fill();
-    }
-
-    // nutrient wisps sinking to the substrate — 营养回收给水草
-    for (let i = 0; i < 4; i += 1) {
-      const pt = clamp(t * 1.15 - i * 0.07, 0, 1);
-      if (pt <= 0 || pt >= 1) continue;
-      const px = fx.x + (i - 1.5) * 14 + Math.sin(pt * 6 + i) * 6;
-      const py = fx.y + pt * (WORLD.floor - fx.y);
-      ctx.fillStyle = rgba(COLORS.plant, (1 - pt) * 0.5);
-      ctx.beginPath();
-      ctx.arc(px, py, 1.8, 0, 6.283);
-      ctx.fill();
-    }
-    ctx.restore();
-    return false;
-  }
-
-  function drawBirthFx(ctx, fx) {
-    const DUR = 80;
-    if (fx.f >= DUR) return true;
-    const t = fx.f / DUR;
-    const col = COLORS[fx.species] || COLORS.message;
-    ctx.save();
-    // soft glow
-    const glow = ctx.createRadialGradient(fx.x, fx.y, 0, fx.x, fx.y, 34);
-    glow.addColorStop(0, rgba('#fdfff2', (1 - t) * 0.25));
-    glow.addColorStop(1, rgba(col, 0));
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(fx.x, fx.y, 34, 0, 6.283);
-    ctx.fill();
-    // double expanding rings
-    for (let k = 0; k < 2; k += 1) {
-      const rt = clamp(t * 1.5 - k * 0.22, 0, 1);
-      if (rt <= 0 || rt >= 1) continue;
-      const ease = 1 - Math.pow(1 - rt, 3);
-      ctx.strokeStyle = rgba(col, (1 - rt) * 0.75);
-      ctx.lineWidth = 2 - k * 0.7;
-      ctx.beginPath();
-      ctx.arc(fx.x, fx.y, 5 + ease * (26 + k * 14), 0, 6.283);
-      ctx.stroke();
-    }
-    // sparkles bursting outward
-    for (let i = 0; i < 8; i += 1) {
-      const pt = clamp(t * 1.4 - (i % 4) * 0.04, 0, 1);
-      if (pt <= 0 || pt >= 1) continue;
-      const ease = 1 - Math.pow(1 - pt, 2.4);
-      const a = fx.seed + (i / 8) * 6.283;
-      const px = fx.x + Math.cos(a) * ease * 30;
-      const py = fx.y + Math.sin(a) * ease * 24 - pt * 6;
-      const r = 1.4 + (i % 3) * 0.7;
-      ctx.fillStyle = rgba(i % 2 ? '#fdfff2' : col, (1 - pt) * 0.85);
-      ctx.beginPath();
-      ctx.arc(px, py, r * (1 - pt * 0.5), 0, 6.283);
-      ctx.fill();
-    }
-    // child id chip rising
-    if (fx.label) {
-      const la = t < 0.15 ? t / 0.15 : 1 - Math.max(0, t - 0.55) / 0.45;
-      const ly = fx.y - 26 - t * 16;
-      ctx.font = '600 13px "JetBrains Mono", monospace';
-      const tw = ctx.measureText(fx.label).width;
-      ctx.globalAlpha = clamp(la, 0, 1);
-      ctx.fillStyle = rgba('#03141b', 0.88);
-      roundRectPath(ctx, fx.x - tw / 2 - 8, ly - 15, tw + 16, 21, 5);
-      ctx.fill();
-      ctx.strokeStyle = rgba(col, 0.6);
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.fillStyle = mix(col, '#ffffff', 0.5);
-      ctx.fillText(fx.label, fx.x - tw / 2, ly);
-      ctx.globalAlpha = 1;
-    }
-    ctx.restore();
-    return false;
-  }
-
   /* ---------- foreground atmosphere ---------- */
-  function drawBubbles(ctx, F) {
-    if (!world.__bubbles) world.__bubbles = [];
-    const b = world.__bubbles;
-    if (b.length < 26 && F % 6 === 0) {
-      b.push({ x: Math.random() * WORLD.width, y: WORLD.floor - 10, r: 1.5 + Math.random() * 3.5, vy: 0.5 + Math.random() * 0.9, ph: Math.random() * 6.28 });
-    }
-    ctx.save();
-    for (let i = b.length - 1; i >= 0; i -= 1) {
-      const bb = b[i];
-      bb.y -= bb.vy;
-      bb.x += Math.sin(F * 0.05 + bb.ph) * 0.4;
-      if (bb.y < WORLD.waterTop + 4) { b.splice(i, 1); continue; }
-      ctx.strokeStyle = rgba('#d9fff8', 0.35);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(bb.x, bb.y, bb.r, 0, 6.283);
-      ctx.stroke();
-      ctx.fillStyle = rgba('#ffffff', 0.25);
-      ctx.beginPath();
-      ctx.arc(bb.x - bb.r * 0.3, bb.y - bb.r * 0.3, bb.r * 0.35, 0, 6.283);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  function drawCausticSurface(ctx, F) {
-    // faint moving light caustics near the surface, additive
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 7; i += 1) {
-      const x = (i / 7) * WORLD.width + Math.sin(F * 0.02 + i) * 50;
-      const w = 90 + Math.sin(i * 2) * 30;
-      const g = ctx.createRadialGradient(x, WORLD.waterTop + 8, 0, x, WORLD.waterTop + 8, w);
-      g.addColorStop(0, rgba('#bff6ee', 0.05));
-      g.addColorStop(1, rgba('#bff6ee', 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.ellipse(x, WORLD.waterTop + 8, w, 22, 0, 0, 6.283);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  function drawVignette(ctx) {
-    const g = ctx.createRadialGradient(WORLD.width / 2, WORLD.height / 2, WORLD.height * 0.35, WORLD.width / 2, WORLD.height / 2, WORLD.height * 0.78);
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(3,10,16,0.38)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, WORLD.width, WORLD.height);
-  }
-
   function renderAll() {
     syncControls();
     renderMetrics();
@@ -3574,24 +2255,32 @@
     }).join("");
   }
 
-  function selectFromCanvas(event) {
-    const rect = ui.canvas.getBoundingClientRect();
-    const fit = canvasFit();
-    const px = (event.clientX - rect.left) * (ui.canvas.width / rect.width);
-    const py = (event.clientY - rect.top) * (ui.canvas.height / rect.height);
-    const x = (px - fit.offsetX) / fit.scale;
-    const y = (py - fit.offsetY) / fit.scale;
-    const picked = world.organisms
-      .filter((agent) => agent.alive)
-      .map((agent) => ({ agent, d: distance(agent, { x, y }) }))
-      .sort((a, b) => a.d - b.d)[0];
-    if (picked && picked.d < SPECIES[picked.agent.species].size * 1.7) {
-      selectedId = picked.agent.id;
-      if (camera.follow) centerOnSelected();
+  /* =====================================================================
+     BRIDGE — everything ecotank3d.js needs to render and pick.
+     Deliberately a plain object of live getters rather than an event bus:
+     the renderer reads simulation state each frame and writes back only
+     the selection and the two HUD fields.
+     ===================================================================== */
+  const bridge = {
+    WORLD, SPECIES, COLORS, REL_COLORS, ZONES, settings, view,
+    get world() { return world; },
+    get selectedId() { return selectedId; },
+    getAgent, vis,
+    // renderer picked an organism (or empty string to clear)
+    select(id) {
+      if (id === selectedId) return;
+      selectedId = id || "";
       updateZoomHud();
       renderAll();
-    }
-  }
+    },
+    syncHud() { updateZoomHud(); syncFollowButton(); },
+    setRenderer(hook) {
+      renderHook = hook;
+      hook.resize();
+      draw();
+    },
+  };
+  window.EcoTank = bridge;
 
   /* =====================================================================
      RELATIONSHIP SYSTEMS — 共生 / 寄生 / 竞争 / 种内竞争 / 合作
@@ -4012,15 +2701,6 @@
 
   function lerp(a, b, t) {
     return a + (b - a) * t;
-  }
-
-  function shade(hex, delta) {
-    const clean = hex.replace("#", "");
-    const n = Number.parseInt(clean, 16);
-    const r = clamp(((n >> 16) & 255) + delta, 0, 255);
-    const g = clamp(((n >> 8) & 255) + delta, 0, 255);
-    const b = clamp((n & 255) + delta, 0, 255);
-    return `rgb(${r},${g},${b})`;
   }
 
   window.addEventListener("beforeunload", () => cancelAnimationFrame(frameHandle));

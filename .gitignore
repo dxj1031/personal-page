@@ -1,3 +1,9 @@
 node_modules/
 *.log
 *.local.md
+
+# graphify knowledge graph — regenerate with `graphify --update`, do not ship
+graphify-out/
+
+# frames the dev server writes so the agent can see what it rendered
+**/.claude/shot.png

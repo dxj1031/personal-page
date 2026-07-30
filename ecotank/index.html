@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>EcoTank · 多智能体行为树生态缸</title>
+    <title>EcoTank · 多智能体行为树生态水球</title>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23081418'/%3E%3Ccircle cx='32' cy='34' r='9' fill='%235eead4'/%3E%3Cpath d='M8 22h48M8 46h48' stroke='%23244' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E"
@@ -58,13 +58,47 @@
     <main class="app-shell">
       <section id="demoTab" class="tab-page active">
         <div class="demo-layout">
+          <aside class="demo-rail">
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow accent">POPULATION</p>
+                  <h3 data-en="Standing Stock">现存量</h3>
+                </div>
+              </div>
+              <div id="populationPanel" class="population-panel"></div>
+              <p class="caption" data-en="Live counts against each species' reproduction ceiling.">各物种当前数量与其繁殖上限的比值。</p>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">BEHAVIOR TREE</p>
+                  <h3 data-en="Tick Status">Tick 状态</h3>
+                </div>
+              </div>
+              <div id="btTree" class="bt-tree"></div>
+              <p class="caption" data-en="Node return values for the focused agent on the most recent tick.">选中个体最近一次 tick 的节点返回值。</p>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">SPECIES INTERACTION NETWORK</p>
+                  <h3 data-en="Interaction Network">关系网络</h3>
+                </div>
+              </div>
+              <div id="relationshipGraph" class="relationship-graph"></div>
+            </section>
+          </aside>
+
           <section class="exhibit">
             <div class="exhibit-head">
               <div class="exhibit-title">
                 <p class="eyebrow accent">LIVE SIMULATION</p>
-                <h2 data-en="Side-View Ecotank">侧视生态缸</h2>
-                <p id="demoSubtitle" class="sub" data-en="Pixel-art simulation: lifecycle, emotion, events and search results act on every individual at once.">
-                  像素风仿真：生命状态、情绪、事件与搜索结果同时作用于每一个个体。
+                <h2 data-en="Ecosphere">生态水球</h2>
+                <p id="demoSubtitle" class="sub" data-en="A ball of water: drag to rotate, scroll to dive beneath the surface. Lifecycle, emotion, events and search results act on every individual at once.">
+                  一颗水球：拖拽旋转，滚轮深入水面之下。生命状态、情绪、事件与搜索结果同时作用于每一个个体。
                 </p>
               </div>
               <div class="food-chain" aria-hidden="true">
@@ -91,6 +125,7 @@
                 <label><input id="overlayIntentions" type="checkbox" /> <span data-en="Intentions">意图</span></label>
               </div>
               <div class="zoom-controls">
+                <span id="skyHud" class="sky-hud">—</span>
                 <span id="zoomHud" class="zoom-hud">1.0× · —</span>
                 <div class="zoom-btns">
                   <button id="zoomOut" type="button" title="缩小" aria-label="缩小" data-en-title="Zoom out">−</button>
@@ -98,7 +133,7 @@
                   <button id="zoomFollow" type="button" title="跟随选中个体" data-en-title="Follow selected agent" data-en="Follow">跟随</button>
                   <button id="zoomReset" type="button" title="复位视图" data-en-title="Reset view" data-en="Reset">复位</button>
                 </div>
-                <span class="zoom-hint" data-en="Scroll to zoom · Drag to pan · Click to select">滚轮缩放 · 拖拽平移 · 点击选中个体</span>
+                <span class="zoom-hint" data-en="Drag to rotate · Scroll to dive in · Click to select">拖拽旋转 · 滚轮潜入水下 · 点击选中个体</span>
               </div>
             </div>
 
@@ -175,16 +210,6 @@
             <section class="panel-section">
               <div class="section-head">
                 <div>
-                  <p class="eyebrow">SPECIES INTERACTION NETWORK</p>
-                  <h3 data-en="Interaction Network">关系网络</h3>
-                </div>
-              </div>
-              <div id="relationshipGraph" class="relationship-graph"></div>
-            </section>
-
-            <section class="panel-section">
-              <div class="section-head">
-                <div>
                   <p class="eyebrow">SCRIPTED WALKTHROUGH</p>
                   <h3 data-en="Demo Script">演示脚本</h3>
                 </div>
@@ -206,82 +231,57 @@
       </section>
 
       <section id="monitorTab" class="tab-page">
-        <div class="monitor-layout">
-          <section class="monitor-column">
-            <div class="panel-section">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow accent">POPULATION</p>
-                  <h3 data-en="System Status">系统状态</h3>
-                </div>
-              </div>
-              <div id="populationPanel" class="population-panel"></div>
-            </div>
-            <div class="panel-section">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">BEHAVIOR TREE</p>
-                  <h3 data-en="Behavior Tree Ticks">行为树 Tick</h3>
-                </div>
-              </div>
-              <div id="btTree" class="bt-tree"></div>
-            </div>
+        <article class="paper">
+          <header class="paper-head">
+            <p class="eyebrow accent">INSTRUMENTATION</p>
+            <h2 data-en="Runtime Readout of the Behavior-Tree Stack">行为树技术栈运行时读数</h2>
+            <p class="paper-abstract" data-en="Every panel below is a live read of the running ecosphere, laid out the way the source paper reports it: state before search, search before communication, then the technique map that says which claim each readout supports.">
+              下列每个面板都是生态水球的实时读数，按论文的叙述顺序排列：先状态，再搜索，再通信，最后是说明每项读数支撑哪一条技术主张的映射表。
+            </p>
+          </header>
+
+          <section class="paper-section">
+            <h3 data-en="Agent State">个体状态</h3>
+            <p class="lede" data-en="Blackboard entries, the emotional selector's four drives and the lifecycle counters that gate reproduction and death.">黑板条目、情绪选择器的四个驱动量，以及控制繁殖与死亡的生命周期计数器。</p>
+            <div id="blackboardPanel" class="blackboard-panel"></div>
           </section>
 
-          <section class="monitor-column wide">
-            <div class="panel-section">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">BLACKBOARD · EMOTION · LIFECYCLE</p>
-                  <h3 data-en="Blackboard / Emotion / Lifecycle">黑板 / 情绪 / 生命周期</h3>
-                </div>
-              </div>
-              <div id="blackboardPanel" class="blackboard-panel"></div>
-            </div>
-            <div class="panel-section">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">SEARCH · SUBGOALS</p>
-                  <h3 data-en="Search &amp; Subgoals">搜索与子目标</h3>
-                </div>
-              </div>
-              <div id="searchPanel" class="search-panel"></div>
-            </div>
-            <div class="panel-section">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">COMMUNICATION · KNOWLEDGE TRANSFER</p>
-                  <h3 data-en="Communication &amp; Knowledge Transfer">通信与知识转移</h3>
-                </div>
-              </div>
-              <div id="communicationPanel" class="communication-panel"></div>
-            </div>
+          <section class="paper-section">
+            <h3 data-en="Search &amp; Subgoals">搜索与子目标</h3>
+            <p class="lede" data-en="Candidate sampling for the selected policy, the subgoal route it compressed the water into, and the intention distribution it published to its peers.">当前策略的候选采样、它把水体压缩成的子目标路径，以及向同种个体发布的意图分布。</p>
+            <div id="searchPanel" class="search-panel"></div>
           </section>
 
-          <section class="monitor-column">
-            <div class="panel-section">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow accent">PAPER MAPPING</p>
-                  <h3 data-en="Paper Techniques Live Map">论文技术点 Live Map</h3>
-                </div>
-              </div>
-              <div id="techMap" class="tech-map"></div>
-            </div>
-            <div class="panel-section">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">FIGURES</p>
-                  <h3 data-en="Paper Figures">论文图示</h3>
-                </div>
-              </div>
-              <div id="paperFigures" class="paper-figures"></div>
-            </div>
+          <section class="paper-section">
+            <h3 data-en="Communication &amp; Knowledge Transfer">通信与知识转移</h3>
+            <p class="lede" data-en="Mailbox and episodic-buffer occupancy per agent, live ACL traffic, and the shared intentions that Dec-MCTS consumes.">各个体的 mailbox 与 episodic buffer 占用、实时 ACL 报文，以及 Dec-MCTS 消费的共享意图。</p>
+            <div id="communicationPanel" class="communication-panel"></div>
           </section>
-        </div>
+
+          <section class="paper-section">
+            <h3 data-en="Technique Map">技术点映射</h3>
+            <p class="lede" data-en="Which paper technique each currently-enabled switch exercises. Highlighted cards are active this tick.">当前开启的每个开关对应论文中的哪项技术。高亮卡片表示本 tick 处于激活状态。</p>
+            <div id="techMap" class="tech-map"></div>
+          </section>
+
+          <section class="paper-section">
+            <h3 data-en="Source Figures">论文原图</h3>
+            <p class="lede" data-en="Figures 1-6 of the source paper, for side-by-side comparison with the readouts above.">论文 Fig. 1 至 Fig. 6，用于与上述读数对照。</p>
+            <div id="paperFigures" class="paper-figures"></div>
+          </section>
+        </article>
       </section>
     </main>
 
     <script src="./ecotank.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./vendor/three/three.module.js",
+          "three/addons/": "./vendor/three/addons/"
+        }
+      }
+    </script>
+    <script type="module" src="./ecotank3d.js"></script>
   </body>
 </html>

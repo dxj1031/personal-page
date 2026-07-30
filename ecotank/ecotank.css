@@ -26,13 +26,13 @@
   --accent-ink: #04201c;
 
   /* species / semantic (engine-baked; used only in data viz) */
-  --bigfish: #ffb45f;
-  --smallfish: #6fc6ff;
-  --shrimp: #ff8aa5;
-  --plant: #78d669;
-  --food: #f4d37d;
-  --subgoal: #c398ff;
-  --danger: #ff6f6f;
+  --bigfish: #ffb04a;
+  --smallfish: #4ff0ff;
+  --shrimp: #ff5ea8;
+  --plant: #2fe08a;
+  --food: #ffe9a3;
+  --subgoal: #8b9bff;
+  --danger: #ff4d6d;
 
   --serif: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
   --sans: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", ui-sans-serif,
@@ -347,17 +347,73 @@ body.focus-mode .app-shell {
   padding: 12px;
 }
 body.focus-mode .tab-page.active,
-body.focus-mode .demo-layout,
-body.focus-mode .monitor-layout {
+body.focus-mode .demo-layout {
   height: 100%;
 }
 
 /* ------------------------------------------------------------- demo layout */
+/* The sphere is the main visual; instrumentation rings it on both sides.
+   Rails collapse under the exhibit before the exhibit ever gets narrow — a
+   squeezed sphere is worse than a stacked page. */
 .demo-layout {
   display: grid;
-  grid-template-columns: minmax(640px, 1fr) minmax(320px, 400px);
-  gap: 22px;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(600px, 2fr) minmax(300px, 0.95fr);
+  gap: 20px;
   align-items: start;
+}
+.demo-rail {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-width: 0;
+}
+/* Below three-column width the rail drops under the exhibit as a strip.
+   Both tracks are pinned explicitly — leaving one to auto-placement puts the
+   rail above the sphere, which is exactly backwards. */
+@media (max-width: 1500px) {
+  .demo-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  }
+  .exhibit {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .demo-side {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .demo-rail {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+}
+@media (max-width: 1080px) {
+  .demo-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .exhibit {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .demo-side {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .demo-rail {
+    grid-column: 1;
+    grid-row: 3;
+  }
+}
+
+/* caption — set below the thing it describes, the way a paper does */
+.caption {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--hair);
+  color: var(--faint);
+  font-size: 11.5px;
+  line-height: 1.55;
 }
 
 .panel-section {
@@ -501,7 +557,7 @@ body.focus-mode .monitor-layout {
   background: #0c0c0e;
 }
 .tank-wrap::before {
-  content: "FIG.01 — 侧视生态缸 / LIVE";
+  content: "FIG.01 — 生态水球 / LIVE";
   position: absolute;
   left: 12px;
   top: 10px;
@@ -863,18 +919,65 @@ body.focus-mode #monitorTab.active::-webkit-scrollbar {
   border-radius: 0;
 }
 
-/* ---------------------------------------------------------- monitor layout */
-.monitor-layout {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.85fr) minmax(520px, 1.5fr) minmax(320px, 1fr);
-  gap: 22px;
-  align-items: start;
+/* ----------------------------------------------------------- monitor: paper
+   The old monitor was three columns of equally-weighted boxes, so nothing told
+   you what to read first. This is a single measured column with numbered
+   sections, figure/table numbering from CSS counters, and captions under the
+   data — the reading order a paper gives you for free. */
+.paper {
+  max-width: 1080px;
+  margin: 0 auto;
+  counter-reset: sec fig tbl;
 }
-.monitor-column {
-  display: grid;
-  align-content: start;
-  gap: 18px;
-  min-width: 0;
+.paper-head {
+  padding-bottom: 22px;
+  margin-bottom: 30px;
+  border-bottom: 1px solid var(--hair-2);
+}
+.paper-head h2 {
+  margin: 9px 0 0;
+  font-family: var(--serif);
+  font-size: clamp(24px, 2.4vw, 32px);
+  font-weight: 700;
+  line-height: 1.16;
+}
+.paper-abstract {
+  margin: 16px 0 0;
+  max-width: 68ch;
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1.72;
+}
+.paper-section {
+  margin-bottom: 40px;
+  counter-increment: sec;
+}
+.paper-section > h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.paper-section > h3::before {
+  content: counter(sec);
+  min-width: 30px;
+  padding-bottom: 2px;
+  border-bottom: 2px solid var(--accent-line);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+.paper-section > .lede {
+  margin: 0 0 18px;
+  max-width: 74ch;
+  color: var(--dim);
+  font-size: 13.5px;
+  line-height: 1.7;
 }
 .population-panel p {
   margin: 12px 0 0;
@@ -936,33 +1039,47 @@ body.focus-mode #monitorTab.active::-webkit-scrollbar {
 .search-grid,
 .communication-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
 }
 .mini-panel {
   min-width: 0;
-  padding: 13px;
+  padding: 16px 18px;
   border: 1px solid var(--hair);
+  border-left: 2px solid var(--accent-line);
   border-radius: var(--radius);
   background: var(--surface-2);
 }
 .mini-panel h3,
 .tech-card h3 {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--hair);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.tech-card h3 {
+  border-bottom: 0;
+  padding-bottom: 0;
   font-family: var(--serif);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 14.5px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--text);
 }
 .mini-panel p,
 .tech-card p {
-  margin: 6px 0;
+  margin: 8px 0;
   color: var(--dim);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 12.5px;
+  line-height: 1.65;
 }
 .mini-panel .data-row {
-  font-size: 12px;
+  font-size: 12.5px;
 }
 .mono {
   font-family: var(--mono);
@@ -971,33 +1088,41 @@ body.focus-mode #monitorTab.active::-webkit-scrollbar {
 }
 
 /* tables */
+/* Booktabs-style rules: a heavy rule above and below the header, hairlines
+   between rows, nothing vertical. Denser grids read as noise. */
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 .table th,
 .table td {
-  padding: 7px 8px;
-  border-bottom: 1px solid var(--hair);
+  padding: 9px 10px;
   text-align: left;
   vertical-align: top;
 }
 .table thead th {
+  border-top: 1px solid var(--hair-3);
+  border-bottom: 1px solid var(--hair-3);
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent);
+  white-space: nowrap;
 }
 .table td {
+  border-bottom: 1px solid var(--hair);
   color: var(--dim);
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
+.table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.022);
+}
 .table tbody tr:last-child td {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--hair-3);
 }
 
 /* tech map */
@@ -1053,29 +1178,38 @@ body.focus-mode #monitorTab.active::-webkit-scrollbar {
 /* figures */
 .paper-figures {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px 20px;
 }
 .paper-figures figure {
   margin: 0;
   min-width: 0;
+  counter-increment: fig;
 }
 .paper-figures img {
   display: block;
   width: 100%;
-  height: 112px;
+  height: 230px;
   object-fit: contain;
   border-radius: var(--radius);
   border: 1px solid var(--hair);
-  background: #f3faf8;
-  padding: 8px;
+  background: #f6fbfa;
+  padding: 12px;
 }
+/* "Fig. N —" comes from a counter so the numbering can never drift from the
+   order the figures are actually rendered in */
 .paper-figures figcaption {
-  margin-top: 7px;
-  color: var(--faint);
+  margin-top: 10px;
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.paper-figures figcaption::before {
+  content: "Fig. " counter(fig) " — ";
+  color: var(--accent);
   font-family: var(--mono);
-  font-size: 10px;
-  line-height: 1.4;
+  font-size: 11px;
+  letter-spacing: 0.06em;
 }
 
 /* focus mode */
@@ -1092,10 +1226,6 @@ body.focus-mode #monitorTab.active {
 
 /* --------------------------------------------------------------- responsive */
 @media (max-width: 1280px) {
-  .demo-layout,
-  .monitor-layout {
-    grid-template-columns: 1fr;
-  }
   .metric-strip {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -1186,6 +1316,14 @@ body.focus-mode #monitorTab.active {
   font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--accent-2, #5eead4);
+  font-variant-numeric: tabular-nums;
+}
+/* clock + weather, read straight off the sky model in ecotank3d.js */
+.sky-hud {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--food);
   font-variant-numeric: tabular-nums;
 }
 .zoom-btns {
