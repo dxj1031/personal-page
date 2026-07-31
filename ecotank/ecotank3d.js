@@ -258,9 +258,14 @@ const boot = () => {
         // gradient, neutral blue-grey, no banding and no emission
         float depth = smoothstep(-0.95, 0.85, dir.y);
         float lit = smoothstep(-0.30, 0.80, dot(dir, uSun)) * uSunI;
-        vec3 deep = vec3(0.086, 0.125, 0.169);        // #16202b
-        vec3 shallow = vec3(0.141, 0.196, 0.247);     // #24323f
-        vec3 body = mix(deep, shallow, depth * (0.45 + 0.55 * lit));
+        vec3 deep = vec3(0.055, 0.086, 0.122);        // darker than spec at the floor
+        vec3 mid = vec3(0.086, 0.125, 0.169);         // #16202b
+        vec3 shallow = vec3(0.165, 0.228, 0.286);     // lifted above #24323f
+        // two-stop ramp so the column actually reads as deepening water
+        vec3 body = depth < 0.5
+          ? mix(deep, mid, smoothstep(0.0, 0.5, depth))
+          : mix(mid, shallow, smoothstep(0.5, 1.0, depth));
+        body *= 0.55 + 0.45 * lit;
         float axis = max(dot(dir, uSun), 0.0);
         float shaft = pow(axis, 6.0) * uSunI * (1.0 - uMurk * 0.6);
         // thin: this pane covers the entire disc, so anything approaching opaque
@@ -375,6 +380,31 @@ const boot = () => {
     }
   }
 
+  /* Catmull-Rom resample: fins authored as a few control points come out as
+     smooth curves rather than hard polygons. Rounding the silhouette is most
+     of what stops a low-poly mesh reading as faceted. */
+  function smoothOutline(pts, n) {
+    if (pts.length < 3) return pts;
+    const out = [];
+    const at = (i) => pts[Math.max(0, Math.min(pts.length - 1, i))];
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+      for (let k = 0; k < n; k += 1) {
+        const t = k / n, t2 = t * t, t3 = t2 * t;
+        out.push([
+          0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t
+            + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2
+            + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+          0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t
+            + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2
+            + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3),
+        ]);
+      }
+    }
+    out.push(pts[pts.length - 1]);
+    return out;
+  }
+
   /* flat polygon fan — fins, tail flukes, antennae. `plane` picks which two
      body axes the outline lives in, so the same routine makes a vertical
      dorsal and a horizontal pectoral. */
@@ -398,26 +428,31 @@ const boot = () => {
     // the oversized tail reads as the thing doing the work.
     const L = 0.84;
     sweep(B, {
-      len: L, seg: 24, ring: 12,
+      len: L, seg: 34, ring: 20,          // 12 rings still read as facets
       profile: (t) => {
-        const s = Math.sin(Math.pow(t, 0.62) * Math.PI);
-        const pinch = 0.14 + 0.86 * Math.pow(t, 0.75);
-        return [0.125 * k.girth * s * pinch, 0.225 * k.depth * s * pinch];
+        // rounder teardrop: fuller belly, blunter nose than the old 0.62 power
+        const s = Math.pow(Math.sin(Math.pow(t, 0.80) * Math.PI), 0.78);
+        const pinch = 0.18 + 0.82 * Math.pow(t, 0.55);
+        return [0.140 * k.girth * s * pinch, 0.235 * k.depth * s * pinch];
       },
     });
     const tl = 0.28 * k.tail;                      // fan, not a kite
     const th = 0.20 * k.tail;
     // deeply forked caudal fan, swept back so it trails the beat
-    fan(B, [[-L / 2 + 0.01, 0],
+    fan(B, smoothOutline([[-L / 2 + 0.01, 0],
             [-L / 2 - tl * 0.75, th], [-L / 2 - tl, th * 1.12],
             [-L / 2 - tl * 0.48, 0],
-            [-L / 2 - tl, -th * 1.12], [-L / 2 - tl * 0.75, -th]], 'xy', 0.0);
+            [-L / 2 - tl, -th * 1.12], [-L / 2 - tl * 0.75, -th]], 6), 'xy', 0.0);
     // tall thin dorsal, set well back
-    fan(B, [[-0.14, 0.075], [-0.04, 0.075 + 0.17 * k.dorsal], [0.14, 0.065]], 'xy', 0.46);
-    fan(B, [[-0.17, -0.065], [-0.08, -0.065 - 0.17 * k.dorsal], [0.02, -0.055]], 'xy', 0.40);
-    // long gauzy pectorals — these are what sell "灵动" when it turns
-    fan(B, [[0.15, 0.02], [0.00, 0.15 * k.pect], [0.04, 0.02]], 'xz', 0.74);
-    fan(B, [[0.15, -0.02], [0.04, -0.02], [0.00, -0.15 * k.pect]], 'xz', 0.74);
+    fan(B, smoothOutline([[-0.14, 0.075], [-0.06, 0.075 + 0.15 * k.dorsal],
+            [0.02, 0.075 + 0.17 * k.dorsal], [0.14, 0.065]], 6), 'xy', 0.46);
+    fan(B, smoothOutline([[-0.17, -0.065], [-0.10, -0.065 - 0.15 * k.dorsal],
+            [-0.04, -0.065 - 0.16 * k.dorsal], [0.02, -0.055]], 6), 'xy', 0.40);
+    // long gauzy pectorals, the thing that sells a turn
+    fan(B, smoothOutline([[0.15, 0.02], [0.07, 0.11 * k.pect],
+            [0.00, 0.15 * k.pect], [0.04, 0.02]], 5), 'xz', 0.74);
+    fan(B, smoothOutline([[0.15, -0.02], [0.04, -0.02],
+            [0.00, -0.15 * k.pect], [0.07, -0.11 * k.pect]], 5), 'xz', 0.74);
     return finish(B);
   }
 
@@ -425,7 +460,7 @@ const boot = () => {
   function shrimpGeometry() {
     const B = Builder();
     sweep(B, {
-      len: 0.9, seg: 20, ring: 10,
+      len: 0.9, seg: 28, ring: 16,
       profile: (t) => {
         const s = Math.sin(Math.pow(t, 0.85) * Math.PI);
         return [0.10 * s, 0.15 * s * (0.6 + 0.6 * t)];
@@ -449,7 +484,7 @@ const boot = () => {
   /* ---- snail: logarithmic-spiral shell over a flat foot ---- */
   function snailGeometry() {
     const B = Builder();
-    const TURNS = 2.35, SEG = 68, RING = 12;
+    const TURNS = 2.35, SEG = 92, RING = 18;
     const base = B.n;
     for (let i = 0; i <= SEG; i += 1) {
       const t = i / SEG;
@@ -475,7 +510,7 @@ const boot = () => {
     }
     // the foot, which does creep
     sweep(B, {
-      len: 0.86, seg: 14, ring: 10,
+      len: 0.86, seg: 20, ring: 16,
       profile: (t) => { const s = Math.sin(Math.pow(t, 0.8) * Math.PI); return [0.11 * s, 0.045 * s]; },
       bend: () => -0.09,
     });
@@ -489,7 +524,7 @@ const boot = () => {
   function louseGeometry() {
     const B = Builder();
     sweep(B, {
-      len: 0.8, seg: 12, ring: 10,
+      len: 0.8, seg: 18, ring: 14,
       profile: (t) => { const s = Math.sin(Math.pow(t, 0.7) * Math.PI); return [0.22 * s, 0.09 * s]; },
     });
     for (let i = 0; i < 3; i += 1) {
@@ -517,12 +552,18 @@ const boot = () => {
     attribute float aSpine;
     attribute float aGlow;
     attribute float aBeat;
+    attribute float aTurn;
     uniform float uTime; uniform float uSwim; uniform float uFreq;
     vec3 swim(vec3 pos, float spine, float phase) {
+      float k = pow(1.0 - spine, 1.7);
+      // stroke deepens with effort: aBeat carries speed, so a cruising fish
+      // barely flexes and a fleeing one throws its whole tail
+      float amp = uSwim * (0.60 + 0.075 * max(0.0, aBeat - 4.5));
       // travelling wave down the body; amplitude vanishes at the head so the
       // fish swims instead of shearing sideways
-      float k = pow(1.0 - spine, 1.7);
-      pos.z += sin(spine * uFreq - uTime * aBeat + phase) * uSwim * k;
+      pos.z += sin(spine * uFreq - uTime * aBeat + phase) * amp * k;
+      // and the whole body arcs through a turn, tail swinging widest
+      pos.z += aTurn * 0.16 * k;
       return pos;
     }
     // stable per-fish phase from where it is, not which instance slot it landed
@@ -552,7 +593,10 @@ const boot = () => {
       vertexShader: `
         ${SWIM_VERT}
         varying vec3 vN; varying vec3 vView; varying float vSpine; varying float vGlow;
+        varying float vDorsal;
         void main() {
+          // where this vertex sits between belly and back, for countershading
+          vDorsal = clamp(position.y * 4.2, -1.0, 1.0);
           vec4 world = instanceMatrix * vec4(swim(position, aSpine, phaseFromPos(instanceMatrix)), 1.0);
           vec4 mv = modelViewMatrix * world;
           vN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
@@ -563,21 +607,32 @@ const boot = () => {
       fragmentShader: `
         uniform vec3 uBase; uniform float uTime; uniform vec3 uSun; uniform float uSunI;
         varying vec3 vN; varying vec3 vView; varying float vSpine; varying float vGlow;
+        varying float vDorsal;
         void main() {
           vec3 n = normalize(vN); vec3 v = normalize(vView);
           float fres = pow(1.0 - abs(dot(n, v)), 3.0);
           float lam = max(dot(n, uSun), 0.0);
           float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), 60.0);
           float lit = 0.45 + 0.55 * uSunI;
-          // faint internal structure, the way it shows in a cleared specimen
-          // rather than being drawn on as a stripe
+
+          // Countershading, derived from the one species colour so the palette
+          // cannot drift: saturated back, pale belly, cooler thinner tail.
+          // Whitening the belly to 0.74 erased the species: the palette is
+          // already desaturated, so celadon and jade came out as white blobs.
+          // Keep the ramp, keep the hue.
+          vec3 dorsal  = uBase * 0.58;
+          vec3 ventral = mix(uBase, vec3(1.0, 0.97, 0.92), 0.40);
+          vec3 tint = mix(ventral, dorsal, smoothstep(-0.70, 0.70, vDorsal));
+          tint = mix(tint * 0.90, tint, smoothstep(0.0, 0.55, vSpine));
+
           float spine = smoothstep(0.86, 1.0, abs(sin(vSpine * 3.14159)));
-          vec3 col = uBase * (0.52 + 0.55 * lam) * lit
-                   + uBase * fres * 1.10
+          vec3 col = tint * (0.62 + 0.60 * lam) * lit
+                   + tint * fres * 1.15
                    + vec3(1.0, 0.99, 0.96) * spec * 0.65 * uSunI
-                   + uBase * spine * 0.20;
-          // condition shows as clarity: a starving animal goes cloudy, not dim
-          float a = (0.46 + fres * 0.48 + spec * 0.4) * (0.68 + 0.32 * vGlow);
+                   + uBase * spine * 0.18;
+          // condition shows as clarity, and the tail thins out as well
+          float a = (0.46 + fres * 0.48 + spec * 0.4)
+                  * (0.68 + 0.32 * vGlow) * (0.72 + 0.28 * smoothstep(0.0, 0.5, vSpine));
           gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
         }`,
     });
@@ -599,13 +654,15 @@ const boot = () => {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const glow = new Float32Array(cap);
     const beat = new Float32Array(cap);
+    const turn = new Float32Array(cap);
     mesh.geometry.setAttribute('aGlow', new THREE.InstancedBufferAttribute(glow, 1));
+    mesh.geometry.setAttribute('aTurn', new THREE.InstancedBufferAttribute(turn, 1));
     mesh.geometry.setAttribute('aBeat', new THREE.InstancedBufferAttribute(beat, 1));
     mesh.count = 0;
     mesh.renderOrder = 10;
     scene.add(mesh);
 
-    pools[species] = { mesh, glow, beat, cap, ids: [] };
+    pools[species] = { mesh, glow, beat, turn, cap, ids: [] };
   });
 
   /* --------------------------------------------------- placing an organism
@@ -645,6 +702,16 @@ const boot = () => {
       .normalize();
     up.crossVectors(fwd, radial).normalize();  // dorsal, toward the light
     side.crossVectors(fwd, up).normalize();
+    // Bank: roll the dorsal axis about the heading, proportional to how hard
+    // the agent is turning. This is the single biggest tell between a fish and
+    // a model being dragged along a path.
+    const bank = clamp(-(v.turn || 0) * 7.0, -0.75, 0.75);
+    if (bank !== 0) {
+      const cb = Math.cos(bank), sb = Math.sin(bank);
+      const ux = up.x, uy = up.y, uz = up.z;
+      up.set(ux * cb + side.x * sb, uy * cb + side.y * sb, uz * cb + side.z * sb).normalize();
+      side.crossVectors(fwd, up).normalize();
+    }
     M.makeBasis(fwd, up, side);
     Q.setFromRotationMatrix(M);
 
@@ -660,6 +727,7 @@ const boot = () => {
     // a starving animal dims; a frightened one flares and beats faster
     pool.glow[index] = 0.30 + energyFrac * 0.85 + (fleeing ? 0.45 : 0);
     pool.beat[index] = 4.5 + Math.min(9.0, (v.spd || 0) * 2.4) + (fleeing ? 5.0 : 0);
+    pool.turn[index] = clamp((v.turn || 0) * 5.0, -1, 1);
   }
 
   function syncOrganisms(world) {
@@ -677,6 +745,7 @@ const boot = () => {
       pool.mesh.count = pool.ids.length;
       pool.mesh.instanceMatrix.needsUpdate = true;
       pool.mesh.geometry.getAttribute('aGlow').needsUpdate = true;
+      pool.mesh.geometry.getAttribute('aTurn').needsUpdate = true;
       pool.mesh.geometry.getAttribute('aBeat').needsUpdate = true;
     });
   }
@@ -741,8 +810,12 @@ const boot = () => {
         float across = abs(vUv.x * 2.0 - 1.0);
         float edge = pow(across, 2.0);
         float thin = 1.0 - vT * 0.55;
-        vec3 col = uBase * (0.35 + 0.45 * thin) * (0.55 + 0.45 * uSunI)
-                 + uBase * edge * 0.5
+        // rooted end deeper, tip paler and yellower, the way a frond thins out
+        vec3 deepEnd = uBase * 0.55;
+        vec3 tipEnd = mix(uBase, vec3(0.90, 1.00, 0.72), 0.45);
+        vec3 grad = mix(deepEnd, tipEnd, smoothstep(0.0, 1.0, vT));
+        vec3 col = grad * (0.62 + 0.42 * thin) * (0.55 + 0.45 * uSunI)
+                 + grad * edge * 0.5
                  + vec3(0.85, 0.95, 0.88) * (1.0 - across) * 0.10;
         gl_FragColor = vec4(col, (0.42 + edge * 0.35) * thin);
       }`,

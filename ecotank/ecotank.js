@@ -1838,7 +1838,7 @@
           x: a.x, y: a.y, ang: 0, spd: 0,
           // z is render-only: the simulation stays strictly 2D, but the water sphere
           // needs a third axis or every organism sits on one great circle
-          z: Math.random() * WORLD.depth, zVel: 0, zPhase: Math.random() * 6.28,
+          z: Math.random() * WORLD.depth, zVel: 0, zPhase: Math.random() * 6.28, turn: 0,
         };
       }
       const v = a.__vis;
@@ -1854,11 +1854,16 @@
       let da = ta - v.ang;
       while (da > Math.PI) da -= Math.PI * 2;
       while (da < -Math.PI) da += Math.PI * 2;
-      v.ang += da * 0.2;
+      const applied = da * 0.2;
+      v.ang += applied;
+      // smoothed angular velocity. A fish that is turning should lean into the
+      // arc and bend through it; without this it slides round corners flat,
+      // which is what makes rendered fish look like they are on rails.
+      v.turn += (applied - v.turn) * 0.22;
       v.tail += 0.18 + v.spd * 0.16;
     });
   }
-  function vis(a) { return a.__vis || { x: a.x, y: a.y, ang: 0, spd: 0, z: WORLD.depth / 2, zVel: 0 }; }
+  function vis(a) { return a.__vis || { x: a.x, y: a.y, ang: 0, spd: 0, z: WORLD.depth / 2, zVel: 0, turn: 0 }; }
 
   /* The sphere renderer needs a third coordinate that the 2D simulation does not have.
      Inventing a random one would scatter interacting agents across the ball — a predator
