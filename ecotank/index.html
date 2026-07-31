@@ -62,33 +62,23 @@
             <section class="panel-section">
               <div class="section-head">
                 <div>
-                  <p class="eyebrow accent">POPULATION</p>
-                  <h3 data-en="Standing Stock">现存量</h3>
+                  <p class="eyebrow accent">BEHAVIOR TREE</p>
+                  <h3 data-en="Tick Structure">Tick 结构</h3>
                 </div>
               </div>
-              <div id="populationPanel" class="population-panel"></div>
-              <p class="caption" data-en="Live counts against each species' reproduction ceiling.">各物种当前数量与其繁殖上限的比值。</p>
+              <div id="btTree" class="viz-panel"></div>
+              <p class="caption" data-en="Live node-link tree for the focused agent. Fill marks the node returning RUNNING this tick.">选中个体的实时节点树。高亮为本 tick 返回 RUNNING 的节点。</p>
             </section>
 
             <section class="panel-section">
               <div class="section-head">
                 <div>
-                  <p class="eyebrow">BEHAVIOR TREE</p>
-                  <h3 data-en="Tick Status">Tick 状态</h3>
+                  <p class="eyebrow">SEARCH</p>
+                  <h3 data-en="MCTS Candidate Fan">MCTS 候选扇形</h3>
                 </div>
               </div>
-              <div id="btTree" class="bt-tree"></div>
-              <p class="caption" data-en="Node return values for the focused agent on the most recent tick.">选中个体最近一次 tick 的节点返回值。</p>
-            </section>
-
-            <section class="panel-section">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">SPECIES INTERACTION NETWORK</p>
-                  <h3 data-en="Interaction Network">关系网络</h3>
-                </div>
-              </div>
-              <div id="relationshipGraph" class="relationship-graph"></div>
+              <div id="mctsPanel" class="viz-panel"></div>
+              <p class="caption" data-en="Root state branching to sampled candidates. Edge width is visit count, opacity is backed-up value; the amber branch is the argmax.">根状态到候选动作的采样分支。连线粗细为访问次数，不透明度为回传价值，琥珀色为当前 argmax。</p>
             </section>
           </aside>
 
@@ -210,21 +200,23 @@
             <section class="panel-section">
               <div class="section-head">
                 <div>
-                  <p class="eyebrow">SCRIPTED WALKTHROUGH</p>
-                  <h3 data-en="Demo Script">演示脚本</h3>
+                  <p class="eyebrow accent">IKT-BT · EBU</p>
+                  <h3 data-en="Knowledge Transfer">知识转移</h3>
                 </div>
               </div>
-              <div id="scriptPanel" class="script-panel"></div>
+              <div id="ebuPanel" class="viz-panel"></div>
+              <p class="caption" data-en="The eavesdrop to episodic-buffer to knowledge-base pipeline, with the focused agent's live buffer occupancy below.">窃听 → 情景缓冲 → 知识库 的流水线，下方为选中个体当前的缓冲槽占用。</p>
             </section>
 
             <section class="panel-section">
               <div class="section-head">
                 <div>
-                  <p class="eyebrow">EVENT LOG</p>
-                  <h3 data-en="Ecosystem Events">生态事件</h3>
+                  <p class="eyebrow">COMMUNICATION</p>
+                  <h3 data-en="Message Chords">通信弦图</h3>
                 </div>
               </div>
-              <div id="eventFeed" class="event-feed"></div>
+              <div id="commPanel" class="viz-panel"></div>
+              <p class="caption" data-en="Live ACL traffic. Each chord is one message, coloured by protocol; red is a hard (interrupting) message.">实时 ACL 报文。每条弦是一次通信，按协议着色，红色为 hard（可打断）报文。</p>
             </section>
           </aside>
         </div>
@@ -239,6 +231,20 @@
               下列每个面板都是生态水球的实时读数，按论文的叙述顺序排列：先状态，再搜索，再通信，最后是说明每项读数支撑哪一条技术主张的映射表。
             </p>
           </header>
+
+          <section class="paper-section">
+            <h3 data-en="Standing Stock">现存量</h3>
+            <p class="lede" data-en="Live counts against each species reproduction ceiling, and the interaction network the relationship systems produce.">各物种当前数量与其繁殖上限的比值，以及关系系统产生的交互网络。</p>
+            <div id="populationPanel" class="population-panel"></div>
+            <div id="relationshipGraph" class="relationship-graph"></div>
+          </section>
+
+          <section class="paper-section">
+            <h3 data-en="Run Log">运行记录</h3>
+            <p class="lede" data-en="The scripted walkthrough and the raw ecosystem event stream. Kept out of the main view on purpose: the panels around the sphere are for reading mechanism, this is for auditing it.">演示脚本与原始生态事件流。刻意放在主视图之外：球周围的面板用于看机制，这里用于查证。</p>
+            <div id="scriptPanel" class="script-panel"></div>
+            <div id="eventFeed" class="event-feed"></div>
+          </section>
 
           <section class="paper-section">
             <h3 data-en="Agent State">个体状态</h3>

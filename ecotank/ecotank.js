@@ -328,6 +328,9 @@
     ui.eventFeed = document.getElementById("eventFeed");
     ui.populationPanel = document.getElementById("populationPanel");
     ui.btTree = document.getElementById("btTree");
+    ui.mctsPanel = document.getElementById("mctsPanel");
+    ui.ebuPanel = document.getElementById("ebuPanel");
+    ui.commPanel = document.getElementById("commPanel");
     ui.blackboardPanel = document.getElementById("blackboardPanel");
     ui.searchPanel = document.getElementById("searchPanel");
     ui.communicationPanel = document.getElementById("communicationPanel");
@@ -1901,6 +1904,9 @@
     renderEvents();
     renderPopulation();
     renderBt();
+    renderMcts();
+    renderEbu();
+    renderComm();
     renderBlackboard();
     renderSearch();
     renderCommunication();
@@ -2082,29 +2088,230 @@
     `;
   }
 
+  /* =====================================================================
+     PAPER VISUALISATIONS
+     Four live diagrams, one per technique the paper turns on. All SVG, all
+     driven off the selected agent, none of them a scrolling log — the point
+     is to see the mechanism working, not to read that it worked.
+     ===================================================================== */
+
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svgWrap = (w, h, body) =>
+    `<svg class="viz" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" xmlns="${SVG_NS}">${body}</svg>`;
+  const esc = (t) => String(t).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+  const STATUS_COLOR = {
+    running: "#e0a850", success: "#8fc7ac", failure: "#d4736e", idle: "#4a5560",
+  };
+  const emptyViz = (msg) => `<p class="viz-empty">${msg}</p>`;
+
+  /* ---- 1. Behaviour tree: the real node-link shape, not an indented list ---- */
+  const BT_NODES = [
+    { id: "root", label: "Root", kind: "?", parent: null, depth: 0 },
+    { id: "mail", label: "checkMailbox", kind: "svc", parent: "root", depth: 1 },
+    { id: "rh", label: "Event Handler", kind: "RH", parent: "mail", depth: 2 },
+    { id: "crit", label: "Critical Survival", kind: "\u2192", parent: "mail", depth: 2 },
+    { id: "emo", label: "Emotional Sel.", kind: "?", parent: "root", depth: 1 },
+    { id: "search", label: "Search Policy", kind: "?", parent: "root", depth: 1 },
+    { id: "tmod", label: "Knowledge Xfer", kind: "Tmod", parent: "root", depth: 1 },
+    { id: "life", label: "Lifecycle", kind: "\u2192", parent: "root", depth: 1 },
+    { id: "act", label: "Action Mgr", kind: "\u2192", parent: "root", depth: 1 },
+  ];
+  const BT_SOURCE = {
+    root: "Root Selector", mail: "Service: checkMailbox", rh: "RH: Event Handler",
+    crit: "Critical Survival Sequence", emo: "Emotional Selector",
+    search: "Search Policy", tmod: "Tmod: Knowledge Transfer",
+    life: "Lifecycle Sequence", act: "Action Manager",
+  };
+
   function renderBt() {
     const agent = getAgent(selectedId);
-    if (!agent) {
-      ui.btTree.innerHTML = tr("<p>无选中个体。</p>", "<p>No agent selected.</p>");
+    if (!agent) { ui.btTree.innerHTML = emptyViz(tr("未选择个体", "No agent selected")); return; }
+
+    const W = 300, ROW = 30, PAD = 12;
+    const H = PAD * 2 + BT_NODES.length * ROW;
+    const pos = {};
+    BT_NODES.forEach((n, i) => {
+      pos[n.id] = { x: PAD + 10 + n.depth * 26, y: PAD + i * ROW + ROW / 2 };
+    });
+
+    let edges = "";
+    BT_NODES.forEach((n) => {
+      if (!n.parent) return;
+      const a = pos[n.parent], b = pos[n.id];
+      // elbow: down the parent's spine, then across to the child
+      edges += `<path d="M${a.x} ${a.y + 9} V${b.y} H${b.x - 5}" fill="none"
+        stroke="rgba(255,255,255,0.16)" stroke-width="1"/>`;
+    });
+
+    let nodes = "";
+    BT_NODES.forEach((n) => {
+      const st = agent.bt[BT_SOURCE[n.id]] || STATUS.idle;
+      const c = STATUS_COLOR[st] || STATUS_COLOR.idle;
+      const { x, y } = pos[n.id];
+      const active = st === "running";
+      nodes += `
+        <g>
+          <rect x="${x - 5}" y="${y - 9}" width="${W - x - 10}" height="18" rx="3"
+                fill="${active ? "rgba(224,168,80,0.12)" : "rgba(255,255,255,0.03)"}"
+                stroke="${c}" stroke-width="${active ? 1.4 : 0.8}" opacity="${st === "idle" ? 0.5 : 1}"/>
+          <text class="viz-kind" x="${x + 3}" y="${y + 3.5}" fill="${c}">${esc(n.kind)}</text>
+          <text class="viz-label" x="${x + 30}" y="${y + 3.5}">${esc(n.label)}</text>
+          <circle cx="${W - 18}" cy="${y}" r="3.5" fill="${c}" opacity="${st === "idle" ? 0.35 : 1}"/>
+        </g>`;
+    });
+
+    ui.btTree.innerHTML = svgWrap(W, H, edges + nodes)
+      + `<div class="viz-legend">`
+      + Object.entries({ running: tr("执行中", "running"), success: tr("成功", "success"),
+        failure: tr("失败", "failure"), idle: tr("未触发", "idle") })
+        .map(([k, lab]) => `<span><i style="background:${STATUS_COLOR[k]}"></i>${lab}</span>`).join("")
+      + `</div>`;
+  }
+
+  /* ---- 2. MCTS / Dec-SGTS: candidate fan, width = visits, fill = value ---- */
+  function renderMcts() {
+    const agent = getAgent(selectedId);
+    if (!agent || !agent.searchRows || !agent.searchRows.length) {
+      ui.mctsPanel.innerHTML = emptyViz(tr("等待下一次决策", "Waiting for the next decision"));
       return;
     }
-    const rows = [
-      ["Root Selector", 0],
-      ["Service: checkMailbox", 14],
-      ["RH: Event Handler", 28],
-      ["Critical Survival Sequence", 28],
-      ["Emotional Selector", 14],
-      ["Search Policy", 14],
-      ["Tmod: Knowledge Transfer", 14],
-      ["Lifecycle Sequence", 14],
-      ["Action Manager", 14],
+    const rows = agent.searchRows.slice(0, 7);
+    const W = 300, PAD = 14, ROW = 26;
+    const H = PAD * 2 + rows.length * ROW;
+    const maxV = Math.max(1, ...rows.map((r) => r.visits));
+    const vals = rows.map((r) => r.value).filter((v) => v > -900);
+    const lo = Math.min(...vals, 0), hi = Math.max(...vals, 1);
+    const norm = (v) => (v <= -900 ? 0 : (v - lo) / Math.max(0.0001, hi - lo));
+
+    const rootX = PAD + 6, rootY = H / 2;
+    let body = `<circle cx="${rootX}" cy="${rootY}" r="7" fill="none"
+      stroke="#e0a850" stroke-width="1.4"/>
+      <text class="viz-kind" x="${rootX - 4}" y="${rootY + 3.5}" fill="#e0a850">s</text>`;
+
+    rows.forEach((r, i) => {
+      const y = PAD + i * ROW + ROW / 2;
+      const x = PAD + 78;
+      const t = norm(r.value);
+      const w = 1 + (r.visits / maxV) * 4.5;          // edge weight = visit count
+      const best = i === 0;
+      body += `
+        <path d="M${rootX + 8} ${rootY} C${rootX + 40} ${rootY}, ${x - 34} ${y}, ${x - 8} ${y}"
+              fill="none" stroke="${best ? "#e0a850" : "#7f8b96"}" stroke-width="${w}"
+              opacity="${0.25 + t * 0.6}"/>
+        <circle cx="${x}" cy="${y}" r="${4 + (r.visits / maxV) * 4}"
+                fill="${best ? "#e0a850" : "#86bfc0"}" opacity="${0.35 + t * 0.6}"/>
+        <text class="viz-label" x="${x + 14}" y="${y + 3.5}">${esc(r.label).slice(0, 22)}</text>
+        <text class="viz-num" x="${W - PAD}" y="${y + 3.5}" text-anchor="end">${r.visits}</text>`;
+    });
+
+    const trace = agent.searchTrace || {};
+    const meta = Object.entries(trace).slice(0, 3)
+      .map(([k, v]) => `<span>${esc(k)} <b>${esc(v)}</b></span>`).join("");
+    ui.mctsPanel.innerHTML = svgWrap(W, H, body)
+      + `<div class="viz-legend"><span>${settings.search.toUpperCase()}</span>`
+      + `<span>${tr("连线粗细 = 访问次数", "edge = visits")}</span>`
+      + `<span>${tr("不透明度 = 价值", "opacity = value")}</span></div>`
+      + (meta ? `<div class="viz-meta">${meta}</div>` : "");
+  }
+
+  /* ---- 3. EBU: the eavesdrop -> buffer -> merge pipeline, as a pipeline ---- */
+  function renderEbu() {
+    const agent = getAgent(selectedId);
+    if (!agent) { ui.ebuPanel.innerHTML = emptyViz(tr("未选择个体", "No agent selected")); return; }
+
+    const W = 300, H = 152, PAD = 14;
+    // Per-agent occupancy, not global counters: the paper's pipeline is a
+    // property of one agent. (An earlier version plotted world.counters
+    // .eavesdrops here — cumulative over the whole run, so bar one was pinned
+    // at full within seconds and the comparison said nothing.)
+    const KNOW_CAP = 16;                       // enforced in learn()
+    const bufCap = Math.max(16, agent.buffer.length);
+    const stages = [
+      { label: tr("信箱", "Mailbox"), n: agent.mailbox.length, cap: 8, c: "#86bfc0" },
+      { label: tr("情景缓冲", "Episodic buf"), n: agent.buffer.length, cap: bufCap, c: "#97a4c9" },
+      { label: tr("知识库", "Knowledge"), n: agent.knowledge.length, cap: KNOW_CAP, c: "#8fc7ac" },
     ];
-    ui.btTree.innerHTML = rows
-      .map(([name, indent]) => {
-        const status = agent.bt[name] || STATUS.idle;
-        return `<div class="tree-row" style="--indent:${indent + 8}px"><span>${name}</span><span class="status ${status}">${status}</span></div>`;
-      })
-      .join("");
+    const bw = (W - PAD * 2 - 40) / 3;
+    let body = "";
+    stages.forEach((st, i) => {
+      const x = PAD + i * (bw + 20);
+      const fill = Math.min(1, st.n / Math.max(1, st.cap));
+      body += `
+        <rect x="${x}" y="26" width="${bw}" height="46" rx="4"
+              fill="rgba(255,255,255,0.03)" stroke="${st.c}" stroke-width="0.9" opacity="0.8"/>
+        <rect x="${x}" y="${26 + 46 * (1 - fill)}" width="${bw}" height="${46 * fill}" rx="4"
+              fill="${st.c}" opacity="0.30"/>
+        <text class="viz-num-lg" x="${x + bw / 2}" y="55" text-anchor="middle" fill="${st.c}">${st.n}</text>
+        <text class="viz-label" x="${x + bw / 2}" y="88" text-anchor="middle">${esc(st.label)}</text>
+        <text class="viz-num" x="${x + bw / 2}" y="99" text-anchor="middle">/${st.cap}</text>`;
+      if (i < 2) {
+        const ax = x + bw + 4;
+        body += `<path d="M${ax} 49 H${ax + 12}" stroke="${st.c}" stroke-width="1" opacity="0.6"/>
+                 <path d="M${ax + 12} 49 l-4 -3 v6 z" fill="${st.c}" opacity="0.6"/>`;
+      }
+    });
+
+    // the knowledge base itself, one tick per retained fact
+    for (let i = 0; i < KNOW_CAP; i += 1) {
+      const held = agent.knowledge[i];
+      const x = PAD + i * ((W - PAD * 2) / KNOW_CAP);
+      body += `<rect x="${x}" y="112" width="${(W - PAD * 2) / KNOW_CAP - 2}" height="10" rx="2"
+        fill="${held ? "#8fc7ac" : "rgba(255,255,255,0.05)"}" opacity="${held ? 0.75 : 1}"/>`;
+    }
+    body += `<text class="viz-label" x="${PAD}" y="140">${tr("知识槽位", "knowledge slots")}</text>`;
+
+    ui.ebuPanel.innerHTML = svgWrap(W, H, body)
+      + `<div class="viz-legend"><span>${tr("模式", "mode")} <b>${settings.comm.toUpperCase()}</b></span>`
+      + `<span>${tr("窃听", "eavesdrops")} ${world.counters.eavesdrops}</span>`
+      + `<span>${tr("查询", "queries")} ${world.counters.queries}</span>`
+      + `<span>${tr("合并", "merges")} ${world.counters.knowledgeUpdates}</span></div>`;
+  }
+
+  /* ---- 4. Communication: who is talking to whom, as a chord diagram ---- */
+  function renderComm() {
+    const msgs = world.messages.slice(-24);
+    const W = 300, H = 190, cx = W / 2, cy = 92, R = 66;
+    if (!msgs.length) {
+      ui.commPanel.innerHTML = emptyViz(tr("当前无通信", "No live traffic"));
+      return;
+    }
+    const ids = [];
+    msgs.forEach((m) => { [m.from, m.to].forEach((id) => { if (id && !ids.includes(id)) ids.push(id); }); });
+    const shown = ids.slice(0, 14);
+    const at = {};
+    shown.forEach((id, i) => {
+      const a = (i / shown.length) * Math.PI * 2 - Math.PI / 2;
+      at[id] = { x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, a };
+    });
+
+    const KIND_COLOR = { QRA: "#86bfc0", QRU: "#97a4c9", EU: "#8fc7ac", EBU: "#e0a850" };
+    let body = "";
+    msgs.forEach((m) => {
+      const a = at[m.from], b = at[m.to];
+      if (!a || !b) return;
+      const c = KIND_COLOR[m.kind] || "#7f8b96";
+      const hard = m.priority === "hard";
+      // pull the chord toward the centre so bundles stay readable
+      body += `<path d="M${a.x} ${a.y} Q${cx} ${cy} ${b.x} ${b.y}" fill="none"
+        stroke="${hard ? "#d4736e" : c}" stroke-width="${hard ? 1.6 : 0.9}"
+        opacity="${clamp(m.ttl / 78, 0.15, 0.8)}"/>`;
+    });
+    shown.forEach((id) => {
+      const a = at[id];
+      const ag = getAgent(id);
+      const c = ag ? COLORS[ag.species] : "#7f8b96";
+      const sel = id === selectedId;
+      body += `<circle cx="${a.x}" cy="${a.y}" r="${sel ? 5 : 3.2}" fill="${c}"
+        stroke="${sel ? "#ffffff" : "none"}" stroke-width="${sel ? 1.2 : 0}"/>`;
+    });
+
+    const counts = {};
+    msgs.forEach((m) => { counts[m.kind] = (counts[m.kind] || 0) + 1; });
+    ui.commPanel.innerHTML = svgWrap(W, H, body)
+      + `<div class="viz-legend">`
+      + Object.keys(KIND_COLOR).map((k) =>
+        `<span><i style="background:${KIND_COLOR[k]}"></i>${k} ${counts[k] || 0}</span>`).join("")
+      + `</div>`;
   }
 
   function renderBlackboard() {

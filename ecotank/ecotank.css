@@ -406,6 +406,86 @@ body.focus-mode .demo-layout {
   }
 }
 
+/* ---------------------------------------------------------- paper diagrams
+   The four technique panels are SVG, not text. Everything here is about
+   keeping the drawing legible at rail width: hairline strokes, tabular
+   figures, and labels that never wrap. */
+.viz-panel {
+  min-width: 0;
+}
+.viz {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.viz .viz-label {
+  fill: var(--dim);
+  font-family: var(--sans);
+  font-size: 10.5px;
+}
+.viz .viz-kind {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+}
+.viz .viz-num {
+  fill: var(--faint);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+.viz .viz-num-lg {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 10px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.viz-legend i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 1px;
+  vertical-align: baseline;
+}
+.viz-legend b {
+  color: var(--text);
+  font-weight: 500;
+}
+.viz-meta {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hair);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+.viz-meta b {
+  color: var(--dim);
+  font-weight: 500;
+}
+.viz-empty {
+  margin: 0;
+  padding: 22px 0;
+  text-align: center;
+  color: var(--fainter);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
 /* caption — set below the thing it describes, the way a paper does */
 .caption {
   margin: 12px 0 0;
