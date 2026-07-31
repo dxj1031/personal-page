@@ -37,7 +37,8 @@ const MAX_LAT = 1.25;      // ~72deg: the latitude the tank floor maps to
 const CAP_LAT = 1.02;      // seabed cap covers everything below this latitude
 const INNER = 0.56;        // living shell runs from INNER*R out to the skin
 const HOME_DIST = R * 3.3;
-const SUN = new THREE.Vector3(0, 1, 0);   // recomputed every frame by the day cycle
+const SUN = new THREE.Vector3(0, 1, 0);
+const SWIM_MODES = ['eel', 'carangiform', 'power', 'burst'];   // recomputed every frame by the day cycle
 
 /* Day cycle and weather. The sun arcs east->west over the lit pole, dips below
    it at night, and the weather states only ever move four numbers, so the whole
@@ -553,17 +554,55 @@ const boot = () => {
     attribute float aGlow;
     attribute float aBeat;
     attribute float aTurn;
-    uniform float uTime; uniform float uSwim; uniform float uFreq;
+    uniform float uTime; uniform float uSwim; uniform float uMode;
+
+    /* Four swimming gaits. The thing that decides whether a fish reads as
+       swimming or as vibrating is how many wavelengths sit on the body: real
+       fish carry well under one, and the first version of this used 1.4-2,
+       which is why it looked like tail jitter. aBeat is normalised effort
+       (0 idle .. ~1.6 fleeing), not a frequency, so each gait sets its own
+       tempo and stays slow.                                                */
     vec3 swim(vec3 pos, float spine, float phase) {
-      float k = pow(1.0 - spine, 1.7);
-      // stroke deepens with effort: aBeat carries speed, so a cruising fish
-      // barely flexes and a fleeing one throws its whole tail
-      float amp = uSwim * (0.60 + 0.075 * max(0.0, aBeat - 4.5));
-      // travelling wave down the body; amplitude vanishes at the head so the
-      // fish swims instead of shearing sideways
-      pos.z += sin(spine * uFreq - uTime * aBeat + phase) * amp * k;
+      float body = 1.0 - spine;              // 0 at the nose, 1 at the tail
+      float effort = clamp(aBeat, 0.0, 1.6);
+      float amp = uSwim * (0.70 + 0.55 * effort);
+      float env, wave, gate = 1.0;
+
+      if (uMode < 0.5) {
+        // 0 — anguilliform: the whole body undulates, eel-like. Amplitude
+        // never fully dies at the head, so nothing is rigid.
+        float W = 1.55 * (0.60 + 0.70 * effort);
+        env = 0.22 + 0.78 * body;
+        wave = sin(body * 4.0 - uTime * W + phase);
+      } else if (uMode < 1.5) {
+        // 1 — carangiform: front third stiff, rear half does the work. The
+        // classic trout/tuna gait.
+        float W = 1.85 * (0.60 + 0.75 * effort);
+        env = pow(body, 2.0);
+        wave = sin(body * 3.1 - uTime * W + phase);
+      } else if (uMode < 2.5) {
+        // 2 — power stroke: same travelling wave, but time is skewed so the
+        // fish sweeps fast through the middle of the stroke and lingers at
+        // the extremes. That asymmetry is what reads as a push.
+        float W = 1.35 * (0.60 + 0.70 * effort);
+        float ph = uTime * W - phase;
+        float sk = ph + 0.62 * sin(ph);      // fast through zero, slow at the ends
+        env = 0.26 + 0.74 * pow(body, 1.35);
+        wave = sin(body * 2.9 - sk);
+      } else {
+        // 3 — glide and burst: a short beat, then a long coast. The body
+        // holds its curve through the glide instead of going limp.
+        float W = 2.10 * (0.60 + 0.80 * effort);
+        float cyc = fract(uTime * 0.19 * (0.6 + 0.5 * effort) + phase * 0.15);
+        gate = smoothstep(0.0, 0.10, cyc) * (1.0 - smoothstep(0.30, 0.68, cyc));
+        gate = 0.16 + 0.84 * gate;
+        env = 0.20 + 0.80 * pow(body, 1.5);
+        wave = sin(body * 3.3 - uTime * W + phase);
+      }
+
+      pos.z += wave * env * amp * gate;
       // and the whole body arcs through a turn, tail swinging widest
-      pos.z += aTurn * 0.16 * k;
+      pos.z += aTurn * 0.16 * pow(body, 1.3);
       return pos;
     }
     // stable per-fish phase from where it is, not which instance slot it landed
@@ -586,7 +625,7 @@ const boot = () => {
       transparent: true,
       depthWrite: false,
       uniforms: {
-        uTime: { value: 0 }, uSwim: { value: swim }, uFreq: { value: freq },
+        uTime: { value: 0 }, uSwim: { value: swim }, uMode: { value: 2 },
         uSun: { value: SUN.clone() }, uSunI: { value: 1 },
         uBase: { value: new THREE.Color(COLORS[species]) },
       },
@@ -639,8 +678,8 @@ const boot = () => {
   }
 
   const SWIM = {
-    bigfish: [0.090, 8.5], smallfish: [0.115, 11.0], cleaner: [0.120, 12.0],
-    shrimp: [0.070, 7.5], snail: [0.004, 2.0], louse: [0.040, 13.0],
+    bigfish: [0.065, 0], smallfish: [0.080, 0], cleaner: [0.085, 0],
+    shrimp: [0.050, 0], snail: [0.004, 0], louse: [0.030, 0],
   };
 
   // per-species instanced pool; capacity is the birth ceiling plus slack for
@@ -726,7 +765,8 @@ const boot = () => {
     const fleeing = agent.action && (agent.action.type === 'flee' || agent.action.type === 'hide');
     // a starving animal dims; a frightened one flares and beats faster
     pool.glow[index] = 0.30 + energyFrac * 0.85 + (fleeing ? 0.45 : 0);
-    pool.beat[index] = 4.5 + Math.min(9.0, (v.spd || 0) * 2.4) + (fleeing ? 5.0 : 0);
+    // normalised effort, not a frequency: each gait picks its own tempo
+    pool.beat[index] = clamp((v.spd || 0) / 3.2, 0, 1) + (fleeing ? 0.6 : 0);
     pool.turn[index] = clamp((v.turn || 0) * 5.0, -1, 1);
   }
 
@@ -1398,6 +1438,7 @@ const boot = () => {
       u.uTime.value = clock;
       u.uSun.value.copy(SUN);
       u.uSunI.value = sky.sun;
+      u.uMode.value = SWIM_MODES.indexOf(settings.swim) < 0 ? 2 : SWIM_MODES.indexOf(settings.swim);
     });
 
     controls.update();

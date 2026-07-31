@@ -271,6 +271,7 @@
     eventDriven: true,
     lifecycle: true,
     commRange: 150,
+    swim: "power",
     overlays: {
       perception: false,
       messages: false,
@@ -319,6 +320,7 @@
     ui.emotionToggle = document.getElementById("emotionToggle");
     ui.eventToggle = document.getElementById("eventToggle");
     ui.lifecycleToggle = document.getElementById("lifecycleToggle");
+    ui.swimMode = document.getElementById("swimMode");
     ui.commRange = document.getElementById("commRange");
     ui.commRangeValue = document.getElementById("commRangeValue");
     ui.agentSelect = document.getElementById("agentSelect");
@@ -383,6 +385,7 @@
       button.addEventListener("click", () => switchTab(button.dataset.tab));
     });
     ui.searchMode.addEventListener("click", (event) => setSegment(event, "search"));
+    if (ui.swimMode) ui.swimMode.addEventListener("click", (event) => setSegment(event, "swim"));
     ui.commMode.addEventListener("click", (event) => setSegment(event, "comm"));
     ui.emotionToggle.addEventListener("change", () => {
       settings.emotion = ui.emotionToggle.checked;
@@ -637,6 +640,9 @@
     event.currentTarget.querySelectorAll("button").forEach((item) => {
       item.classList.toggle("active", item === button);
     });
+    // The swim gait is purely a render choice, so it must not reset the search
+    // state — doing so would blank the MCTS panel on every gait change.
+    if (key === "swim") { renderAll(); return; }
     world.activeTech = key === "search" ? settings.search : "ikt";
     world.organisms.forEach((organism) => {
       organism.searchRows = [];
