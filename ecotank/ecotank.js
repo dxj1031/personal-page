@@ -29,27 +29,27 @@
      glow term in ecotank3d.js as well as to the monitor's dots and bars, and
      the two must not drift apart. */
   const COLORS = {
-    bigfish: "#e0a850",
-    smallfish: "#a4c8c2",
-    shrimp: "#dd9a9a",
-    snail: "#c9b78c",
-    cleaner: "#8fc7ac",
-    louse: "#a7a2c2",
-    plant: "#6fae8f",
-    food: "#e6cd9a",
-    danger: "#d4736e",
-    message: "#86bfc0",
-    subgoal: "#97a4c9",
+    bigfish: "#f0b478",
+    smallfish: "#9ec6d8",
+    shrimp: "#eaa79e",
+    snail: "#cfae86",
+    cleaner: "#a8cfa8",
+    louse: "#b8aacc",
+    plant: "#86bf86",
+    food: "#f5dfae",
+    danger: "#e08a80",
+    message: "#8fc9c4",
+    subgoal: "#a8b0d8",
   };
 
   // relationship-type palette (cross-species + intraspecies interactions)
   const REL_COLORS = {
-    predation: "#d4736e",   // 捕食
-    mutualism: "#8fc7ac",   // 共生 (cleaner <-> host)
-    parasitism: "#a7a2c2",  // 寄生 (louse -> host)
-    competition: "#e0a850", // 跨物种竞争
-    intraspecific: "#dd9a9a", // 物种内竞争
-    cooperation: "#8fb4cc", // 合作
+    predation: "#e08a80",   // 捕食
+    mutualism: "#a8cfa8",   // 共生 (cleaner <-> host)
+    parasitism: "#b8aacc",  // 寄生 (louse -> host)
+    competition: "#f0b478", // 跨物种竞争
+    intraspecific: "#eaa79e", // 物种内竞争
+    cooperation: "#9ec6d8", // 合作
   };
 
   const SPECIES = {
@@ -510,7 +510,7 @@
       const x = leftCluster ? world.rng.range(60, 390) : world.rng.range(790, 1050);
       // A bit under half the beds now drift in open water at any depth. Grazers
       // follow their food, so this is what actually spreads the ecosystem out.
-      const benthic = world.rng.next() < 0.55;
+      const benthic = world.rng.next() < 0.80;
       world.plants.push({
         id: `P${++world.ids.plant}`,
         x,
@@ -518,7 +518,7 @@
         z: world.rng.range(0, WORLD.depth),
         y: benthic
           ? WORLD.floor - world.rng.range(8, 26)
-          : world.rng.range(WORLD.waterTop + 40, WORLD.floor - 70),
+          : world.rng.range(WORLD.floor - 300, WORLD.floor - 70),
         biomass: world.rng.range(34, 88),
         maxBiomass: world.rng.range(80, 128),
         growth: world.rng.range(0.035, 0.09),

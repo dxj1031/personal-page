@@ -109,11 +109,11 @@ const boot = () => {
   const renderer = new THREE.WebGLRenderer({
     canvas, antialias: true, preserveDrawingBuffer: isDev,
   });
-  renderer.setClearColor(0x090e14, 1);
+  renderer.setClearColor(0x241f1c, 1);
   // Glass wants smooth falloff, so the filmic curve is back — it was the cel
   // banding that needed it gone, and the cel pass is gone.
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMappingExposure = 1.06;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 4000);
@@ -133,7 +133,8 @@ const boot = () => {
   composer.addPass(new RenderPass(scene, camera));
   // barely there: glass reads through contrast and refraction, not emission.
   // This only catches the specular glints on the water skin.
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.08, 0.35, 0.86);
+  // matte, cosy surfaces: bloom would only muddy them
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.05, 0.30, 0.92);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
 
@@ -244,25 +245,16 @@ const boot = () => {
       void main() {
         vec3 n = normalize(vN); vec3 v = normalize(vView);
         vec3 dir = normalize(vPos);
-        float day = smoothstep(-0.35, 0.75, dot(dir, uSun)) * uSunI;
-        // Schlick fresnel: a glass shell is almost invisible face-on and almost
-        // a mirror at grazing angles, and that falloff is the entire read.
-        float f0 = 0.04;
-        float fres = f0 + (1.0 - f0) * pow(1.0 - abs(dot(n, v)), 5.0);
-        // choppier weather scatters the highlight: broader exponent, less peak.
-        // This is where sky.waves lands now that the shell is not displaced.
-        float sharp = 90.0 / clamp(uChop, 1.0, 3.2);
-        float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), sharp)
-                   * uSunI / clamp(uChop, 1.0, 3.2);
-        // the drag wake: brightens the shell and sharpens its edge locally,
-        // which reads as water moving without bending the sphere
+        float lam = dot(dir, uSun) * 0.5 + 0.5;
+        float day = mix(0.5, 1.0, lam) * uSunI;
+        // a wide soft edge wrap instead of a sharp fresnel, and no specular
+        float edge = pow(1.0 - abs(dot(n, v)), 2.2);
         float rip = rippleAt(dir);
-        vec3 glass = uTint * (fres + rip * 0.55) * (0.35 + 0.65 * day);
-        vec3 glint = vec3(1.0, 0.98, 0.94) * spec * 0.9 * (1.0 - uMurk * 0.6);
-        vec3 wake = mix(uTint, vec3(0.92, 1.0, 1.0), 0.45) * rip * 0.42;
-        vec3 bolt = vec3(0.66, 0.76, 0.90) * uFlash * 0.5;
-        float a = clamp(fres * 1.15 + spec * 0.8 + rip * 0.5 + uFlash * 0.3, 0.0, 1.0);
-        gl_FragColor = vec4(glass + glint + wake + bolt, a * (1.0 - uMurk * 0.2));
+        vec3 wrap = vec3(1.0, 0.97, 0.90) * edge * (0.16 + 0.24 * day);
+        vec3 wake = vec3(0.98, 1.0, 0.94) * rip * 0.24;
+        vec3 bolt = vec3(0.80, 0.78, 0.70) * uFlash * 0.30;
+        float a = clamp(edge * 0.55 + rip * 0.30 + uFlash * 0.2, 0.0, 1.0);
+        gl_FragColor = vec4(wrap + wake + bolt, a * (1.0 - uMurk * 0.15));
       }`,
   });
   const surface = new THREE.Mesh(shellGeo, surfaceMat);
@@ -272,8 +264,7 @@ const boot = () => {
   // Inner face of the same shell. Carries the volume tint, the caustic net and
   // the light shafts, so the whole "there is water in here" read is one mesh.
   const volumeMat = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, side: THREE.BackSide,
-    blending: THREE.AdditiveBlending,
+    side: THREE.BackSide,
     uniforms: {
       uTime: { value: 0 },
       uSun: { value: SUN.clone() }, uInside: { value: 0 },
@@ -297,28 +288,20 @@ const boot = () => {
       ${RIPPLE_GLSL}
       void main() {
         vec3 dir = normalize(vPos);
-        // the fluid the specimens are suspended in: one smooth vertical
-        // gradient, neutral blue-grey, no banding and no emission
+        // Warm, soft, matte. Half-lambert rather than a hard terminator, so the
+        // ball reads as something you could pick up rather than a lit surface.
         float depth = smoothstep(-0.95, 0.85, dir.y);
-        float lit = smoothstep(-0.30, 0.80, dot(dir, uSun)) * uSunI;
-        vec3 deep = vec3(0.055, 0.086, 0.122);        // darker than spec at the floor
-        vec3 mid = vec3(0.086, 0.125, 0.169);         // #16202b
-        vec3 shallow = vec3(0.165, 0.228, 0.286);     // lifted above #24323f
-        // two-stop ramp so the column actually reads as deepening water
-        vec3 body = depth < 0.5
-          ? mix(deep, mid, smoothstep(0.0, 0.5, depth))
-          : mix(mid, shallow, smoothstep(0.5, 1.0, depth));
-        body *= 0.55 + 0.45 * lit;
-        float axis = max(dot(dir, uSun), 0.0);
-        float shaft = pow(axis, 6.0) * uSunI * (1.0 - uMurk * 0.6);
-        // thin: this pane covers the entire disc, so anything approaching opaque
-        // turns the ball into frosted glass and buries every specimen behind it
-        // the wake shows fainter from inside the water than on the skin
+        float lam = dot(dir, uSun) * 0.5 + 0.5;
+        float lit = mix(0.55, 1.0, lam * lam) * (0.45 + 0.55 * uSunI);
+        vec3 deep = vec3(0.106, 0.169, 0.176);        // shaded mint
+        vec3 shallow = vec3(0.325, 0.478, 0.451);     // sunlit mint
+        vec3 body = mix(deep, shallow, depth * 0.85 + 0.15) * lit;
+        body = mix(body, vec3(0.62, 0.60, 0.55), uMurk * 0.30);   // overcast greys it
         float rip = rippleAt(dir);
         gl_FragColor = vec4(
-          body + uTint * shaft * 0.08 + uTint * rip * 0.22
-            + vec3(0.60, 0.70, 0.85) * uFlash * 0.15,
-          (0.30 + 0.14 * lit + rip * 0.20 + uFlash * 0.15) * mix(1.0, 0.35, uInside));
+          body + vec3(0.90, 0.94, 0.86) * rip * 0.16
+               + vec3(0.75, 0.72, 0.62) * uFlash * 0.18,
+          1.0);
       }`,
   });
   const volume = new THREE.Mesh(shellGeo, volumeMat);
@@ -365,17 +348,12 @@ const boot = () => {
       varying vec3 vN; varying vec3 vPos; varying vec3 vView;
       void main() {
         vec3 n = normalize(vN);
-        // Front faces of the cap point out of the ball, i.e. downward, so the
-        // face turned up into the water is the negated one. Using the displaced
-        // normal is what makes the dunes read as relief and not a flat disc.
         vec3 nUp = gl_FrontFacing ? -n : n;
-        float lam = max(dot(nUp, uSun), 0.0) * uSunI;
-        float fres = pow(1.0 - abs(dot(n, normalize(vView))), 2.5);
-        // matte sediment: the one opaque, non-glassy surface in the scene, so
-        // the specimens have something to read against
-        vec3 sand = mix(vec3(0.150, 0.165, 0.178), vec3(0.310, 0.330, 0.330), lam);
-        vec3 sheen = vec3(0.42, 0.50, 0.54) * fres * 0.30;
-        gl_FragColor = vec4(sand + sheen + vec3(0.50, 0.58, 0.70) * uFlash * 0.3, 1.0);
+        // half-lambert again: soft warm sand with no hard shadow edge
+        float lam = dot(nUp, uSun) * 0.5 + 0.5;
+        float lit = mix(0.62, 1.0, lam * lam) * (0.5 + 0.5 * uSunI);
+        vec3 sand = mix(vec3(0.310, 0.263, 0.208), vec3(0.678, 0.596, 0.463), lam) * lit;
+        gl_FragColor = vec4(sand + vec3(0.7, 0.66, 0.58) * uFlash * 0.2, 1.0);
       }`,
   }));
   scene.add(seabed);
@@ -669,8 +647,6 @@ const boot = () => {
   function organismMaterial(species, swim, freq) {
     return new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
-      transparent: true,
-      depthWrite: false,
       uniforms: {
         uTime: { value: 0 }, uSwim: { value: swim }, uMode: { value: 2 },
         uSun: { value: SUN.clone() }, uSunI: { value: 1 },
@@ -696,30 +672,25 @@ const boot = () => {
         varying float vDorsal;
         void main() {
           vec3 n = normalize(vN); vec3 v = normalize(vView);
-          float fres = pow(1.0 - abs(dot(n, v)), 3.0);
-          float lam = max(dot(n, uSun), 0.0);
-          float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), 60.0);
-          float lit = 0.45 + 0.55 * uSunI;
+          // Matte and opaque. Half-lambert wraps the light most of the way round
+          // the body so nothing drops into a hard shadow, and there is no
+          // specular at all: these should read as felt, not as glass.
+          float lam = dot(n, uSun) * 0.5 + 0.5;
+          float wrap = mix(0.40, 1.0, lam * lam) * (0.55 + 0.45 * uSunI);
+          float edge = pow(1.0 - abs(dot(n, v)), 2.5);
 
           // Countershading, derived from the one species colour so the palette
-          // cannot drift: saturated back, pale belly, cooler thinner tail.
-          // Whitening the belly to 0.74 erased the species: the palette is
-          // already desaturated, so celadon and jade came out as white blobs.
-          // Keep the ramp, keep the hue.
-          vec3 dorsal  = uBase * 0.58;
-          vec3 ventral = mix(uBase, vec3(1.0, 0.97, 0.92), 0.40);
+          // cannot drift: warmer back, creamier belly.
+          vec3 dorsal  = uBase * 0.72;
+          vec3 ventral = mix(uBase, vec3(1.0, 0.97, 0.90), 0.42);
           vec3 tint = mix(ventral, dorsal, smoothstep(-0.70, 0.70, vDorsal));
-          tint = mix(tint * 0.90, tint, smoothstep(0.0, 0.55, vSpine));
+          tint = mix(tint * 0.94, tint, smoothstep(0.0, 0.55, vSpine));
 
-          float spine = smoothstep(0.86, 1.0, abs(sin(vSpine * 3.14159)));
-          vec3 col = tint * (0.62 + 0.60 * lam) * lit
-                   + tint * fres * 1.15
-                   + vec3(1.0, 0.99, 0.96) * spec * 0.65 * uSunI
-                   + uBase * spine * 0.18;
-          // condition shows as clarity, and the tail thins out as well
-          float a = (0.46 + fres * 0.48 + spec * 0.4)
-                  * (0.68 + 0.32 * vGlow) * (0.72 + 0.28 * smoothstep(0.0, 0.5, vSpine));
-          gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+          vec3 col = tint * wrap
+                   + vec3(1.0, 0.96, 0.88) * edge * 0.16 * (0.4 + 0.6 * uSunI)
+                   + uBase * 0.05;
+          // condition reads as a slight fade rather than as transparency
+          gl_FragColor = vec4(col * (0.80 + 0.20 * vGlow), 1.0);
         }`,
     });
   }
@@ -875,8 +846,6 @@ const boot = () => {
 
   const plantMat = new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
-    transparent: true,
-    depthWrite: false,
     uniforms: {
       uTime: { value: 0 }, uSunI: { value: 1 },
       uBase: { value: new THREE.Color(COLORS.plant) },
@@ -892,19 +861,14 @@ const boot = () => {
       uniform vec3 uBase; uniform float uTime; uniform float uSunI;
       varying vec2 vUv; varying float vT;
       void main() {
-        // translucent frond: denser at the base, thinning toward the tip, with
-        // a brighter margin where the blade is seen through its own thickness
+        // flat matte leaf with a soft warm tip, no translucency
         float across = abs(vUv.x * 2.0 - 1.0);
-        float edge = pow(across, 2.0);
-        float thin = 1.0 - vT * 0.55;
-        // rooted end deeper, tip paler and yellower, the way a frond thins out
-        vec3 deepEnd = uBase * 0.55;
-        vec3 tipEnd = mix(uBase, vec3(0.90, 1.00, 0.72), 0.45);
+        vec3 deepEnd = uBase * 0.62;
+        vec3 tipEnd = mix(uBase, vec3(0.96, 0.98, 0.72), 0.42);
         vec3 grad = mix(deepEnd, tipEnd, smoothstep(0.0, 1.0, vT));
-        vec3 col = grad * (0.62 + 0.42 * thin) * (0.55 + 0.45 * uSunI)
-                 + grad * edge * 0.5
-                 + vec3(0.85, 0.95, 0.88) * (1.0 - across) * 0.10;
-        gl_FragColor = vec4(col, (0.42 + edge * 0.35) * thin);
+        vec3 col = grad * (0.70 + 0.30 * uSunI)
+                 + vec3(1.0, 0.98, 0.88) * (1.0 - across) * 0.07;
+        gl_FragColor = vec4(col, 1.0);
       }`,
   });
 
@@ -1032,7 +996,7 @@ const boot = () => {
         float fade = pow(1.0 - vAlong, 2.0);
         float flick = 0.70 + 0.30 * sin(uTime * 0.7 + vSeed * 2.3);
         float a = fade * flick * uSunI * (1.0 - uMurk * 0.5) * 0.07;
-        gl_FragColor = vec4(uTint * a, a);
+        gl_FragColor = vec4(vec3(1.0, 0.95, 0.82) * a, a * 0.7);
       }`,
   });
   const shafts = new THREE.Mesh(shaftGeo, shaftMat);
@@ -1215,8 +1179,8 @@ const boot = () => {
     return pts;
   }
 
-  const foodPoints = motePoints(400, 3.4, new THREE.Color(COLORS.food), 0.95);
-  const snowPoints = motePoints(700, 1.1, new THREE.Color(0x4ff0ff), 0.34);
+  const foodPoints = motePoints(400, 3.4, new THREE.Color(COLORS.food), 0.85);
+  const snowPoints = motePoints(700, 1.1, new THREE.Color(0xf0e6d2), 0.20);
 
   function setPoints(pts, list) {
     const attr = pts.geometry.getAttribute('position');
@@ -1608,7 +1572,7 @@ const boot = () => {
     };
     set(surfaceMat); set(volumeMat); set(seabed.material); set(shaftMat);
     // bioluminescence is what you see at night, so let bloom off the leash then
-    bloom.strength = 0.06 + (1 - sky.sun) * 0.10;
+    bloom.strength = 0.04 + (1 - sky.sun) * 0.06;
   }
 
   const HUD = document.getElementById('skyHud');
@@ -1676,6 +1640,7 @@ const boot = () => {
     const dist = camera.position.length();
     const inside = dist < R;
     surface.visible = !inside;
+    volume.visible = !inside;          // opaque now, so it would box you in
     volumeMat.uniforms.uInside.value = inside ? 1 : 0;
 
     surfaceMat.uniforms.uTime.value = clock;
