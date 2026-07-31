@@ -54,18 +54,6 @@ const WEATHER_KEYS = Object.keys(WEATHER);
 
 /* ------------------------------------------------------------ GLSL chunks */
 
-// Sum-of-sines instead of simplex noise: five octaves is enough swell for a
-// ball this size, costs a fifth of the instructions, and has no texture or
-// permutation table to ship.
-const WAVE = /* glsl */`
-  float wave(vec3 p, float t) {
-    return sin(p.x * 0.055 + t * 0.90) * 0.55
-         + sin(p.y * 0.071 - t * 0.70) * 0.42
-         + sin(p.z * 0.063 + t * 1.15) * 0.38
-         + sin((p.x + p.z) * 0.110 - t * 1.60) * 0.20
-         + sin((p.y - p.x) * 0.130 + t * 1.90) * 0.14;
-  }`;
-
 // Interference of three drifting wave sets, raised to a high power so only the
 // crests survive — the classic cheap caustic, and it tiles a sphere fine
 // because it is evaluated in 3D rather than uv space.
@@ -177,34 +165,26 @@ const boot = () => {
     transparent: true, depthWrite: false, side: THREE.FrontSide,
     blending: THREE.AdditiveBlending,
     uniforms: {
-      uTime: { value: 0 }, uAmp: { value: 2.6 }, uSun: { value: SUN.clone() },
+      uTime: { value: 0 }, uSun: { value: SUN.clone() },
       uSunI: { value: 1 }, uMurk: { value: 0 }, uFlash: { value: 0 },
+      uChop: { value: 1 },
       uTint: { value: new THREE.Color(0.30, 0.86, 0.98) },
     },
     vertexShader: `
-      uniform float uTime; uniform float uAmp;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
-      ${WAVE}
       void main() {
-        float d = wave(position, uTime);
-        vec3 p = position + normal * d * uAmp;
-        // finite-difference the displacement along two surface tangents,
-        // otherwise the swell only shows on the silhouette
-        vec3 t1 = normalize(cross(normal, abs(normal.y) > 0.9 ? vec3(1.0,0.0,0.0) : vec3(0.0,1.0,0.0)));
-        vec3 t2 = normalize(cross(normal, t1));
-        float e = 3.0;
-        float da = wave(position + t1 * e, uTime);
-        float db = wave(position + t2 * e, uTime);
-        vec3 n = normalize(normal - (t1 * (da - d) + t2 * (db - d)) * uAmp / e);
-        vec4 mv = modelViewMatrix * vec4(p, 1.0);
-        vN = normalize(normalMatrix * n);
+        // A true sphere. The swell used to displace this shell along its
+        // normal, which made the vessel lumpy rather than turned.
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal);
         vView = normalize(-mv.xyz);
-        vPos = p;
+        vPos = position;
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `
       uniform float uTime; uniform vec3 uSun; uniform float uSunI;
       uniform float uMurk; uniform float uFlash; uniform vec3 uTint;
+      uniform float uChop;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
       void main() {
         vec3 n = normalize(vN); vec3 v = normalize(vView);
@@ -214,7 +194,11 @@ const boot = () => {
         // a mirror at grazing angles, and that falloff is the entire read.
         float f0 = 0.04;
         float fres = f0 + (1.0 - f0) * pow(1.0 - abs(dot(n, v)), 5.0);
-        float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), 90.0) * uSunI;
+        // choppier weather scatters the highlight: broader exponent, less peak.
+        // This is where sky.waves lands now that the shell is not displaced.
+        float sharp = 90.0 / clamp(uChop, 1.0, 3.2);
+        float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), sharp)
+                   * uSunI / clamp(uChop, 1.0, 3.2);
         vec3 glass = uTint * fres * (0.35 + 0.65 * day);
         vec3 glint = vec3(1.0, 0.98, 0.94) * spec * 0.9 * (1.0 - uMurk * 0.6);
         vec3 bolt = vec3(0.66, 0.76, 0.90) * uFlash * 0.5;
@@ -232,21 +216,18 @@ const boot = () => {
     transparent: true, depthWrite: false, side: THREE.BackSide,
     blending: THREE.AdditiveBlending,
     uniforms: {
-      uTime: { value: 0 }, uAmp: { value: 2.6 },
+      uTime: { value: 0 },
       uSun: { value: SUN.clone() }, uInside: { value: 0 },
       uSunI: { value: 1 }, uMurk: { value: 0 }, uFlash: { value: 0 },
       uTint: { value: new THREE.Color(0.30, 0.86, 0.98) },
     },
     vertexShader: `
-      uniform float uTime; uniform float uAmp;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
-      ${WAVE}
       void main() {
-        vec3 p = position + normal * wave(position, uTime) * uAmp;
-        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
         vN = normalize(normalMatrix * normal);
         vView = normalize(-mv.xyz);
-        vPos = p;
+        vPos = position;
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `
@@ -1356,7 +1337,7 @@ const boot = () => {
       if (u.uMurk) u.uMurk.value = sky.murk;
       if (u.uFlash) u.uFlash.value = sky.flash;
       if (u.uTint) u.uTint.value.copy(sky.tint);
-      if (u.uAmp) u.uAmp.value = 2.6 * sky.waves;
+      if (u.uChop) u.uChop.value = sky.waves;
     };
     set(surfaceMat); set(volumeMat); set(seabed.material); set(shaftMat);
     // bioluminescence is what you see at night, so let bloom off the leash then
@@ -1451,7 +1432,7 @@ const boot = () => {
   // Handle for tuning the look from the console — every value in here is a
   // shader constant that has to be judged by eye, not derived.
   window.__eco3d = {
-    scene, camera, renderer, composer, bloom, sky, SUN,
+    scene, camera, renderer, composer, bloom, sky, SUN, controls, THREE,
     surface, volume, seabed, shafts, plants, pools, lines, foodPoints, snowPoints, halo,
   };
   E.setRenderer({ frame, resize });
