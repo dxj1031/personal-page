@@ -77,33 +77,6 @@ const CAUSTIC = /* glsl */`
     return pow(c, 6.0);
   }`;
 
-/* Cel shading. Everything below is in service of one rule: no smooth gradients.
-   band() quantises a value into flat tones with an edge narrow enough to read as
-   ink, and ribbon() cuts a hard-edged strip out of a field — contour a smooth
-   field with it and you get the closed hand-drawn foam loops that the reference
-   water is built from. */
-const TOON = /* glsl */`
-  float band(float x, float steps) {
-    float s = max(steps, 1.0);
-    float xs = clamp(x, 0.0, 1.0) * s;
-    return (floor(xs) + smoothstep(0.35, 0.65, fract(xs))) / s;
-  }
-  float ribbon(float x, float a, float b, float soft) {
-    return smoothstep(a - soft, a + soft, x) - smoothstep(b - soft, b + soft, x);
-  }`;
-
-// A smooth, slowly drifting scalar field. caustic() is already pow()-crushed
-// toward zero, which makes it useless to contour; this one stays evenly spread
-// across 0..1 so its level sets are clean loops.
-const FLOW = /* glsl */`
-  float flow(vec3 p, float t) {
-    vec3 q = p * 0.048;
-    return 0.5 + 0.5 * sin(
-        sin(q.x * 2.10 + t * 0.50) * 1.6
-      + sin(q.y * 1.70 - t * 0.40) * 1.4
-      + sin(q.z * 2.40 + t * 0.60) * 1.5);
-  }`;
-
 const boot = () => {
   const E = window.EcoTank;
   if (!E) return;
@@ -120,10 +93,11 @@ const boot = () => {
   const renderer = new THREE.WebGLRenderer({
     canvas, antialias: true, preserveDrawingBuffer: isDev,
   });
-  renderer.setClearColor(0x030811, 1);
-  // No tone mapping: a filmic curve is a gradient generator, and it turns every
-  // flat cel band back into a ramp. Values are authored to land in range instead.
-  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.setClearColor(0x090e14, 1);
+  // Glass wants smooth falloff, so the filmic curve is back — it was the cel
+  // banding that needed it gone, and the cel pass is gone.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 4000);
@@ -141,8 +115,9 @@ const boot = () => {
   // is what tone-maps and encodes, so the passes in front of it stay linear.
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  // gentle: heavy bloom over flat colour is how cel shading turns back to mush
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.20, 0.40, 0.68);
+  // barely there: glass reads through contrast and refraction, not emission.
+  // This only catches the specular glints on the water skin.
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.08, 0.35, 0.86);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
 
@@ -152,15 +127,32 @@ const boot = () => {
   const PX = (Math.PI * 2 * R) / WORLD.width;   // one tank pixel in world units
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
+  /* Measured on a settled world: ~89% of organisms sit in the bottom 20% of the
+     tank, because the plants and the food are on the floor and the grazers —
+     and then their predators — follow. Two things compound to bury the whole
+     ecosystem in a thumbnail of sphere:
+
+       1. a linear depth->latitude map keeps that crowd inside one narrow band;
+       2. the area of a latitude band goes as cos(lat), so a band near the pole
+          is the *smallest* patch on the ball.
+
+     So warp depth before mapping it, letting the crowded floor band claim most
+     of the range, then go through asin so equal warped-depth intervals cover
+     equal surface area. The simulation is untouched; this is only how its
+     vertical axis gets laid out on the sphere. */
+  const SIN_MAX_LAT = Math.sin(MAX_LAT);
+  const DEPTH_WARP = 2.6;
+
   function lonLatRad(x, y, z) {
     const t = clamp((y - WORLD.waterTop) / DEPTH_SPAN, 0, 1);   // 0 surface, 1 floor
     const zf = clamp((z || 0) / WORLD.depth, 0, 1);
+    const warped = Math.pow(t, DEPTH_WARP);
     // radius gives the shell its thickness, but bottom-dwellers get pressed out
     // onto the seabed cap — a snail floating above the rock reads as a bug
     const free = R * (INNER + (0.98 - INNER) * zf);
     return {
       lon: x * LON_K,
-      lat: (0.5 - t) * 2 * MAX_LAT,
+      lat: Math.asin(clamp((1 - 2 * warped) * SIN_MAX_LAT, -1, 1)),
       r: free + (R * 0.985 - free) * (t * t),
     };
   }
@@ -213,35 +205,20 @@ const boot = () => {
       uniform float uTime; uniform vec3 uSun; uniform float uSunI;
       uniform float uMurk; uniform float uFlash; uniform vec3 uTint;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
-      ${TOON}
-      ${FLOW}
       void main() {
         vec3 n = normalize(vN); vec3 v = normalize(vView);
         vec3 dir = normalize(vPos);
-        // daylight is the hemisphere the sun is over, quantised so the
-        // terminator is a drawn edge rather than a fade
-        float day = band(smoothstep(-0.35, 0.75, dot(dir, uSun)), 3.0) * uSunI;
-        float edge = 1.0 - abs(dot(n, v));
-
-        // One level set of the flow field, inked white and pushed toward the
-        // silhouette. Contouring the whole ball turned it into a topographic
-        // map: on a flat water plane the level sets read as ripples because you
-        // see the plane edge-on, but on a sphere you see it face-on everywhere.
-        float f = flow(vPos, uTime);
-        float grazing = smoothstep(0.30, 0.80, edge);
-        float foam = (ribbon(f, 0.46, 0.505, 0.008)
-                   + ribbon(f, 0.80, 0.828, 0.007) * 0.55) * grazing;
-        foam *= 0.30 + 0.70 * day;
-
-        // near-black water body: the organisms are supposed to be the light
-        vec3 body = mix(vec3(0.010, 0.026, 0.042), uTint * 0.17, day);
-        float rimLine = smoothstep(0.70, 0.755, edge) - smoothstep(0.965, 0.99, edge);
-        vec3 rim = mix(uTint, vec3(0.92, 1.0, 1.0), 0.30) * rimLine * (0.22 + 0.60 * day);
-        vec3 ink = vec3(0.80, 0.96, 1.0) * foam * 0.60;
-        vec3 bolt = vec3(0.72, 0.86, 1.0) * uFlash * 0.7;
-
-        float a = clamp(0.10 + 0.20 * day + rimLine * 0.55 + foam * 0.55 + uFlash * 0.4, 0.0, 1.0);
-        gl_FragColor = vec4(body + rim + ink + bolt, a * (1.0 - uMurk * 0.25));
+        float day = smoothstep(-0.35, 0.75, dot(dir, uSun)) * uSunI;
+        // Schlick fresnel: a glass shell is almost invisible face-on and almost
+        // a mirror at grazing angles, and that falloff is the entire read.
+        float f0 = 0.04;
+        float fres = f0 + (1.0 - f0) * pow(1.0 - abs(dot(n, v)), 5.0);
+        float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), 90.0) * uSunI;
+        vec3 glass = uTint * fres * (0.35 + 0.65 * day);
+        vec3 glint = vec3(1.0, 0.98, 0.94) * spec * 0.9 * (1.0 - uMurk * 0.6);
+        vec3 bolt = vec3(0.66, 0.76, 0.90) * uFlash * 0.5;
+        float a = clamp(fres * 1.15 + spec * 0.8 + uFlash * 0.3, 0.0, 1.0);
+        gl_FragColor = vec4(glass + glint + bolt, a * (1.0 - uMurk * 0.2));
       }`,
   });
   const surface = new THREE.Mesh(shellGeo, surfaceMat);
@@ -275,25 +252,22 @@ const boot = () => {
       uniform float uTime; uniform vec3 uSun; uniform float uInside;
       uniform float uSunI; uniform float uMurk; uniform float uFlash; uniform vec3 uTint;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
-      ${TOON}
-      ${FLOW}
       void main() {
         vec3 dir = normalize(vPos);
-        // depth darkens the column; the sun decides which half is day. Banded,
-        // so the water body is a few flat plates of colour.
-        float depth = band(smoothstep(-0.95, 0.85, dir.y), 3.0);
-        float lit = band(smoothstep(-0.30, 0.80, dot(dir, uSun)), 3.0) * uSunI * (0.30 + 0.70 * depth);
-        vec3 body = mix(vec3(0.008, 0.022, 0.038), uTint * 0.30, lit);
-        // hard-edged wedges around the sun instead of a soft cone
+        // the fluid the specimens are suspended in: one smooth vertical
+        // gradient, neutral blue-grey, no banding and no emission
+        float depth = smoothstep(-0.95, 0.85, dir.y);
+        float lit = smoothstep(-0.30, 0.80, dot(dir, uSun)) * uSunI;
+        vec3 deep = vec3(0.086, 0.125, 0.169);        // #16202b
+        vec3 shallow = vec3(0.141, 0.196, 0.247);     // #24323f
+        vec3 body = mix(deep, shallow, depth * (0.45 + 0.55 * lit));
         float axis = max(dot(dir, uSun), 0.0);
-        float wedge = step(0.35, 0.5 + 0.5 * sin(atan(dir.z, dir.x) * 11.0 + uTime * 0.30));
-        float shaft = step(0.45, axis) * wedge * uSunI * (1.0 - uMurk * 0.55);
-        float caust = ribbon(flow(vPos * 1.35, uTime * 0.8), 0.55, 0.60, 0.010) * lit;
+        float shaft = pow(axis, 6.0) * uSunI * (1.0 - uMurk * 0.6);
+        // thin: this pane covers the entire disc, so anything approaching opaque
+        // turns the ball into frosted glass and buries every specimen behind it
         gl_FragColor = vec4(
-          body * 0.7 + uTint * shaft * 0.10 + vec3(0.80, 0.97, 1.0) * caust * 0.22
-               + vec3(0.6, 0.75, 1.0) * uFlash * 0.25,
-          (0.10 + 0.24 * lit + shaft * 0.10 + caust * 0.28 + uFlash * 0.25)
-            * mix(1.0, 0.35, uInside));
+          body + uTint * shaft * 0.08 + vec3(0.60, 0.70, 0.85) * uFlash * 0.15,
+          (0.30 + 0.14 * lit + uFlash * 0.15) * mix(1.0, 0.35, uInside));
       }`,
   });
   const volume = new THREE.Mesh(shellGeo, volumeMat);
@@ -338,24 +312,19 @@ const boot = () => {
     fragmentShader: `
       uniform float uTime; uniform vec3 uSun; uniform float uSunI; uniform float uFlash;
       varying vec3 vN; varying vec3 vPos; varying vec3 vView;
-      ${TOON}
-      ${FLOW}
       void main() {
         vec3 n = normalize(vN);
         // Front faces of the cap point out of the ball, i.e. downward, so the
-        // face turned up into the water is the negated one. Using the *displaced*
+        // face turned up into the water is the negated one. Using the displaced
         // normal is what makes the dunes read as relief and not a flat disc.
         vec3 nUp = gl_FrontFacing ? -n : n;
-        float lam = band(max(dot(nUp, uSun), 0.0), 3.0) * uSunI;
-        // caustics as hard bright patches cast on the sand
-        float caust = ribbon(flow(vPos * 2.0, uTime * 0.9), 0.52, 0.66, 0.02)
-                    * (0.30 + 0.70 * uSunI);
-        float fres = 1.0 - abs(dot(n, normalize(vView)));
-        float inkEdge = smoothstep(0.80, 0.90, fres);        // contour on the rim
-        vec3 sand = mix(vec3(0.075, 0.105, 0.125), vec3(0.17, 0.30, 0.32), lam);
-        vec3 wet  = vec3(0.30, 0.72, 0.74) * caust * (0.30 + lam * 0.70);
-        vec3 ink  = vec3(0.02, 0.06, 0.09) * inkEdge;
-        gl_FragColor = vec4(sand + wet - ink + vec3(0.5, 0.62, 0.8) * uFlash * 0.4, 1.0);
+        float lam = max(dot(nUp, uSun), 0.0) * uSunI;
+        float fres = pow(1.0 - abs(dot(n, normalize(vView))), 2.5);
+        // matte sediment: the one opaque, non-glassy surface in the scene, so
+        // the specimens have something to read against
+        vec3 sand = mix(vec3(0.150, 0.165, 0.178), vec3(0.310, 0.330, 0.330), lam);
+        vec3 sheen = vec3(0.42, 0.50, 0.54) * fres * 0.30;
+        gl_FragColor = vec4(sand + sheen + vec3(0.50, 0.58, 0.70) * uFlash * 0.3, 1.0);
       }`,
   }));
   scene.add(seabed);
@@ -425,27 +394,30 @@ const boot = () => {
   /* ---- fish: bigfish, smallfish, cleaner ---- */
   function fishGeometry(k) {
     const B = Builder();
-    const L = 1.0;
+    // Short, deep body: the mass sits forward and the peduncle pinches hard, so
+    // the oversized tail reads as the thing doing the work.
+    const L = 0.84;
     sweep(B, {
-      len: L, seg: 26, ring: 12,
+      len: L, seg: 24, ring: 12,
       profile: (t) => {
-        // teardrop: widest a third back from the nose, pinched at the peduncle
-        const s = Math.sin(Math.pow(t, 0.72) * Math.PI);
-        const pinch = 0.30 + 0.70 * Math.pow(t, 0.5);
-        return [0.115 * k.girth * s * pinch, 0.185 * k.depth * s * pinch];
+        const s = Math.sin(Math.pow(t, 0.62) * Math.PI);
+        const pinch = 0.14 + 0.86 * Math.pow(t, 0.75);
+        return [0.125 * k.girth * s * pinch, 0.225 * k.depth * s * pinch];
       },
     });
-    const tl = 0.30 * k.tail;
-    // forked caudal fin
-    fan(B, [[-0.50, 0], [-0.50 - tl, 0.26 * k.tail], [-0.50 - tl * 0.55, 0],
-      [-0.50 - tl, -0.26 * k.tail]], 'xy', 0.0);
-    // dorsal
-    fan(B, [[-0.10, 0.10], [0.02, 0.10 + 0.20 * k.dorsal], [0.24, 0.09]], 'xy', 0.5);
-    // anal
-    fan(B, [[-0.16, -0.09], [-0.06, -0.09 - 0.13 * k.dorsal], [0.06, -0.08]], 'xy', 0.42);
-    // pectorals, one per side
-    fan(B, [[0.16, 0.03], [0.02, 0.16 * k.pect], [0.00, 0.02]], 'xz', 0.72);
-    fan(B, [[0.16, -0.03], [0.00, -0.02], [0.02, -0.16 * k.pect]], 'xz', 0.72);
+    const tl = 0.28 * k.tail;                      // fan, not a kite
+    const th = 0.20 * k.tail;
+    // deeply forked caudal fan, swept back so it trails the beat
+    fan(B, [[-L / 2 + 0.01, 0],
+            [-L / 2 - tl * 0.75, th], [-L / 2 - tl, th * 1.12],
+            [-L / 2 - tl * 0.48, 0],
+            [-L / 2 - tl, -th * 1.12], [-L / 2 - tl * 0.75, -th]], 'xy', 0.0);
+    // tall thin dorsal, set well back
+    fan(B, [[-0.14, 0.075], [-0.04, 0.075 + 0.17 * k.dorsal], [0.14, 0.065]], 'xy', 0.46);
+    fan(B, [[-0.17, -0.065], [-0.08, -0.065 - 0.17 * k.dorsal], [0.02, -0.055]], 'xy', 0.40);
+    // long gauzy pectorals — these are what sell "灵动" when it turns
+    fan(B, [[0.15, 0.02], [0.00, 0.15 * k.pect], [0.04, 0.02]], 'xz', 0.74);
+    fan(B, [[0.15, -0.02], [0.04, -0.02], [0.00, -0.15 * k.pect]], 'xz', 0.74);
     return finish(B);
   }
 
@@ -529,9 +501,9 @@ const boot = () => {
   }
 
   const GEOMETRY = {
-    bigfish: fishGeometry({ girth: 1.15, depth: 1.20, tail: 1.15, dorsal: 1.25, pect: 1.1 }),
-    smallfish: fishGeometry({ girth: 0.95, depth: 1.00, tail: 1.00, dorsal: 0.95, pect: 1.0 }),
-    cleaner: fishGeometry({ girth: 0.70, depth: 0.72, tail: 0.95, dorsal: 0.60, pect: 0.9 }),
+    bigfish: fishGeometry({ girth: 1.00, depth: 1.15, tail: 1.10, dorsal: 1.20, pect: 1.05 }),
+    smallfish: fishGeometry({ girth: 0.80, depth: 0.92, tail: 1.05, dorsal: 0.90, pect: 1.10 }),
+    cleaner: fishGeometry({ girth: 0.62, depth: 0.66, tail: 1.00, dorsal: 0.58, pect: 0.95 }),
     shrimp: shrimpGeometry(),
     snail: snailGeometry(),
     louse: louseGeometry(),
@@ -562,9 +534,16 @@ const boot = () => {
 
   // Cel body: flat tones off the sun, one hard rim light, inked flank stripes.
   // Opaque on purpose — flat shapes with outlines want depth, not blending.
+  /* Glass specimen. No outline, no emission: the body is a thin translucent
+     shell, nearly invisible face-on and bright at grazing angles, which is what
+     makes glass look like glass. Thickness is faked from the facing angle — a
+     ray through the middle of a shell crosses less material than one through
+     the edge — so the silhouette carries the whole read. */
   function organismMaterial(species, swim, freq) {
     return new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false,
       uniforms: {
         uTime: { value: 0 }, uSwim: { value: swim }, uFreq: { value: freq },
         uSun: { value: SUN.clone() }, uSunI: { value: 1 },
@@ -584,53 +563,29 @@ const boot = () => {
       fragmentShader: `
         uniform vec3 uBase; uniform float uTime; uniform vec3 uSun; uniform float uSunI;
         varying vec3 vN; varying vec3 vView; varying float vSpine; varying float vGlow;
-        ${TOON}
         void main() {
           vec3 n = normalize(vN); vec3 v = normalize(vView);
-          // two flat tones, hard terminator
-          float sh = band(dot(n, uSun) * 0.5 + 0.5, 2.0);
-          float lit = 0.55 + 0.45 * uSunI;
-          // hard rim light, and inked stripes rather than soft banding
-          float rim = smoothstep(0.58, 0.66, 1.0 - abs(dot(n, v)));
-          float stripe = step(0.74, abs(sin(vSpine * 15.0)));
-          float pulse = 0.80 + 0.20 * sin(uTime * 2.2 + vSpine * 3.0);
-          vec3 col = uBase * (0.34 + 0.52 * sh) * lit
-                   + uBase * rim * 1.05 * (0.45 + 0.55 * vGlow)
-                   + vec3(0.95, 1.0, 0.98) * stripe * 0.22 * vGlow * pulse;
-          gl_FragColor = vec4(col, 1.0);
+          float fres = pow(1.0 - abs(dot(n, v)), 3.0);
+          float lam = max(dot(n, uSun), 0.0);
+          float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), 60.0);
+          float lit = 0.45 + 0.55 * uSunI;
+          // faint internal structure, the way it shows in a cleared specimen
+          // rather than being drawn on as a stripe
+          float spine = smoothstep(0.86, 1.0, abs(sin(vSpine * 3.14159)));
+          vec3 col = uBase * (0.52 + 0.55 * lam) * lit
+                   + uBase * fres * 1.10
+                   + vec3(1.0, 0.99, 0.96) * spec * 0.65 * uSunI
+                   + uBase * spine * 0.20;
+          // condition shows as clarity: a starving animal goes cloudy, not dim
+          float a = (0.46 + fres * 0.48 + spec * 0.4) * (0.68 + 0.32 * vGlow);
+          gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
         }`,
-    });
-  }
-
-  /* Inverted-hull outline: the same mesh pushed out along its normals and drawn
-     back-faces-only, so what survives is a constant band around the silhouette.
-     Cheaper and steadier than any screen-space edge filter, and it needs no
-     extra pass. The hull shares the body's instanceMatrix, so it costs one draw
-     call and zero per-frame bookkeeping. */
-  function outlineMaterial(swim, freq, width) {
-    return new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      uniforms: {
-        uTime: { value: 0 }, uSwim: { value: swim }, uFreq: { value: freq },
-        uWidth: { value: width },
-        uInk: { value: new THREE.Color(0x03080e) },
-      },
-      vertexShader: `
-        ${SWIM_VERT}
-        uniform float uWidth;
-        void main() {
-          vec3 p = swim(position, aSpine, phaseFromPos(instanceMatrix)) + normal * uWidth;
-          gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
-        }`,
-      fragmentShader: `
-        uniform vec3 uInk;
-        void main() { gl_FragColor = vec4(uInk, 1.0); }`,
     });
   }
 
   const SWIM = {
-    bigfish: [0.075, 7.0], smallfish: [0.085, 8.0], cleaner: [0.090, 9.0],
-    shrimp: [0.055, 6.0], snail: [0.004, 2.0], louse: [0.030, 10.0],
+    bigfish: [0.090, 8.5], smallfish: [0.115, 11.0], cleaner: [0.120, 12.0],
+    shrimp: [0.070, 7.5], snail: [0.004, 2.0], louse: [0.040, 13.0],
   };
 
   // per-species instanced pool; capacity is the birth ceiling plus slack for
@@ -650,14 +605,7 @@ const boot = () => {
     mesh.renderOrder = 10;
     scene.add(mesh);
 
-    const hull = new THREE.InstancedMesh(GEOMETRY[species], outlineMaterial(swim, freq, 0.018), cap);
-    hull.frustumCulled = false;
-    hull.instanceMatrix = mesh.instanceMatrix;   // shared: no copy, no drift
-    hull.count = 0;
-    hull.renderOrder = 9;
-    scene.add(hull);
-
-    pools[species] = { mesh, hull, glow, beat, cap, ids: [] };
+    pools[species] = { mesh, glow, beat, cap, ids: [] };
   });
 
   /* --------------------------------------------------- placing an organism
@@ -711,7 +659,7 @@ const boot = () => {
     const fleeing = agent.action && (agent.action.type === 'flee' || agent.action.type === 'hide');
     // a starving animal dims; a frightened one flares and beats faster
     pool.glow[index] = 0.30 + energyFrac * 0.85 + (fleeing ? 0.45 : 0);
-    pool.beat[index] = 3.2 + Math.min(6.0, (v.spd || 0) * 1.5) + (fleeing ? 3.0 : 0);
+    pool.beat[index] = 4.5 + Math.min(9.0, (v.spd || 0) * 2.4) + (fleeing ? 5.0 : 0);
   }
 
   function syncOrganisms(world) {
@@ -727,7 +675,6 @@ const boot = () => {
     Object.keys(pools).forEach((s) => {
       const pool = pools[s];
       pool.mesh.count = pool.ids.length;
-      pool.hull.count = pool.ids.length;
       pool.mesh.instanceMatrix.needsUpdate = true;
       pool.mesh.geometry.getAttribute('aGlow').needsUpdate = true;
       pool.mesh.geometry.getAttribute('aBeat').needsUpdate = true;
@@ -772,6 +719,8 @@ const boot = () => {
 
   const plantMat = new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
+    transparent: true,
+    depthWrite: false,
     uniforms: {
       uTime: { value: 0 }, uSunI: { value: 1 },
       uBase: { value: new THREE.Color(COLORS.plant) },
@@ -786,39 +735,19 @@ const boot = () => {
     fragmentShader: `
       uniform vec3 uBase; uniform float uTime; uniform float uSunI;
       varying vec2 vUv; varying float vT;
-      ${TOON}
       void main() {
-        // two flat greens split along the blade, plus one inked highlight
-        // stripe down the length — a drawn leaf, not a shaded one
-        float shade = band(vT, 2.0);
-        float across = vUv.x;
-        float spine = ribbon(across, 0.30, 0.44, 0.03);
-        vec3 dark = uBase * 0.30;
-        vec3 light = mix(uBase, vec3(0.72, 1.0, 0.80), 0.30);
-        vec3 col = mix(dark, light, shade) * (0.55 + 0.45 * uSunI)
-                 + vec3(0.80, 1.0, 0.86) * spine * 0.30;
-        gl_FragColor = vec4(col, 1.0);
+        // translucent frond: denser at the base, thinning toward the tip, with
+        // a brighter margin where the blade is seen through its own thickness
+        float across = abs(vUv.x * 2.0 - 1.0);
+        float edge = pow(across, 2.0);
+        float thin = 1.0 - vT * 0.55;
+        vec3 col = uBase * (0.35 + 0.45 * thin) * (0.55 + 0.45 * uSunI)
+                 + uBase * edge * 0.5
+                 + vec3(0.85, 0.95, 0.88) * (1.0 - across) * 0.10;
+        gl_FragColor = vec4(col, (0.42 + edge * 0.35) * thin);
       }`,
   });
 
-  const plantInkMat = new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    uniforms: { uTime: { value: 0 }, uWidth: { value: 0.055 }, uInk: { value: new THREE.Color(0x04140d) } },
-    vertexShader: `
-      ${SWAY_VERT}
-      uniform float uWidth;
-      void main() {
-        vec3 p = sway(position, instanceMatrix);
-        // the ribbon is flat, so its normals are useless for a hull; widen it
-        // across and lengthen it slightly instead
-        p.x += sign(uv.x - 0.5) * uWidth;
-        p.y += uWidth * 0.5;
-        gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
-      }`,
-    fragmentShader: `
-      uniform vec3 uInk;
-      void main() { gl_FragColor = vec4(uInk, 1.0); }`,
-  });
   const plants = new THREE.InstancedMesh(bladeGeo, plantMat, PLANT_CAP);
   plants.frustumCulled = false;
   plants.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -826,12 +755,7 @@ const boot = () => {
   plants.renderOrder = 10;
   scene.add(plants);
 
-  const plantInk = new THREE.InstancedMesh(bladeGeo, plantInkMat, PLANT_CAP);
-  plantInk.frustumCulled = false;
-  plantInk.instanceMatrix = plants.instanceMatrix;
-  plantInk.count = 0;
-  plantInk.renderOrder = 9;
-  scene.add(plantInk);
+
 
   const POLE = new THREE.Vector3(0, 1, 0);
   const tA = new THREE.Vector3();
@@ -880,7 +804,6 @@ const boot = () => {
       }
     }
     plants.count = i;
-    plantInk.count = i;
     plants.instanceMatrix.needsUpdate = true;
   }
 
@@ -937,10 +860,9 @@ const boot = () => {
       uniform float uTime; uniform float uSunI; uniform float uMurk; uniform vec3 uTint;
       varying float vAlong; varying float vSeed;
       void main() {
-        // stepped falloff, so a beam is a stack of flat plates
-        float fade = floor((1.0 - vAlong) * 3.0) / 3.0;
-        float flick = 0.65 + 0.35 * step(0.0, sin(uTime * 0.7 + vSeed * 2.3));
-        float a = fade * flick * uSunI * (1.0 - uMurk * 0.5) * 0.13;
+        float fade = pow(1.0 - vAlong, 2.0);
+        float flick = 0.70 + 0.30 * sin(uTime * 0.7 + vSeed * 2.3);
+        float a = fade * flick * uSunI * (1.0 - uMurk * 0.5) * 0.07;
         gl_FragColor = vec4(uTint * a, a);
       }`,
   });
@@ -1048,7 +970,7 @@ const boot = () => {
     (world.relLinks || []).forEach((link) => {
       const a = E.getAgent(link.from), b = E.getAgent(link.to);
       if (!a || !b || !a.alive || !b.alive) return;
-      arc(agentPos(a, pA), agentPos(b, pB), REL_COLORS[link.type] || '#ffffff', 0.8);
+      arc(agentPos(a, pA), agentPos(b, pB), REL_COLORS[link.type] || '#ffffff', 0.34);
     });
 
     const groups = { smallfish: [], shrimp: [] };
@@ -1061,7 +983,7 @@ const boot = () => {
           const d = Math.hypot(va.x - vb.x, va.y - vb.y);
           if (d >= 92) continue;
           agentPos(list[i], pA); agentPos(list[j], pB);
-          seg(pA.x, pA.y, pA.z, pB.x, pB.y, pB.z, COLORS[sp], (1 - d / 92) * 0.20);
+          seg(pA.x, pA.y, pA.z, pB.x, pB.y, pB.z, COLORS[sp], (1 - d / 92) * 0.09);
         }
       }
     });
@@ -1198,10 +1120,10 @@ const boot = () => {
       toSphere(fx.x, fx.y, WORLD.depth / 2, P);
       m.position.copy(P);
       m.lookAt(camera.position);
-      const size = (3 + life * 14) * PX;
+      const size = (2 + life * 8) * PX;
       m.scale.set(size, size, 1);
       m.material.color.setHex(FX_COLOR[fx.type] || 0xffffff);
-      m.material.opacity = (1 - life) * 0.75;
+      m.material.opacity = (1 - life) * 0.40;
       m.visible = true;
     }
   }
@@ -1325,7 +1247,7 @@ const boot = () => {
     };
     set(surfaceMat); set(volumeMat); set(seabed.material); set(shaftMat);
     // bioluminescence is what you see at night, so let bloom off the leash then
-    bloom.strength = 0.20 + (1 - sky.sun) * 0.30;
+    bloom.strength = 0.06 + (1 - sky.sun) * 0.10;
   }
 
   const HUD = document.getElementById('skyHud');
@@ -1397,14 +1319,12 @@ const boot = () => {
     shaftMat.uniforms.uTime.value = clock;
     plantMat.uniforms.uTime.value = clock;
     plantMat.uniforms.uSunI.value = sky.sun;
-    plantInkMat.uniforms.uTime.value = clock;
     pushSky();
     Object.keys(pools).forEach((s) => {
       const u = pools[s].mesh.material.uniforms;
       u.uTime.value = clock;
       u.uSun.value.copy(SUN);
       u.uSunI.value = sky.sun;
-      pools[s].hull.material.uniforms.uTime.value = clock;
     });
 
     controls.update();

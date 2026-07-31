@@ -26,13 +26,13 @@
   --accent-ink: #04201c;
 
   /* species / semantic (engine-baked; used only in data viz) */
-  --bigfish: #f2a65a;
-  --smallfish: #56d8e6;
-  --shrimp: #f2879e;
-  --plant: #46c98a;
-  --food: #ffe1a0;
-  --subgoal: #98a6e8;
-  --danger: #ff6f7d;
+  --bigfish: #e0a850;
+  --smallfish: #a4c8c2;
+  --shrimp: #dd9a9a;
+  --plant: #6fae8f;
+  --food: #e6cd9a;
+  --subgoal: #97a4c9;
+  --danger: #d4736e;
 
   --serif: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
   --sans: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", ui-sans-serif,

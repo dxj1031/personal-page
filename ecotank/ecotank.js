@@ -29,27 +29,27 @@
      glow term in ecotank3d.js as well as to the monitor's dots and bars, and
      the two must not drift apart. */
   const COLORS = {
-    bigfish: "#f2a65a",
-    smallfish: "#56d8e6",
-    shrimp: "#f2879e",
-    snail: "#c9b877",
-    cleaner: "#79e6b8",
-    louse: "#9ba7e0",
-    plant: "#46c98a",
-    food: "#ffe1a0",
-    danger: "#ff6f7d",
-    message: "#5fe0d6",
-    subgoal: "#98a6e8",
+    bigfish: "#e0a850",
+    smallfish: "#a4c8c2",
+    shrimp: "#dd9a9a",
+    snail: "#c9b78c",
+    cleaner: "#8fc7ac",
+    louse: "#a7a2c2",
+    plant: "#6fae8f",
+    food: "#e6cd9a",
+    danger: "#d4736e",
+    message: "#86bfc0",
+    subgoal: "#97a4c9",
   };
 
   // relationship-type palette (cross-species + intraspecies interactions)
   const REL_COLORS = {
-    predation: "#ff4d6d",   // 捕食
-    mutualism: "#4dffc3",   // 共生 (cleaner <-> host)
-    parasitism: "#c77dff",  // 寄生 (louse -> host)
-    competition: "#ffa23a", // 跨物种竞争
-    intraspecific: "#ff7ab8", // 物种内竞争
-    cooperation: "#58c8ff", // 合作
+    predation: "#d4736e",   // 捕食
+    mutualism: "#8fc7ac",   // 共生 (cleaner <-> host)
+    parasitism: "#a7a2c2",  // 寄生 (louse -> host)
+    competition: "#e0a850", // 跨物种竞争
+    intraspecific: "#dd9a9a", // 物种内竞争
+    cooperation: "#8fb4cc", // 合作
   };
 
   const SPECIES = {
