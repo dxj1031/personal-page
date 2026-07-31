@@ -508,10 +508,17 @@
     for (let i = 0; i < count; i += 1) {
       const leftCluster = world.rng.next() < 0.58;
       const x = leftCluster ? world.rng.range(60, 390) : world.rng.range(790, 1050);
+      // A bit under half the beds now drift in open water at any depth. Grazers
+      // follow their food, so this is what actually spreads the ecosystem out.
+      const benthic = world.rng.next() < 0.55;
       world.plants.push({
         id: `P${++world.ids.plant}`,
         x,
-        y: WORLD.floor - world.rng.range(8, 26),
+        benthic,
+        z: world.rng.range(0, WORLD.depth),
+        y: benthic
+          ? WORLD.floor - world.rng.range(8, 26)
+          : world.rng.range(WORLD.waterTop + 40, WORLD.floor - 70),
         biomass: world.rng.range(34, 88),
         maxBiomass: world.rng.range(80, 128),
         growth: world.rng.range(0.035, 0.09),
@@ -587,7 +594,7 @@
     if (species === "cleaner") return world.rng.range(200, 480);
     if (species === "snail") return WORLD.floor - world.rng.range(8, 16);
     if (species === "louse") return world.rng.range(160, 470);
-    return world.rng.range(430, 558);
+    return world.rng.range(180, 545);
   }
 
   function createBt() {
@@ -1504,8 +1511,8 @@
       logEvent("eco", "producer biomass regrowth");
     }
 
-    if (world.tick % 90 === 0 && world.food.length < 24) {
-      seedFood(10, "plankton pulse");
+    if (world.tick % 60 === 0 && world.food.length < 46) {
+      seedFood(16, "plankton pulse");
     }
 
     // keep the parasite loop alive so the 寄生/共生 story stays visible
@@ -1540,9 +1547,10 @@
       world.food.push({
         id: `D${++world.ids.food}`,
         kind: "food",
-        x: world.rng.range(210, 940),
-        y: WORLD.waterTop + world.rng.range(12, 64),
-        energy: world.rng.range(9, 17),
+        x: world.rng.range(120, 1010),
+        y: WORLD.waterTop + world.rng.range(12, 430),
+        z: world.rng.range(0, WORLD.depth),
+        energy: world.rng.range(12, 21),
         value: 1.2,
         vy: world.rng.range(0.1, 0.28),
         ttl: 620,
@@ -1865,7 +1873,7 @@
       // smoothed angular velocity. A fish that is turning should lean into the
       // arc and bend through it; without this it slides round corners flat,
       // which is what makes rendered fish look like they are on rails.
-      v.turn += (applied - v.turn) * 0.22;
+      v.turn += (applied - v.turn) * 0.12;
       v.tail += 0.18 + v.spd * 0.16;
     });
   }

@@ -38,7 +38,8 @@ const CAP_LAT = 1.02;      // seabed cap covers everything below this latitude
 const INNER = 0.56;        // living shell runs from INNER*R out to the skin
 const HOME_DIST = R * 3.3;
 const SUN = new THREE.Vector3(0, 1, 0);
-const SWIM_MODES = ['eel', 'carangiform', 'power', 'burst'];   // recomputed every frame by the day cycle
+const SWIM_MODES = ['eel', 'carangiform', 'power', 'burst'];
+const RIPPLES = 6;          // concurrent drag disturbances tracked on the shell   // recomputed every frame by the day cycle
 
 /* Day cycle and weather. The sun arcs east->west over the lit pole, dips below
    it at night, and the weather states only ever move four numbers, so the whole
@@ -64,6 +65,32 @@ const CAUSTIC = /* glsl */`
     float b = sin((q.x + q.y) * 2.9 - t * 1.00) + sin((q.y + q.z) * 2.3 + t * 0.90);
     float c = 0.5 + 0.5 * sin(a * 1.7 + b * 1.3);
     return pow(c, 6.0);
+  }`;
+
+/* Drag interaction. Instead of a standing swell deforming the shell, the water
+   answers the pointer: each drag sample drops a disturbance on the sphere and
+   the shading carries an expanding ring away from it. Angular distance is used
+   rather than euclidean, so a ring travels *over* the surface at a constant
+   rate however the ball is turned, and the geometry stays a true sphere. */
+const RIPPLE_GLSL = /* glsl */`
+  uniform vec3 uRipOrigin[${RIPPLES}];
+  uniform float uRipAge[${RIPPLES}];      // seconds alive; negative = free slot
+  uniform float uRipAmp[${RIPPLES}];
+
+  float rippleAt(vec3 dir) {
+    float sum = 0.0;
+    for (int i = 0; i < ${RIPPLES}; i++) {
+      float age = uRipAge[i];
+      if (age < 0.0) continue;
+      float d = acos(clamp(dot(dir, uRipOrigin[i]), -1.0, 1.0));
+      float front = age * 1.05;                       // radians per second
+      float w = d - front;
+      // a lead crest plus one trailing wave, both dying with age and distance
+      float crest = exp(-w * w * 120.0);
+      float trail = exp(-(w + 0.16) * (w + 0.16) * 190.0) * 0.45;
+      sum += (crest + trail) * exp(-age * 1.15) * uRipAmp[i];
+    }
+    return sum;
   }`;
 
 const boot = () => {
@@ -109,6 +136,32 @@ const boot = () => {
   const bloom = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.08, 0.35, 0.86);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
+
+  /* ------------------------------------------------------------- ripples */
+  const ripOrigin = Array.from({ length: RIPPLES }, () => new THREE.Vector3(0, 1, 0));
+  const ripAge = new Float32Array(RIPPLES).fill(-1);
+  const ripAmp = new Float32Array(RIPPLES).fill(0);
+  let ripCursor = 0;
+  const rippleUniforms = () => ({
+    uRipOrigin: { value: ripOrigin },
+    uRipAge: { value: ripAge },
+    uRipAmp: { value: ripAmp },
+  });
+
+  function spawnRipple(pointOnSphere, strength) {
+    ripOrigin[ripCursor].copy(pointOnSphere).normalize();
+    ripAge[ripCursor] = 0;
+    ripAmp[ripCursor] = strength;
+    ripCursor = (ripCursor + 1) % RIPPLES;
+  }
+
+  function ageRipples(dt) {
+    for (let i = 0; i < RIPPLES; i += 1) {
+      if (ripAge[i] < 0) continue;
+      ripAge[i] += dt;
+      if (ripAge[i] > 3.4) ripAge[i] = -1;          // ring has faded out
+    }
+  }
 
   /* ---------------------------------------------------- coordinate mapping */
   const LON_K = (Math.PI * 2) / WORLD.width;
@@ -169,6 +222,7 @@ const boot = () => {
       uSunI: { value: 1 }, uMurk: { value: 0 }, uFlash: { value: 0 },
       uChop: { value: 1 },
       uTint: { value: new THREE.Color(0.30, 0.86, 0.98) },
+      ...rippleUniforms(),
     },
     vertexShader: `
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
@@ -186,6 +240,7 @@ const boot = () => {
       uniform float uMurk; uniform float uFlash; uniform vec3 uTint;
       uniform float uChop;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
+      ${RIPPLE_GLSL}
       void main() {
         vec3 n = normalize(vN); vec3 v = normalize(vView);
         vec3 dir = normalize(vPos);
@@ -199,11 +254,15 @@ const boot = () => {
         float sharp = 90.0 / clamp(uChop, 1.0, 3.2);
         float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), sharp)
                    * uSunI / clamp(uChop, 1.0, 3.2);
-        vec3 glass = uTint * fres * (0.35 + 0.65 * day);
+        // the drag wake: brightens the shell and sharpens its edge locally,
+        // which reads as water moving without bending the sphere
+        float rip = rippleAt(dir);
+        vec3 glass = uTint * (fres + rip * 0.55) * (0.35 + 0.65 * day);
         vec3 glint = vec3(1.0, 0.98, 0.94) * spec * 0.9 * (1.0 - uMurk * 0.6);
+        vec3 wake = mix(uTint, vec3(0.92, 1.0, 1.0), 0.45) * rip * 0.42;
         vec3 bolt = vec3(0.66, 0.76, 0.90) * uFlash * 0.5;
-        float a = clamp(fres * 1.15 + spec * 0.8 + uFlash * 0.3, 0.0, 1.0);
-        gl_FragColor = vec4(glass + glint + bolt, a * (1.0 - uMurk * 0.2));
+        float a = clamp(fres * 1.15 + spec * 0.8 + rip * 0.5 + uFlash * 0.3, 0.0, 1.0);
+        gl_FragColor = vec4(glass + glint + wake + bolt, a * (1.0 - uMurk * 0.2));
       }`,
   });
   const surface = new THREE.Mesh(shellGeo, surfaceMat);
@@ -220,6 +279,7 @@ const boot = () => {
       uSun: { value: SUN.clone() }, uInside: { value: 0 },
       uSunI: { value: 1 }, uMurk: { value: 0 }, uFlash: { value: 0 },
       uTint: { value: new THREE.Color(0.30, 0.86, 0.98) },
+      ...rippleUniforms(),
     },
     vertexShader: `
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
@@ -234,6 +294,7 @@ const boot = () => {
       uniform float uTime; uniform vec3 uSun; uniform float uInside;
       uniform float uSunI; uniform float uMurk; uniform float uFlash; uniform vec3 uTint;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
+      ${RIPPLE_GLSL}
       void main() {
         vec3 dir = normalize(vPos);
         // the fluid the specimens are suspended in: one smooth vertical
@@ -252,9 +313,12 @@ const boot = () => {
         float shaft = pow(axis, 6.0) * uSunI * (1.0 - uMurk * 0.6);
         // thin: this pane covers the entire disc, so anything approaching opaque
         // turns the ball into frosted glass and buries every specimen behind it
+        // the wake shows fainter from inside the water than on the skin
+        float rip = rippleAt(dir);
         gl_FragColor = vec4(
-          body + uTint * shaft * 0.08 + vec3(0.60, 0.70, 0.85) * uFlash * 0.15,
-          (0.30 + 0.14 * lit + uFlash * 0.15) * mix(1.0, 0.35, uInside));
+          body + uTint * shaft * 0.08 + uTint * rip * 0.22
+            + vec3(0.60, 0.70, 0.85) * uFlash * 0.15,
+          (0.30 + 0.14 * lit + rip * 0.20 + uFlash * 0.15) * mix(1.0, 0.35, uInside));
       }`,
   });
   const volume = new THREE.Mesh(shellGeo, volumeMat);
@@ -546,34 +610,36 @@ const boot = () => {
     vec3 swim(vec3 pos, float spine, float phase) {
       float body = 1.0 - spine;              // 0 at the nose, 1 at the tail
       float effort = clamp(aBeat, 0.0, 1.6);
-      float amp = uSwim * (0.70 + 0.55 * effort);
+      // gentler: half the throw, and effort barely widens it. A fish should
+      // read as unhurried even when it is moving quickly.
+      float amp = uSwim * (0.38 + 0.22 * effort);
       float env, wave, gate = 1.0;
 
       if (uMode < 0.5) {
         // 0 — anguilliform: the whole body undulates, eel-like. Amplitude
         // never fully dies at the head, so nothing is rigid.
-        float W = 1.55 * (0.60 + 0.70 * effort);
+        float W = 0.95 * (0.65 + 0.45 * effort);
         env = 0.22 + 0.78 * body;
         wave = sin(body * 4.0 - uTime * W + phase);
       } else if (uMode < 1.5) {
         // 1 — carangiform: front third stiff, rear half does the work. The
         // classic trout/tuna gait.
-        float W = 1.85 * (0.60 + 0.75 * effort);
+        float W = 1.15 * (0.65 + 0.50 * effort);
         env = pow(body, 2.0);
         wave = sin(body * 3.1 - uTime * W + phase);
       } else if (uMode < 2.5) {
         // 2 — power stroke: same travelling wave, but time is skewed so the
         // fish sweeps fast through the middle of the stroke and lingers at
         // the extremes. That asymmetry is what reads as a push.
-        float W = 1.35 * (0.60 + 0.70 * effort);
+        float W = 0.85 * (0.65 + 0.45 * effort);
         float ph = uTime * W - phase;
-        float sk = ph + 0.62 * sin(ph);      // fast through zero, slow at the ends
+        float sk = ph + 0.40 * sin(ph);      // fast through zero, slow at the ends
         env = 0.26 + 0.74 * pow(body, 1.35);
         wave = sin(body * 2.9 - sk);
       } else {
         // 3 — glide and burst: a short beat, then a long coast. The body
         // holds its curve through the glide instead of going limp.
-        float W = 2.10 * (0.60 + 0.80 * effort);
+        float W = 1.35 * (0.65 + 0.55 * effort);
         float cyc = fract(uTime * 0.19 * (0.6 + 0.5 * effort) + phase * 0.15);
         gate = smoothstep(0.0, 0.10, cyc) * (1.0 - smoothstep(0.30, 0.68, cyc));
         gate = 0.16 + 0.84 * gate;
@@ -583,7 +649,7 @@ const boot = () => {
 
       pos.z += wave * env * amp * gate;
       // and the whole body arcs through a turn, tail swinging widest
-      pos.z += aTurn * 0.16 * pow(body, 1.3);
+      pos.z += aTurn * 0.085 * pow(body, 1.3);
       return pos;
     }
     // stable per-fish phase from where it is, not which instance slot it landed
@@ -725,7 +791,7 @@ const boot = () => {
     // Bank: roll the dorsal axis about the heading, proportional to how hard
     // the agent is turning. This is the single biggest tell between a fish and
     // a model being dragged along a path.
-    const bank = clamp(-(v.turn || 0) * 7.0, -0.75, 0.75);
+    const bank = clamp(-(v.turn || 0) * 3.4, -0.40, 0.40);
     if (bank !== 0) {
       const cb = Math.cos(bank), sb = Math.sin(bank);
       const ux = up.x, uy = up.y, uz = up.z;
@@ -748,7 +814,7 @@ const boot = () => {
     pool.glow[index] = 0.30 + energyFrac * 0.85 + (fleeing ? 0.45 : 0);
     // normalised effort, not a frequency: each gait picks its own tempo
     pool.beat[index] = clamp((v.spd || 0) / 3.2, 0, 1) + (fleeing ? 0.6 : 0);
-    pool.turn[index] = clamp((v.turn || 0) * 5.0, -1, 1);
+    pool.turn[index] = clamp((v.turn || 0) * 3.0, -1, 1);
   }
 
   function syncOrganisms(world) {
@@ -863,10 +929,19 @@ const boot = () => {
     let i = 0;
     for (const plant of world.plants) {
       if (plant.biomass <= 1 || i >= PLANT_CAP) continue;
-      const h1 = Math.sin((plant.x + 1) * 12.9898 + (plant.y + 1) * 78.233) * 43758.5453;
-      const spread = h1 - Math.floor(h1);                    // stable 0..1
-      const lat = -(CAP_LAT + 0.04 + spread * (Math.PI / 2 - CAP_LAT - 0.10));
-      const lon = plant.x * LON_K;
+      let lat, lon = plant.x * LON_K, rootR;
+      if (plant.benthic === false) {
+        // drifting bed: sits where its own depth maps to, like any organism
+        const ll = lonLatRad(plant.x, plant.y, plant.z == null ? WORLD.depth / 2 : plant.z);
+        lat = ll.lat; rootR = ll.r;
+      } else {
+        // rooted on the cap; latitude spread by a stable hash so beds cover the
+        // seabed instead of stacking on one ring
+        const h1 = Math.sin((plant.x + 1) * 12.9898 + (plant.y + 1) * 78.233) * 43758.5453;
+        const spread = h1 - Math.floor(h1);                  // stable 0..1
+        lat = -(CAP_LAT + 0.04 + spread * (Math.PI / 2 - CAP_LAT - 0.10));
+        rootR = R * 0.93;
+      }
       const cl = Math.cos(lat), sl = Math.sin(lat);
       const co = Math.cos(lon), so = Math.sin(lon);
       radial.set(cl * co, sl, cl * so);
@@ -874,7 +949,7 @@ const boot = () => {
       // Root just inside the skin and grow mostly *along* the sphere toward the
       // lit pole. Growing radially pushed every blade straight out through the
       // surface, which read as a beard hanging off the bottom of the ball.
-      P.copy(radial).multiplyScalar(R * 0.93);
+      P.copy(radial).multiplyScalar(rootR);
       up.copy(north).multiplyScalar(0.94).addScaledVector(radial, -0.10).normalize();
       tA.copy(Math.abs(up.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : POLE).cross(up).normalize();
       tB.copy(up).cross(tA).normalize();
@@ -964,6 +1039,168 @@ const boot = () => {
   shafts.frustumCulled = false;
   shafts.renderOrder = 6;
   scene.add(shafts);
+
+  /* =============================================================== SKY BODIES
+     Sun, cloud deck and rain. The rain is the interesting one: a drop that
+     reaches the shell spawns a ripple through the same path a mouse drag uses,
+     so weather and pointer disturb the water through one mechanism. */
+
+  const SKY_R = R * 1.34;           // cloud deck radius
+  const RAIN_COUNT = 900;
+
+  // soft radial sprite, built once per call — the glass rewrite removed the old
+  // shared texture table along with the sprite pipeline it served
+  function radialTexture(inner, outer) {
+    const px = 64;
+    const c = Object.assign(document.createElement('canvas'), { width: px, height: px });
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(px / 2, px / 2, 0, px / 2, px / 2, px / 2);
+    g.addColorStop(0, inner);
+    g.addColorStop(0.42, outer);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, px, px);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+
+  // --- sun: a disc plus a wide halo, both riding the SUN direction ---
+  const sunGroup = new THREE.Group();
+  const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: radialTexture('rgba(255,252,240,1)', 'rgba(255,236,190,0.85)'),
+    transparent: true, depthWrite: false, depthTest: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  sunDisc.scale.setScalar(R * 0.30);
+  const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: radialTexture('rgba(255,240,205,0.55)', 'rgba(255,214,150,0.18)'),
+    transparent: true, depthWrite: false, depthTest: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  sunHalo.scale.setScalar(R * 1.15);
+  sunGroup.add(sunHalo, sunDisc);
+  sunGroup.renderOrder = 2;
+  scene.add(sunGroup);
+
+  // --- cloud deck: soft puffs scattered over a cap above the ball ---
+  const cloudTex = radialTexture('rgba(232,238,244,0.92)', 'rgba(198,210,222,0.45)');
+  const CLOUDS = 130;
+  const cloudGeo = new THREE.BufferGeometry();
+  const cloudPos = new Float32Array(CLOUDS * 3);
+  const cloudSeed = [];
+  for (let i = 0; i < CLOUDS; i += 1) {
+    // clustered into a handful of banks rather than an even dusting
+    const bank = Math.floor(i / 11);
+    cloudSeed.push({
+      lon: (bank * 1.9 + (i % 11) * 0.16) % (Math.PI * 2),
+      lat: 0.55 + ((bank * 7) % 5) / 5 * 0.75 + ((i % 11) - 5) * 0.035,
+      drift: 0.012 + ((bank * 3) % 4) / 4 * 0.02,
+      size: R * (0.20 + ((i * 5) % 7) / 7 * 0.26),
+    });
+  }
+  cloudGeo.setAttribute('position', new THREE.BufferAttribute(cloudPos, 3));
+  cloudGeo.setAttribute('size', new THREE.BufferAttribute(
+    new Float32Array(cloudSeed.map((c) => c.size)), 1));
+  const cloudMat = new THREE.PointsMaterial({
+    map: cloudTex, transparent: true, depthWrite: false,
+    size: R * 0.34, sizeAttenuation: true, opacity: 0.0,
+    color: new THREE.Color(0xe6ecf2),
+  });
+  const clouds = new THREE.Points(cloudGeo, cloudMat);
+  clouds.frustumCulled = false;
+  clouds.renderOrder = 3;
+  scene.add(clouds);
+
+  // --- rain: falls from the deck onto the shell, then rings the water ---
+  const rainGeo = new THREE.BufferGeometry();
+  const rainPos = new Float32Array(RAIN_COUNT * 3);
+  const drops = [];
+  for (let i = 0; i < RAIN_COUNT; i += 1) {
+    drops.push({ dir: new THREE.Vector3(), r: 0, v: 0, live: false });
+  }
+  rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+  const rainMat = new THREE.PointsMaterial({
+    color: 0xbcd2e0, size: 1.5, transparent: true, opacity: 0.55,
+    depthWrite: false, sizeAttenuation: true,
+  });
+  const rain = new THREE.Points(rainGeo, rainMat);
+  rain.frustumCulled = false;
+  rain.renderOrder = 4;
+  scene.add(rain);
+
+  function seedDrop(d) {
+    // start somewhere over the lit hemisphere-ish cap, fall inward
+    const lon = Math.random() * Math.PI * 2;
+    const lat = 0.15 + Math.random() * 1.25;
+    const cl = Math.cos(lat);
+    d.dir.set(cl * Math.cos(lon), Math.sin(lat), cl * Math.sin(lon));
+    d.r = SKY_R * (0.90 + Math.random() * 0.18);
+    d.v = 26 + Math.random() * 22;
+    d.live = true;
+  }
+
+  const dropP = new THREE.Vector3();
+
+  function stepWeather(dt) {
+    // ---- sun rides the day arc, dimming as it sets
+    sunGroup.position.copy(SUN).multiplyScalar(R * 2.5);
+    const up = Math.max(0, SUN.y);
+    const vis = sky.sun * (0.25 + 0.75 * up);
+    sunDisc.material.opacity = vis;
+    sunHalo.material.opacity = vis * 0.55 * (1 - sky.murk * 0.6);
+    // low sun reddens
+    sunDisc.material.color.setRGB(1, 0.94 - (1 - up) * 0.22, 0.86 - (1 - up) * 0.42);
+    sunGroup.visible = vis > 0.01;
+
+    // ---- cloud cover tracks the weather, and the deck drifts
+    const cover = clamp(sky.murk * 1.25, 0, 1);
+    cloudMat.opacity = cover * 0.85;
+    clouds.visible = cover > 0.02;
+    if (clouds.visible) {
+      const attr = cloudGeo.getAttribute('position');
+      for (let i = 0; i < CLOUDS; i += 1) {
+        const c = cloudSeed[i];
+        c.lon += c.drift * dt;
+        const cl = Math.cos(c.lat);
+        attr.setXYZ(i,
+          SKY_R * cl * Math.cos(c.lon),
+          SKY_R * Math.sin(c.lat),
+          SKY_R * cl * Math.sin(c.lon));
+      }
+      attr.needsUpdate = true;
+    }
+
+    // ---- rain, only once the sky is wet enough
+    const wet = clamp((sky.murk - 0.5) * 2.2, 0, 1);
+    rain.visible = wet > 0.02;
+    rainMat.opacity = 0.25 + wet * 0.45;
+    const want = Math.floor(RAIN_COUNT * wet);
+    const attr = rainGeo.getAttribute('position');
+    let n = 0;
+    for (let i = 0; i < RAIN_COUNT; i += 1) {
+      const d = drops[i];
+      if (!d.live) { if (n < want) seedDrop(d); else continue; }
+      d.r -= d.v * dt;
+      if (d.r <= R) {
+        // impact: ring the water through the same path a drag uses
+        if (rippleBudget > 0 && Math.random() < 0.16) {
+          spawnRipple(d.dir, 0.30 + Math.random() * 0.25);
+          rippleBudget -= 1;
+        }
+        if (n < want) seedDrop(d); else { d.live = false; continue; }
+      }
+      dropP.copy(d.dir).multiplyScalar(d.r);
+      attr.setXYZ(n, dropP.x, dropP.y, dropP.z);
+      n += 1;
+    }
+    attr.needsUpdate = true;
+    rainGeo.setDrawRange(0, n);
+  }
+
+  // rain would otherwise claim every ripple slot; refill a small allowance
+  let rippleBudget = 2;
+  let rippleRefill = 0;
 
   /* ========================================================= MOTES & FOOD */
   function motePoints(count, size, color, opacity) {
@@ -1248,7 +1485,37 @@ const boot = () => {
   const pickable = Object.keys(pools).map((s) => pools[s].mesh);
   let downAt = null;
 
-  canvas.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY }; });
+  /* Drag disturbs the water. Each sample is raycast onto the shell and dropped
+     in as a ring source, rate-limited by angular travel so a slow drag leaves a
+     trail rather than a solid smear. */
+  const ripRay = new THREE.Raycaster();
+  const ripNdc = new THREE.Vector2();
+  const lastHit = new THREE.Vector3();
+  let hasLastHit = false;
+
+  function dragRipple(e, strength) {
+    const r = canvas.getBoundingClientRect();
+    ripNdc.set(((e.clientX - r.left) / r.width) * 2 - 1,
+      -((e.clientY - r.top) / r.height) * 2 + 1);
+    ripRay.setFromCamera(ripNdc, camera);
+    const hit = ripRay.intersectObject(surface, false)[0];
+    if (!hit) { hasLastHit = false; return; }
+    const p = hit.point.clone().normalize();
+    if (hasLastHit && p.angleTo(lastHit) < 0.09) return;   // too close to the last one
+    lastHit.copy(p);
+    hasLastHit = true;
+    spawnRipple(p, strength);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    downAt = { x: e.clientX, y: e.clientY };
+    hasLastHit = false;
+    dragRipple(e, 1.0);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.buttons === 0) return;
+    dragRipple(e, 0.85);
+  });
   canvas.addEventListener('pointerup', (e) => {
     if (!downAt) return;
     const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
@@ -1367,6 +1634,10 @@ const boot = () => {
     resize();
     const dt = 1 / 60;
     clock += dt;
+    ageRipples(dt);
+    rippleRefill -= dt;
+    if (rippleRefill <= 0) { rippleBudget = 2; rippleRefill = 0.45; }
+    stepWeather(dt);
     stepSky(dt);
     // the beams hang off the sun, so they swing across the day
     shafts.quaternion.setFromUnitVectors(UP_Y, SUN);
@@ -1434,6 +1705,7 @@ const boot = () => {
   window.__eco3d = {
     scene, camera, renderer, composer, bloom, sky, SUN, controls, THREE,
     surface, volume, seabed, shafts, plants, pools, lines, foodPoints, snowPoints, halo,
+    sunGroup, clouds, rain,
   };
   E.setRenderer({ frame, resize });
 };
