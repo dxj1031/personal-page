@@ -7,3 +7,7 @@ graphify-out/
 
 # frames the dev server writes so the agent can see what it rendered
 **/.claude/shot.png
+**/.claude/zine-final.png
+
+# personal hook and permission overrides, not a repo convention
+**/.claude/settings.local.json
