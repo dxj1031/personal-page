@@ -1,8 +1,20 @@
 /* =========================================================================
-   EcoTank · bioluminescent ecosphere
+   EcoTank · printed ecosphere
    -------------------------------------------------------------------------
-   A ball of near-black water. Nothing in here is lit by a lamp — every
-   organism, blade and mote is its own emitter, and bloom does the rest.
+   A ball of water printed on aged paper. Nothing in here emits: zine.js runs
+   last and turns luminance into ink coverage, so this scene's only job is to
+   lay down a *printable* tonal range — flat mid-tone fills and hard edges.
+   Near-black becomes a solid ink blob, anything glowing becomes a white hole,
+   and a smooth gradient becomes a smear of dot sizes. So there are none.
+
+   Every colour in here is authored as an sRGB ink coverage k (see inkTone):
+   0 is bare paper, 1 is solid ink. cov ~= 0.11 + 0.77k once it reaches the
+   press, which is close enough that k can be read as "how dark it prints".
+
+   One thing to know before touching a colour: the print pass hands any pixel
+   with HSV saturation over ~0.16 to a *spot* plate. Fluorescent orange is the
+   poster's single anchor, so everything that is not meant to be the anchor is
+   kept under that threshold and stays on the ink plate.
 
    The ball is polar: light enters at the top pole, and the bottom pole is a
    rocky seabed cap. The simulation in ecotank.js stays strictly 2D:
@@ -29,14 +41,18 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { zinePass } from './zine.js';
 
 const R = 100;             // the water ball
 const MAX_LAT = 1.25;      // ~72deg: the latitude the tank floor maps to
 const CAP_LAT = 1.02;      // seabed cap covers everything below this latitude
 const INNER = 0.56;        // living shell runs from INNER*R out to the skin
-const HOME_DIST = R * 3.3;
+// A zine poster is 70-90% negative space, so the ball is a modest anchor in a
+// quiet field rather than the subject filling the plate. At 4.8R and a 42deg
+// lens it stands about 57% of the frame height: roughly a quarter of the area
+// inked, three quarters bare paper.
+const HOME_DIST = R * 3.9;   // quiet field around the ball, but the shoal still reads
 const SUN = new THREE.Vector3(0, 1, 0);
 const SWIM_MODES = ['eel', 'carangiform', 'power', 'burst'];
 const RIPPLES = 6;          // concurrent drag disturbances tracked on the shell   // recomputed every frame by the day cycle
@@ -46,25 +62,50 @@ const RIPPLES = 6;          // concurrent drag disturbances tracked on the shell
    system is a handful of uniforms rather than a simulation. */
 const DAY_SECONDS = 168;
 const WEATHER = {
-  clear:    { label: ['晴', 'Clear'],    sun: 1.00, waves: 1.00, murk: 0.00, tint: [0.30, 0.86, 0.98] },
-  overcast: { label: ['阴', 'Overcast'], sun: 0.46, waves: 1.45, murk: 0.42, tint: [0.44, 0.66, 0.76] },
-  rain:     { label: ['雨', 'Rain'],     sun: 0.30, waves: 2.05, murk: 0.62, tint: [0.34, 0.60, 0.74] },
-  storm:    { label: ['暴雨', 'Storm'],  sun: 0.15, waves: 3.10, murk: 0.84, tint: [0.26, 0.46, 0.68] },
+  clear:    { label: ['晴', 'Clear'],    sun: 1.00, waves: 1.00, murk: 0.00 },
+  overcast: { label: ['阴', 'Overcast'], sun: 0.46, waves: 1.45, murk: 0.42 },
+  rain:     { label: ['雨', 'Rain'],     sun: 0.30, waves: 2.05, murk: 0.62 },
+  storm:    { label: ['暴雨', 'Storm'],  sun: 0.15, waves: 3.10, murk: 0.84 },
 };
 const WEATHER_KEYS = Object.keys(WEATHER);
 
+/* ------------------------------------------------------------- the palette
+   Four inks, shared verbatim with zine.js and ecotank.css. Nothing else gets
+   invented: a riso deck is short, and a fifth colour is a fifth pass. */
+const PAPER = 0xefe6d2;      // aged cream
+const INK = 0x22201c;        // warm near-black
+const SPOT_WARM = 0xff4d1f;  // fluorescent orange-red — the one anchor
+const SPOT_COOL = 0x2a4fd6;  // federal blue, sparingly
+
+/* Shader colours skip THREE.Color on purpose: it decodes sRGB into the linear
+   working space, and every tone in here is authored in sRGB because that is
+   the space the plate separation reads. A vec3 carries the literal bytes. */
+const srgbVec = (hex) => {
+  const n = typeof hex === 'string' ? parseInt(hex.replace('#', ''), 16) : hex;
+  return new THREE.Vector3(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+};
+
 /* ------------------------------------------------------------ GLSL chunks */
 
-// Interference of three drifting wave sets, raised to a high power so only the
-// crests survive — the classic cheap caustic, and it tiles a sphere fine
-// because it is evaluated in 3D rather than uv space.
-const CAUSTIC = /* glsl */`
-  float caustic(vec3 p, float t) {
-    vec3 q = p * 0.055;
-    float a = sin(q.x * 2.1 + t * 0.80) + sin(q.y * 2.7 - t * 0.60) + sin(q.z * 3.3 + t * 1.10);
-    float b = sin((q.x + q.y) * 2.9 - t * 1.00) + sin((q.y + q.z) * 2.3 + t * 0.90);
-    float c = 0.5 + 0.5 * sin(a * 1.7 + b * 1.3);
-    return pow(c, 6.0);
+/* Ink authoring. Everything downstream of OutputPass is raw sRGB, and the
+   print pass reads luminance, so tones are mixed in sRGB and only pushed to
+   linear on the way out. k is ink coverage: 0 bare paper, 1 solid ink.
+
+   `flat_()` is the whole art direction in one line — the press has no ramps,
+   so neither does the scene. Quantise before you tint. (The trailing
+   underscore is not style: `flat` is a reserved interpolation qualifier.) */
+const INK_GLSL = /* glsl */`
+  const vec3 PAPER_S = vec3(0.937, 0.902, 0.824);
+  const vec3 INK_S   = vec3(0.133, 0.125, 0.109);
+  vec3 inkTone(float k, vec3 hue) {
+    return pow(mix(PAPER_S, hue, clamp(k, 0.0, 1.0)), vec3(2.2));
+  }
+  vec3 inkTone(float k) { return inkTone(k, INK_S); }
+  float flat_(float v, float steps) { return floor(v * steps + 0.5) / steps; }
+  // Saturation is a plate assignment, not a mood: keep the body inks under the
+  // pass's ~0.16 spot threshold or the whole ball prints fluorescent.
+  vec3 desat(vec3 c, float keep) {
+    return mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, keep);
   }`;
 
 /* Drag interaction. Instead of a standing swell deforming the shell, the water
@@ -109,11 +150,20 @@ const boot = () => {
   const renderer = new THREE.WebGLRenderer({
     canvas, antialias: true, preserveDrawingBuffer: isDev,
   });
-  renderer.setClearColor(0x241f1c, 1);
-  // Glass wants smooth falloff, so the filmic curve is back — it was the cel
-  // banding that needed it gone, and the cel pass is gone.
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.06;
+  // The empty frame is the poster's negative space, so it has to be the
+  // *no-ink* value rather than the paper swatch: the pass paints the stock
+  // itself and reads 1-luminance as coverage, so clearing to PAPER flat would
+  // lay an 11% screen over the whole sheet. This is paper's white end, and it
+  // still reads as cream if the print pass is ever taken off.
+  // White, not cream: the pass paints the paper, and anything the clear leaves
+  // above zero coverage screens the negative space. uWhite would swallow a
+  // little of it anyway, but the dropout is there for the shading, not to hide
+  // a background that should not have been inked in the first place.
+  renderer.setClearColor(0xffffff, 1);
+  // No tone mapping. A filmic curve is a gradient generator, and every value in
+  // here was chosen as an ink coverage — it has to land where it was put.
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.toneMappingExposure = 1;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 4000);
@@ -125,18 +175,16 @@ const boot = () => {
   controls.rotateSpeed = 0.5;
   controls.enablePan = false;            // a ball has no meaningful pan
   controls.minDistance = R * 0.30;       // deepest dive, inside the living shell
-  controls.maxDistance = R * 5;
+  controls.maxDistance = R * 9;          // far enough to print the ball as a stamp
 
-  // RenderPass -> bloom -> OutputPass, on the composer's own buffer. OutputPass
-  // is what tone-maps and encodes, so the passes in front of it stay linear.
+  // RenderPass -> OutputPass -> zine. OutputPass encodes to sRGB, and the zine
+  // plate separates that sRGB frame into ink, so it has to come after. There is
+  // no bloom: glow is the exact opposite of ink on paper.
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  // barely there: glass reads through contrast and refraction, not emission.
-  // This only catches the specular glints on the water skin.
-  // matte, cosy surfaces: bloom would only muddy them
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.05, 0.30, 0.92);
-  composer.addPass(bloom);
   composer.addPass(new OutputPass());
+  const zine = zinePass();
+  composer.addPass(zine);
 
   /* ------------------------------------------------------------- ripples */
   const ripOrigin = Array.from({ length: RIPPLES }, () => new THREE.Vector3(0, 1, 0));
@@ -216,13 +264,13 @@ const boot = () => {
   const shellGeo = new THREE.SphereGeometry(R, 128, 84);
 
   const surfaceMat = new THREE.ShaderMaterial({
+    // Normal blending, not additive: adding light to a light ground only ever
+    // washes it out. The shell now *draws* rather than glows.
     transparent: true, depthWrite: false, side: THREE.FrontSide,
-    blending: THREE.AdditiveBlending,
     uniforms: {
       uTime: { value: 0 }, uSun: { value: SUN.clone() },
       uSunI: { value: 1 }, uMurk: { value: 0 }, uFlash: { value: 0 },
       uChop: { value: 1 },
-      uTint: { value: new THREE.Color(0.30, 0.86, 0.98) },
       ...rippleUniforms(),
     },
     vertexShader: `
@@ -238,38 +286,40 @@ const boot = () => {
       }`,
     fragmentShader: `
       uniform float uTime; uniform vec3 uSun; uniform float uSunI;
-      uniform float uMurk; uniform float uFlash; uniform vec3 uTint;
+      uniform float uMurk; uniform float uFlash;
       uniform float uChop;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
+      ${INK_GLSL}
       ${RIPPLE_GLSL}
       void main() {
         vec3 n = normalize(vN); vec3 v = normalize(vView);
         vec3 dir = normalize(vPos);
-        float lam = dot(dir, uSun) * 0.5 + 0.5;
-        float day = mix(0.5, 1.0, lam) * uSunI;
-        // a wide soft edge wrap instead of a sharp fresnel, and no specular
-        float edge = pow(1.0 - abs(dot(n, v)), 2.2);
-        float rip = rippleAt(dir);
-        vec3 wrap = vec3(1.0, 0.97, 0.90) * edge * (0.16 + 0.24 * day);
-        vec3 wake = vec3(0.98, 1.0, 0.94) * rip * 0.24;
-        vec3 bolt = vec3(0.80, 0.78, 0.70) * uFlash * 0.30;
-        float a = clamp(edge * 0.55 + rip * 0.30 + uFlash * 0.2, 0.0, 1.0);
-        gl_FragColor = vec4(wrap + wake + bolt, a * (1.0 - uMurk * 0.15));
+        // The fresnel wrap is gone. A printed sphere is a filled shape with a
+        // drawn contour, so all this shell does now is lay that contour down —
+        // one hard band at the silhouette, nothing across the face.
+        float f = 1.0 - abs(dot(n, v));
+        float rim = smoothstep(0.66, 0.80, f);
+        // and the drag wake, as a hard light line scratched back to paper
+        float wake = smoothstep(0.26, 0.44, rippleAt(dir));
+        float a = clamp(rim * 0.88 + wake * 0.60 + uFlash * 0.25, 0.0, 1.0);
+        // contour is ink, wake is paper; whichever is present wins the pixel
+        vec3 col = mix(inkTone(0.05), inkTone(0.92), rim / max(rim + wake, 0.001));
+        col = mix(col, inkTone(0.0), uFlash * 0.7);   // lightning knocks it to blank stock
+        gl_FragColor = vec4(col, a * (1.0 - uMurk * 0.10));
       }`,
   });
   const surface = new THREE.Mesh(shellGeo, surfaceMat);
   surface.renderOrder = 24;
   scene.add(surface);
 
-  // Inner face of the same shell. Carries the volume tint, the caustic net and
-  // the light shafts, so the whole "there is water in here" read is one mesh.
+  // Inner face of the same shell, and the poster's main fill: one flat body of
+  // ink in five steps. Everything else in the ball is judged against this tone.
   const volumeMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     uniforms: {
       uTime: { value: 0 },
       uSun: { value: SUN.clone() }, uInside: { value: 0 },
       uSunI: { value: 1 }, uMurk: { value: 0 }, uFlash: { value: 0 },
-      uTint: { value: new THREE.Color(0.30, 0.86, 0.98) },
       ...rippleUniforms(),
     },
     vertexShader: `
@@ -283,25 +333,34 @@ const boot = () => {
       }`,
     fragmentShader: `
       uniform float uTime; uniform vec3 uSun; uniform float uInside;
-      uniform float uSunI; uniform float uMurk; uniform float uFlash; uniform vec3 uTint;
+      uniform float uSunI; uniform float uMurk; uniform float uFlash;
       varying vec3 vN; varying vec3 vView; varying vec3 vPos;
+      ${INK_GLSL}
       ${RIPPLE_GLSL}
       void main() {
         vec3 dir = normalize(vPos);
-        // Warm, soft, matte. Half-lambert rather than a hard terminator, so the
-        // ball reads as something you could pick up rather than a lit surface.
-        float depth = smoothstep(-0.95, 0.85, dir.y);
+        float depth = smoothstep(-0.95, 0.85, dir.y);   // 0 seabed .. 1 lit pole
         float lam = dot(dir, uSun) * 0.5 + 0.5;
-        float lit = mix(0.55, 1.0, lam * lam) * (0.45 + 0.55 * uSunI);
-        vec3 deep = vec3(0.106, 0.169, 0.176);        // shaded mint
-        vec3 shallow = vec3(0.325, 0.478, 0.451);     // sunlit mint
-        vec3 body = mix(deep, shallow, depth * 0.85 + 0.15) * lit;
-        body = mix(body, vec3(0.62, 0.60, 0.55), uMurk * 0.30);   // overcast greys it
-        float rip = rippleAt(dir);
-        gl_FragColor = vec4(
-          body + vec3(0.90, 0.94, 0.86) * rip * 0.16
-               + vec3(0.75, 0.72, 0.62) * uFlash * 0.18,
-          1.0);
+        // Day and night are ink density, not room brightness: the shaded side
+        // and the small hours simply take more ink. Keep the whole body between
+        // 0.24 and 0.62 so organisms have somewhere darker to sit.
+        // The water is the *field*, not the subject. Hold it between 0.12 and
+        // 0.38 so the ecosystem has three quarters of the scale to itself —
+        // at 0.24..0.62 the shell printed as a grey slab and a fish laid on top
+        // of it had nowhere darker to go.
+        float k = mix(0.38, 0.12, depth * 0.72 + 0.28 * lam);
+        k += (1.0 - uSunI) * 0.10;          // night: a heavier plate
+        k += uMurk * 0.08;                  // storm: murkier, not darker
+        k = flat_(k, 5.0);                  // five tones, no ramp between them
+        // Warmth is the other half of the clock. The cool ink is matched to the
+        // warm one in luminance on purpose: swapping temperature must not
+        // quietly change how much coverage the plate asks for.
+        vec3 hue = mix(INK_S, vec3(0.098, 0.126, 0.178),
+                       clamp(0.30 * uMurk + 0.45 * (1.0 - uSunI), 0.0, 1.0));
+        vec3 body = inkTone(k, hue);
+        // ripples lift ink off the plate instead of adding light to it
+        body = mix(body, inkTone(k * 0.35, hue), smoothstep(0.18, 0.55, rippleAt(dir)));
+        gl_FragColor = vec4(mix(body, inkTone(0.0), uFlash * 0.55), 1.0);
       }`,
   });
   const volume = new THREE.Mesh(shellGeo, volumeMat);
@@ -346,14 +405,16 @@ const boot = () => {
     fragmentShader: `
       uniform float uTime; uniform vec3 uSun; uniform float uSunI; uniform float uFlash;
       varying vec3 vN; varying vec3 vPos; varying vec3 vView;
+      ${INK_GLSL}
       void main() {
         vec3 n = normalize(vN);
         vec3 nUp = gl_FrontFacing ? -n : n;
-        // half-lambert again: soft warm sand with no hard shadow edge
+        // Rock prints heavier than water, in four steps. The dunes read through
+        // which step a face lands in — that stepping *is* the modelling now,
+        // which is why the shading has to quantise rather than ramp.
         float lam = dot(nUp, uSun) * 0.5 + 0.5;
-        float lit = mix(0.62, 1.0, lam * lam) * (0.5 + 0.5 * uSunI);
-        vec3 sand = mix(vec3(0.310, 0.263, 0.208), vec3(0.678, 0.596, 0.463), lam) * lit;
-        gl_FragColor = vec4(sand + vec3(0.7, 0.66, 0.58) * uFlash * 0.2, 1.0);
+        float k = mix(0.52, 0.28, lam) + (1.0 - uSunI) * 0.08;
+        gl_FragColor = vec4(mix(inkTone(flat_(k, 4.0)), inkTone(0.0), uFlash * 0.4), 1.0);
       }`,
   }));
   scene.add(seabed);
@@ -637,20 +698,17 @@ const boot = () => {
       return t.x * 0.7 + t.y * 1.3 + t.z * 0.9;
     }`;
 
-  // Cel body: flat tones off the sun, one hard rim light, inked flank stripes.
-  // Opaque on purpose — flat shapes with outlines want depth, not blending.
-  /* Glass specimen. No outline, no emission: the body is a thin translucent
-     shell, nearly invisible face-on and bright at grazing angles, which is what
-     makes glass look like glass. Thickness is faked from the facing angle — a
-     ray through the middle of a shell crosses less material than one through
-     the edge — so the silhouette carries the whole read. */
+  /* Printed specimen. Three flat tones and a hard contour — a woodcut of a
+     fish, not a lit model of one. The species colour survives only as a hint of
+     temperature: it is desaturated hard so the body stays on the ink plate
+     instead of being promoted to the fluorescent spot, which is reserved. */
   function organismMaterial(species, swim, freq) {
     return new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       uniforms: {
         uTime: { value: 0 }, uSwim: { value: swim }, uMode: { value: 2 },
         uSun: { value: SUN.clone() }, uSunI: { value: 1 },
-        uBase: { value: new THREE.Color(COLORS[species]) },
+        uBase: { value: srgbVec(COLORS[species]) },
       },
       vertexShader: `
         ${SWIM_VERT}
@@ -670,27 +728,24 @@ const boot = () => {
         uniform vec3 uBase; uniform float uTime; uniform vec3 uSun; uniform float uSunI;
         varying vec3 vN; varying vec3 vView; varying float vSpine; varying float vGlow;
         varying float vDorsal;
+        ${INK_GLSL}
         void main() {
           vec3 n = normalize(vN); vec3 v = normalize(vView);
-          // Matte and opaque. Half-lambert wraps the light most of the way round
-          // the body so nothing drops into a hard shadow, and there is no
-          // specular at all: these should read as felt, not as glass.
           float lam = dot(n, uSun) * 0.5 + 0.5;
-          float wrap = mix(0.40, 1.0, lam * lam) * (0.55 + 0.45 * uSunI);
-          float edge = pow(1.0 - abs(dot(n, v)), 2.5);
-
-          // Countershading, derived from the one species colour so the palette
-          // cannot drift: warmer back, creamier belly.
-          vec3 dorsal  = uBase * 0.72;
-          vec3 ventral = mix(uBase, vec3(1.0, 0.97, 0.90), 0.42);
-          vec3 tint = mix(ventral, dorsal, smoothstep(-0.70, 0.70, vDorsal));
-          tint = mix(tint * 0.94, tint, smoothstep(0.0, 0.55, vSpine));
-
-          vec3 col = tint * wrap
-                   + vec3(1.0, 0.96, 0.88) * edge * 0.16 * (0.4 + 0.6 * uSunI)
-                   + uBase * 0.05;
-          // condition reads as a slight fade rather than as transparency
-          gl_FragColor = vec4(col * (0.80 + 0.20 * vGlow), 1.0);
+          // Three tones across the body and a fourth at the contour. Any more
+          // and the screen turns them back into a gradient of dot sizes.
+          // Sit well below the water's 0.24..0.62: a body that shares the
+          // shell's tone is a body you cannot find, and at this camera distance
+          // the contour alone is two pixels wide.
+          float k = mix(0.82, 0.58, flat_(lam, 3.0));
+          // countershading survives as one step, not a ramp: pale belly, dark back
+          k += 0.10 * step(0.0, vDorsal) - 0.08 * step(vDorsal, 0.0);
+          k -= (1.0 - uSunI) * 0.06;        // at night the water darkens past them
+          // hard inked edge — the silhouette is what a print has instead of light
+          k += smoothstep(0.55, 0.78, 1.0 - abs(dot(n, v))) * 0.30;
+          // condition reads as a lighter, hungrier plate
+          k *= 0.86 + 0.14 * clamp(vGlow, 0.0, 1.6);
+          gl_FragColor = vec4(inkTone(k, desat(uBase * 0.42 + INK_S * 0.58, 0.22)), 1.0);
         }`,
     });
   }
@@ -848,7 +903,7 @@ const boot = () => {
     side: THREE.DoubleSide,
     uniforms: {
       uTime: { value: 0 }, uSunI: { value: 1 },
-      uBase: { value: new THREE.Color(COLORS.plant) },
+      uBase: { value: srgbVec(COLORS.plant) },
     },
     vertexShader: `
       ${SWAY_VERT}
@@ -860,15 +915,14 @@ const boot = () => {
     fragmentShader: `
       uniform vec3 uBase; uniform float uTime; uniform float uSunI;
       varying vec2 vUv; varying float vT;
+      ${INK_GLSL}
       void main() {
-        // flat matte leaf with a soft warm tip, no translucency
-        float across = abs(vUv.x * 2.0 - 1.0);
-        vec3 deepEnd = uBase * 0.62;
-        vec3 tipEnd = mix(uBase, vec3(0.96, 0.98, 0.72), 0.42);
-        vec3 grad = mix(deepEnd, tipEnd, smoothstep(0.0, 1.0, vT));
-        vec3 col = grad * (0.70 + 0.30 * uSunI)
-                 + vec3(1.0, 0.98, 0.88) * (1.0 - across) * 0.07;
-        gl_FragColor = vec4(col, 1.0);
+        // Two tones per blade, split at half height, plus an inked spine down
+        // the middle. Blades print darker than the rock they root in, which is
+        // the only thing keeping a bed from dissolving into the seabed.
+        float k = mix(0.80, 0.58, flat_(vT, 2.0)) - (1.0 - uSunI) * 0.05;
+        k += (1.0 - smoothstep(0.0, 0.22, abs(vUv.x * 2.0 - 1.0))) * 0.10;
+        gl_FragColor = vec4(inkTone(k, desat(uBase * 0.40 + INK_S * 0.60, 0.24)), 1.0);
       }`,
   });
 
@@ -976,11 +1030,11 @@ const boot = () => {
   })();
 
   const shaftMat = new THREE.ShaderMaterial({
+    // Not additive any more: a beam on paper is stock left unprinted, so these
+    // are paper-coloured wedges laid *over* the water body, knocking it back.
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
     uniforms: {
       uTime: { value: 0 }, uSunI: { value: 1 }, uMurk: { value: 0 },
-      uTint: { value: new THREE.Color(0.30, 0.86, 0.98) },
     },
     vertexShader: `
       attribute float aAlong; attribute float aSeed;
@@ -990,13 +1044,15 @@ const boot = () => {
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
-      uniform float uTime; uniform float uSunI; uniform float uMurk; uniform vec3 uTint;
+      uniform float uTime; uniform float uSunI; uniform float uMurk;
       varying float vAlong; varying float vSeed;
+      ${INK_GLSL}
       void main() {
-        float fade = pow(1.0 - vAlong, 2.0);
-        float flick = 0.70 + 0.30 * sin(uTime * 0.7 + vSeed * 2.3);
-        float a = fade * flick * uSunI * (1.0 - uMurk * 0.5) * 0.07;
-        gl_FragColor = vec4(vec3(1.0, 0.95, 0.82) * a, a * 0.7);
+        // A hard stop where the beam ends, not a falloff. The flicker is gone:
+        // a print does not shimmer, and the plate would only chatter.
+        float a = (1.0 - smoothstep(0.30, 0.92, vAlong))
+                * uSunI * (1.0 - uMurk * 0.7) * 0.16;
+        gl_FragColor = vec4(inkTone(0.0), a);
       }`,
   });
   const shafts = new THREE.Mesh(shaftGeo, shaftMat);
@@ -1012,43 +1068,38 @@ const boot = () => {
   const SKY_R = R * 1.34;           // cloud deck radius
   const RAIN_COUNT = 900;
 
-  // soft radial sprite, built once per call — the glass rewrite removed the old
-  // shared texture table along with the sprite pipeline it served
-  function radialTexture(inner, outer) {
-    const px = 64;
+  /* One flat disc, white so the material colour can tint it, with the softness
+     confined to a single pixel of anti-aliasing. The old halo texture went with
+     the halo: a soft radial falloff is precisely what the screen cannot print. */
+  const discTexture = (() => {
+    const px = 128;
     const c = Object.assign(document.createElement('canvas'), { width: px, height: px });
     const ctx = c.getContext('2d');
     const g = ctx.createRadialGradient(px / 2, px / 2, 0, px / 2, px / 2, px / 2);
-    g.addColorStop(0, inner);
-    g.addColorStop(0.42, outer);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.94, 'rgba(255,255,255,1)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, px, px);
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
-  }
+  })();
 
-  // --- sun: a disc plus a wide halo, both riding the SUN direction ---
+  // --- sun: one flat spot-orange disc, the poster's single high-chroma anchor.
+  // depthTest is on now that it is opaque: an ink disc pasted over the ball when
+  // the sun is behind it read as a sticker.
   const sunGroup = new THREE.Group();
   const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: radialTexture('rgba(255,252,240,1)', 'rgba(255,236,190,0.85)'),
-    transparent: true, depthWrite: false, depthTest: false,
-    blending: THREE.AdditiveBlending,
+    map: discTexture, color: SPOT_WARM,
+    transparent: true, depthWrite: false,
   }));
   sunDisc.scale.setScalar(R * 0.30);
-  const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: radialTexture('rgba(255,240,205,0.55)', 'rgba(255,214,150,0.18)'),
-    transparent: true, depthWrite: false, depthTest: false,
-    blending: THREE.AdditiveBlending,
-  }));
-  sunHalo.scale.setScalar(R * 1.15);
-  sunGroup.add(sunHalo, sunDisc);
+  sunGroup.add(sunDisc);
   sunGroup.renderOrder = 2;
   scene.add(sunGroup);
 
-  // --- cloud deck: soft puffs scattered over a cap above the ball ---
-  const cloudTex = radialTexture('rgba(232,238,244,0.92)', 'rgba(198,210,222,0.45)');
+  // --- cloud deck: flat puffs scattered over a cap above the ball ---
   const CLOUDS = 130;
   const cloudGeo = new THREE.BufferGeometry();
   const cloudPos = new Float32Array(CLOUDS * 3);
@@ -1066,10 +1117,12 @@ const boot = () => {
   cloudGeo.setAttribute('position', new THREE.BufferAttribute(cloudPos, 3));
   cloudGeo.setAttribute('size', new THREE.BufferAttribute(
     new Float32Array(cloudSeed.map((c) => c.size)), 1));
+  // a light flat tone (k ~0.22) so a bank of overlapping discs stacks into two
+  // or three steps of grey on bare paper rather than into a soft mass
   const cloudMat = new THREE.PointsMaterial({
-    map: cloudTex, transparent: true, depthWrite: false,
+    map: discTexture, transparent: true, depthWrite: false,
     size: R * 0.34, sizeAttenuation: true, opacity: 0.0,
-    color: new THREE.Color(0xe6ecf2),
+    color: new THREE.Color(0xc4bba7),
   });
   const clouds = new THREE.Points(cloudGeo, cloudMat);
   clouds.frustumCulled = false;
@@ -1084,8 +1137,9 @@ const boot = () => {
     drops.push({ dir: new THREE.Vector3(), r: 0, v: 0, live: false });
   }
   rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+  // rain is ink specks on paper — pale blue drops simply vanish off a light ground
   const rainMat = new THREE.PointsMaterial({
-    color: 0xbcd2e0, size: 1.5, transparent: true, opacity: 0.55,
+    color: INK, size: 1.7, transparent: true, opacity: 0.55,
     depthWrite: false, sizeAttenuation: true,
   });
   const rain = new THREE.Points(rainGeo, rainMat);
@@ -1107,19 +1161,18 @@ const boot = () => {
   const dropP = new THREE.Vector3();
 
   function stepWeather(dt) {
-    // ---- sun rides the day arc, dimming as it sets
+    // ---- sun rides the day arc. It does not dim or redden: a spot plate is
+    // either laid down or it is not, so the disc simply sets and is gone.
     sunGroup.position.copy(SUN).multiplyScalar(R * 2.5);
     const up = Math.max(0, SUN.y);
-    const vis = sky.sun * (0.25 + 0.75 * up);
-    sunDisc.material.opacity = vis;
-    sunHalo.material.opacity = vis * 0.55 * (1 - sky.murk * 0.6);
-    // low sun reddens
-    sunDisc.material.color.setRGB(1, 0.94 - (1 - up) * 0.22, 0.86 - (1 - up) * 0.42);
-    sunGroup.visible = vis > 0.01;
+    sunDisc.material.opacity = sky.sun * (0.35 + 0.65 * up) > 0.18 ? 1 : 0;
+    sunGroup.visible = sunDisc.material.opacity > 0;
 
     // ---- cloud cover tracks the weather, and the deck drifts
     const cover = clamp(sky.murk * 1.25, 0, 1);
-    cloudMat.opacity = cover * 0.85;
+    // 0.9 stacked 130 overlapping discs into one flat lid over the ball. A deck
+    // only has to be legible as a deck; the screen will find the tone.
+    cloudMat.opacity = cover * 0.30;
     clouds.visible = cover > 0.02;
     if (clouds.visible) {
       const attr = cloudGeo.getAttribute('position');
@@ -1172,15 +1225,27 @@ const boot = () => {
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
     const pts = new THREE.Points(geo, new THREE.PointsMaterial({
       size, color, transparent: true, opacity, depthWrite: false,
-      blending: THREE.AdditiveBlending, sizeAttenuation: true,
+      sizeAttenuation: true,
     }));
     pts.frustumCulled = false;
     scene.add(pts);
     return pts;
   }
 
-  const foodPoints = motePoints(400, 3.4, new THREE.Color(COLORS.food), 0.85);
-  const snowPoints = motePoints(700, 1.1, new THREE.Color(0xf0e6d2), 0.20);
+  // Food is the one thing every animal in here is chasing, so it gets the spot
+  // plate. Marine snow goes the other way — faint ink dust, the paper's grain.
+  const foodPoints = motePoints(400, 3.6, new THREE.Color(SPOT_WARM), 0.95);
+  // 700 specks of ink filled the ball edge to edge and buried the ecosystem in
+  // its own dust. Marine snow is a suggestion, not a texture.
+  const snowPoints = motePoints(220, 1.3, new THREE.Color(INK), 0.16);
+  // Sand lifted off the rock. Coarser and fainter than marine snow, and it
+  // never gets more than a sixth of the way up the ball.
+  // The seabed cap is most of the ball's surface area, so a few hundred grains
+  // land two or three of them in a close-up. Suspension is a density effect or
+  // it is nothing — and 4000 points is still one draw call.
+  // A grain has to be worth more than one halftone cell or the screen drops it:
+  // at 2.6/0.30 the whole cloud was mathematically present and visually absent.
+  const sandPoints = motePoints(4000, 3.4, new THREE.Color(INK), 0.5);
 
   function setPoints(pts, list) {
     const attr = pts.geometry.getAttribute('position');
@@ -1194,7 +1259,7 @@ const boot = () => {
     pts.geometry.setDrawRange(0, n);
   }
 
-  const SNOW = Array.from({ length: 700 }, () => ({
+  const SNOW = Array.from({ length: 220 }, () => ({
     x: Math.random() * WORLD.width,
     y: WORLD.waterTop + Math.random() * DEPTH_SPAN,
     z: Math.random() * WORLD.depth,
@@ -1209,6 +1274,55 @@ const boot = () => {
     setPoints(snowPoints, SNOW);
   }
 
+  /* Suspended sand. The seabed met the water on a hard line, which is the one
+     edge on the ball that should have been soft — rock does not stop, it thins
+     out into what it has kicked up.
+
+     This is the one mote cloud that cannot go through toSphere(). The tank->ball
+     map pushes anything at floor depth out onto the skin (that is what keeps
+     snails *on* the rock rather than hovering over it), so a grain authored in
+     tank coordinates ends up plastered to the cap. Sand is placed straight in
+     world space instead: a direction inside the cap, and a height that lifts it
+     off the rock by shrinking its radius.
+
+     Each grain's ceiling is a cubed roll, so most never clear the rock and the
+     few that do are what makes the haze read as diffusion rather than as a
+     second layer floating above a hard edge. */
+  const SAND_LIFT = R * 0.24;
+  const SAND_Y0 = -1;                              // bottom pole
+  const SAND_Y1 = -Math.sin(CAP_LAT) + 0.05;       // just over the rock's rim
+  // Cubed put every grain inside three units of the rock, which is a texture on
+  // the cap, not a suspension. 1.7 still stacks them low but lets a tail climb.
+  const newSandTop = () => SAND_LIFT * Math.random() ** 1.7;
+  const SAND = Array.from({ length: 4000 }, () => ({
+    lon: Math.random() * Math.PI * 2,
+    y: SAND_Y0 + Math.random() * (SAND_Y1 - SAND_Y0),
+    h: Math.random() * SAND_LIFT,
+    top: newSandTop(),
+    v: R * (0.0004 + Math.random() * 0.0011),
+    drift: (Math.random() - 0.5) * 0.0035,         // radians of longitude a frame
+  }));
+
+  function stepSand() {
+    const attr = sandPoints.geometry.getAttribute('position');
+    for (let i = 0; i < SAND.length; i += 1) {
+      const s = SAND[i];
+      s.h += s.v;
+      s.lon += s.drift;
+      if (s.h > s.top) {                           // out of suspension, settles
+        s.h = 0;
+        s.top = newSandTop();
+        s.lon = Math.random() * Math.PI * 2;
+        s.y = SAND_Y0 + Math.random() * (SAND_Y1 - SAND_Y0);
+      }
+      const r = R * 0.99 - s.h;
+      const cl = Math.sqrt(Math.max(0, 1 - s.y * s.y));
+      attr.setXYZ(i, r * cl * Math.cos(s.lon), r * s.y, r * cl * Math.sin(s.lon));
+    }
+    attr.needsUpdate = true;
+    sandPoints.geometry.setDrawRange(0, SAND.length);
+  }
+
   /* ============================================================ LINK LINES
      Relationships, schooling, messages, subgoals, intentions — all of them
      are line work, so they share one dynamic buffer and one draw call. */
@@ -1218,9 +1332,15 @@ const boot = () => {
   const lineGeo = new THREE.BufferGeometry();
   lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3).setUsage(THREE.DynamicDrawUsage));
   lineGeo.setAttribute('color', new THREE.BufferAttribute(lineCol, 3).setUsage(THREE.DynamicDrawUsage));
+  // Multiply, not add: an overlay line on paper is ink laid on top, so it can
+  // only ever darken what is under it. White means "no ink here", which is how
+  // a faint link now fades out — see seg().
+  // three refuses MultiplyBlending without premultipliedAlpha, and at alpha 1
+  // that path is exactly dst*src — so opacity stays 1 and strength lives in the
+  // colour. Anything else and the blend silently becomes a lerp toward black.
   const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
-    vertexColors: true, transparent: true, opacity: 0.95,
-    depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexColors: true, transparent: true, opacity: 1, depthWrite: false,
+    blending: THREE.MultiplyBlending, premultipliedAlpha: true,
   }));
   lines.frustumCulled = false;
   lines.renderOrder = 12;
@@ -1228,6 +1348,8 @@ const boot = () => {
 
   let segCount = 0;
   const cA = new THREE.Color();
+  const cInk = new THREE.Color(INK);
+  const cNone = new THREE.Color(0xffffff);   // multiply identity: no ink
   const pA = new THREE.Vector3();
   const pB = new THREE.Vector3();
 
@@ -1236,7 +1358,13 @@ const boot = () => {
     const i = segCount * 6;
     linePos[i] = ax; linePos[i + 1] = ay; linePos[i + 2] = az;
     linePos[i + 3] = bx; linePos[i + 4] = by; linePos[i + 5] = bz;
-    cA.set(color).multiplyScalar(alpha);
+    // The link palette stays as hue but is pulled most of the way to ink — the
+    // pastels it ships with are lighter than the water they draw over. Strength
+    // is distance from white, because that is what multiply reads.
+    // ...and the alpha goes through a sqrt on the way in. The callers hand over
+    // 0.2..0.45 for anything that is not urgent, and multiply reads that as
+    // "almost no ink" — the whole overlay printed as a rumour over the water.
+    cA.set(color).lerp(cInk, 0.55).lerp(cNone, 1 - Math.sqrt(clamp(alpha, 0, 1)));
     lineCol[i] = cA.r; lineCol[i + 1] = cA.g; lineCol[i + 2] = cA.b;
     lineCol[i + 3] = cA.r; lineCol[i + 4] = cA.g; lineCol[i + 5] = cA.b;
     segCount += 1;
@@ -1364,12 +1492,13 @@ const boot = () => {
   }
 
   /* ============================================================ SELECTION */
+  // the selection ring earns the spot plate: it is the one thing on the sheet
+  // that has to be found instantly
   const halo = new THREE.Mesh(
     new THREE.RingGeometry(0.86, 0.94, 64),
     new THREE.MeshBasicMaterial({
-      color: 0x46f0d8, transparent: true, opacity: 0.9,
+      color: SPOT_WARM, transparent: true, opacity: 0.95,
       side: THREE.DoubleSide, depthWrite: false, depthTest: false,
-      blending: THREE.AdditiveBlending,
     }),
   );
   halo.renderOrder = 30;
@@ -1379,14 +1508,15 @@ const boot = () => {
   /* lifecycle FX: an expanding shockwave ring, tinted per event type.
      ponytail: one ring for all three events. Split it only if the demo
      script ever needs to call out a specific death. */
-  const FX_COLOR = { death: 0xff4d6d, birth: 0x7dffb0, contest: 0xffa23a };
+  // Three inks, no neon: a death takes the warm spot, a birth is plain ink, a
+  // contest is the blue — which is the whole budget for the cool plate.
+  const FX_COLOR = { death: SPOT_WARM, birth: INK, contest: SPOT_COOL };
   const FX_POOL = [];
   function fxRing() {
     const m = new THREE.Mesh(
       new THREE.RingGeometry(0.80, 1.0, 48),
       new THREE.MeshBasicMaterial({
         transparent: true, side: THREE.DoubleSide, depthWrite: false,
-        blending: THREE.AdditiveBlending,
       }),
     );
     m.renderOrder = 28;
@@ -1417,8 +1547,8 @@ const boot = () => {
       m.lookAt(camera.position);
       const size = (2 + life * 8) * PX;
       m.scale.set(size, size, 1);
-      m.material.color.setHex(FX_COLOR[fx.type] || 0xffffff);
-      m.material.opacity = (1 - life) * 0.40;
+      m.material.color.setHex(FX_COLOR[fx.type] || INK);
+      m.material.opacity = (1 - life) * 0.75;   // no bloom to carry it any more
       m.visible = true;
     }
   }
@@ -1498,9 +1628,12 @@ const boot = () => {
   /* ---------------------------------------------------------------- resize */
   let lastW = 0, lastH = 0;
   function resize() {
-    const host = canvas.parentElement;
-    const w = Math.max(1, host.clientWidth);
-    const h = Math.max(1, host.clientHeight || Math.round(w * 0.57));
+    // Measure the canvas, not its wrapper. The wrapper carries the poster's
+    // paper margin and the plate marks, so its box is a couple of dozen pixels
+    // wider and taller than the drawing surface — sizing to it stretches the
+    // sphere and offsets every pick ray.
+    const w = Math.max(1, Math.round(canvas.clientWidth));
+    const h = Math.max(1, Math.round(canvas.clientHeight) || Math.round(w * 0.57));
     if (w === lastW && h === lastH) return;
     lastW = w; lastH = h;
     const dpr = Math.min(window.devicePixelRatio, 2);
@@ -1514,7 +1647,7 @@ const boot = () => {
   // ResizeObserver is the fast path, but it is not guaranteed to have fired
   // before the first frames, and a stale size means a stretched sphere. The
   // per-frame check is two integer reads and exits immediately when unchanged.
-  new ResizeObserver(resize).observe(canvas.parentElement);
+  new ResizeObserver(resize).observe(canvas);
 
   /* ---------------------------------------------------------------- the sky
      One arc of the sun per DAY_SECONDS, plus a weather state that is re-rolled
@@ -1524,11 +1657,8 @@ const boot = () => {
     phase: 0.26,                                  // 0 = midnight, 0.5 = noon
     from: WEATHER.clear, to: WEATHER.clear, blend: 1, hold: 40,
     sun: 1, waves: 1, murk: 0, flash: 0,
-    tint: new THREE.Color(0.30, 0.86, 0.98),
     key: 'clear',
   };
-  const tintA = new THREE.Color();
-  const tintB = new THREE.Color();
 
   function stepSky(dt) {
     sky.phase = (sky.phase + dt / DAY_SECONDS) % 1;
@@ -1552,8 +1682,6 @@ const boot = () => {
     sky.sun = (sky.from.sun + (sky.to.sun - sky.from.sun) * k) * daylight;
     sky.waves = sky.from.waves + (sky.to.waves - sky.from.waves) * k;
     sky.murk = sky.from.murk + (sky.to.murk - sky.from.murk) * k;
-    tintA.setRGB(...sky.from.tint); tintB.setRGB(...sky.to.tint);
-    sky.tint.copy(tintA).lerp(tintB, k);
 
     // lightning: only in a storm, and only a few frames of it
     sky.flash = Math.max(0, sky.flash - dt * 3.4);
@@ -1567,12 +1695,9 @@ const boot = () => {
       if (u.uSunI) u.uSunI.value = sky.sun;
       if (u.uMurk) u.uMurk.value = sky.murk;
       if (u.uFlash) u.uFlash.value = sky.flash;
-      if (u.uTint) u.uTint.value.copy(sky.tint);
       if (u.uChop) u.uChop.value = sky.waves;
     };
     set(surfaceMat); set(volumeMat); set(seabed.material); set(shaftMat);
-    // bioluminescence is what you see at night, so let bloom off the leash then
-    bloom.strength = 0.04 + (1 - sky.sun) * 0.06;
   }
 
   const HUD = document.getElementById('skyHud');
@@ -1620,6 +1745,7 @@ const boot = () => {
     syncOrganisms(world);
     setPoints(foodPoints, world.food);
     stepSnow();
+    stepSand();
     if (plantTimer-- <= 0) { rebuildPlants(world); plantTimer = 30; }
     buildLines(world);
     syncFx(world);
@@ -1647,6 +1773,7 @@ const boot = () => {
     volumeMat.uniforms.uTime.value = clock;
     seabed.material.uniforms.uTime.value = clock;
     shaftMat.uniforms.uTime.value = clock;
+    zine.uniforms.uTime.value = clock;
     plantMat.uniforms.uTime.value = clock;
     plantMat.uniforms.uSunI.value = sky.sun;
     pushSky();
@@ -1668,8 +1795,8 @@ const boot = () => {
   // Handle for tuning the look from the console — every value in here is a
   // shader constant that has to be judged by eye, not derived.
   window.__eco3d = {
-    scene, camera, renderer, composer, bloom, sky, SUN, controls, THREE,
-    surface, volume, seabed, shafts, plants, pools, lines, foodPoints, snowPoints, halo,
+    scene, camera, renderer, composer, zine, sky, SUN, controls, THREE,
+    surface, volume, seabed, shafts, plants, pools, lines, foodPoints, snowPoints, sandPoints, halo,
     sunGroup, clouds, rain,
   };
   E.setRenderer({ frame, resize });

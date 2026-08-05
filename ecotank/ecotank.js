@@ -24,32 +24,44 @@
   const RECRUITMENT_PACE = { bigfish: 1, smallfish: 2, shrimp: 6, snail: 3, cleaner: 1 };
   const STATUS = { running: "running", success: "success", failure: "failure", idle: "idle" };
 
-  /* Bioluminescent palette. The water is near-black, so every organism colour is
-     an *emitter* rather than a surface tint — these are the values fed to the
-     glow term in ecotank3d.js as well as to the monitor's dots and bars, and
-     the two must not drift apart. */
+  /* Riso ink palette. The world is printed on aged paper, so every colour is a
+     spot ink, a screened tint of one, or an overprint of two — never an emitter.
+     Four plates only:
+       PAPER #efe6d2 · INK #22201c · SPOT_WARM #ff4d1f · SPOT_COOL #2a4fd6
+     SPOT_WARM at full strength is the poster's single high-chroma anchor and is
+     spent only on the predation story (big fish, danger, predation links).
+     These are the values fed to uBase in ecotank3d.js as well as to the
+     monitor's dots and bars, and the two must not drift apart. */
   const COLORS = {
-    bigfish: "#f0b478",
-    smallfish: "#9ec6d8",
-    shrimp: "#eaa79e",
-    snail: "#cfae86",
-    cleaner: "#a8cfa8",
-    louse: "#b8aacc",
-    plant: "#86bf86",
-    food: "#f5dfae",
-    danger: "#e08a80",
-    message: "#8fc9c4",
-    subgoal: "#a8b0d8",
+    bigfish: "#ff4d1f",   // SPOT_WARM 100% — the anchor
+    smallfish: "#2a4fd6", // SPOT_COOL 100%
+    shrimp: "#ff8a5c",    // SPOT_WARM ~58% screen
+    cleaner: "#7d92e0",   // SPOT_COOL ~52% screen
+    louse: "#7a2f6d",     // SPOT_WARM over SPOT_COOL — overprint plum
+    // substrate reads as one ink ramp: 25% / 50% / 75% INK on PAPER
+    food: "#c8b184",
+    snail: "#8c8168",
+    plant: "#4f4b3e",
+    danger: "#ff4d1f",    // alarm rides the anchor ink
+    message: "#2a4fd6",   // comms are the cool plate
+    subgoal: "#6b6553",   // annotation, drafted in ink not colour
+    // legacy aliases the monitor's emotion bars ask for by hue name
+    red: "#ff4d1f",
+    amber: "#ff8a5c",
+    blue: "#2a4fd6",
+    teal: "#7d92e0",
+    green: "#6b6553",
   };
 
-  // relationship-type palette (cross-species + intraspecies interactions)
+  /* relationship-type palette — six types, six separable plates:
+     orange 100 / orange 58 / blue 100 / blue 52 / overprint plum / flat ink */
   const REL_COLORS = {
-    predation: "#e08a80",   // 捕食
-    mutualism: "#a8cfa8",   // 共生 (cleaner <-> host)
-    parasitism: "#b8aacc",  // 寄生 (louse -> host)
-    competition: "#f0b478", // 跨物种竞争
-    intraspecific: "#eaa79e", // 物种内竞争
-    cooperation: "#9ec6d8", // 合作
+    predation: "#ff4d1f",     // 捕食
+    mutualism: "#2a4fd6",     // 共生 (cleaner <-> host)
+    parasitism: "#7a2f6d",    // 寄生 (louse -> host)
+    competition: "#ff8a5c",   // 跨物种竞争
+    intraspecific: "#22201c", // 物种内竞争 — plain ink
+    cooperation: "#7d92e0",   // 合作
   };
 
   const SPECIES = {

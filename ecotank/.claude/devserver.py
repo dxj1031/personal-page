@@ -11,6 +11,9 @@ Three jobs, none of them needed in production:
 3. Accept ``PUT /__shot`` with a base64 body and write it to ``shot.png``.
    The agent driving this page cannot screenshot a non-compositing tab, so the
    page hands its own rendered frame back over HTTP instead.
+4. Serve ``/?anim=timer`` with a shim that drives the render loop off a timer.
+   A hidden tab never gets ``requestAnimationFrame`` at all, so job 3 has
+   nothing to hand back: the page boots, lays out, and then sits at frame 0.
 """
 
 import base64
@@ -23,9 +26,40 @@ mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/javascript", ".mjs")
 
 SHOT = pathlib.Path(__file__).with_name("shot.png")
+INDEX = pathlib.Path(__file__).resolve().parents[1] / "index.html"
+
+# Injected ahead of every other script, so the modules capture the shim rather
+# than the real thing. The tick comes from a worker, not setTimeout: Chrome
+# clamps timers in a hidden tab to 1/s and then to 1/min once it has been hidden
+# for a few minutes, which stalls the page mid-verification. Workers are not
+# throttled by tab visibility.
+SHIM = (
+    b"<script>(function(){"
+    b"var q=[],n=1,t=0;"
+    b"var w=new Worker(URL.createObjectURL(new Blob("
+    b"['setInterval(function(){postMessage(0)},16)'],{type:'text/javascript'})));"
+    b"w.onmessage=function(){var b=q;q=[];t+=16;"
+    b"for(var i=0;i<b.length;i++){if(b[i])try{b[i][1](t)}catch(e){console.error(e)}}};"
+    b"window.requestAnimationFrame=function(cb){q.push([n,cb]);return n++;};"
+    b"window.cancelAnimationFrame=function(id){"
+    b"for(var i=0;i<q.length;i++)if(q[i]&&q[i][0]===id)q[i]=null;};"
+    b"})();</script>"
+)
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        path, _, query = self.path.partition("?")
+        if "anim=timer" in query and path in ("/", "/index.html"):
+            body = INDEX.read_bytes().replace(b"<head>", b"<head>" + SHIM, 1)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        super().do_GET()
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-store, max-age=0")
         super().end_headers()

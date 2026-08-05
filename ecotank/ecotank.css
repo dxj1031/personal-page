@@ -34,6 +34,18 @@
   --subgoal: #97a4c9;
   --danger: #d4736e;
 
+  /* riso print inks — the poster frame around the ecosphere.
+     Must stay in step with COLORS in ecotank.js. */
+  --paper: #efe6d2;
+  --paper-2: #e5dac2;
+  --ink: #22201c;
+  --ink-70: #4f4b3e;
+  --ink-50: #8c8168;
+  --ink-hair: rgba(34, 32, 28, 0.26);
+  --ink-hair-2: rgba(34, 32, 28, 0.5);
+  --spot-warm: #ff4d1f;
+  --spot-cool: #2a4fd6;
+
   --serif: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
   --sans: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", ui-sans-serif,
     system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -560,28 +572,31 @@ body.focus-mode .demo-layout {
   color: var(--dim);
   font-size: 13px;
 }
+/* the food chain is the print's key — it carries the same inks as the sheet,
+   so it sits on paper too rather than on the dark panel */
 .food-chain {
   display: flex;
   align-items: center;
   gap: 7px;
   flex-wrap: wrap;
   padding: 8px 13px;
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--dim);
+  border: 1px solid var(--ink-hair-2);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
   white-space: nowrap;
 }
 .food-chain .dot {
   width: 7px;
   height: 7px;
-  border-radius: 1px;
+  border-radius: 0;
   background: var(--c);
 }
 .food-chain .arrow {
-  color: var(--fainter);
+  color: var(--ink-50);
 }
 
 /* metric strip — label above number, bordered cells */
@@ -627,39 +642,44 @@ body.focus-mode .demo-layout {
   color: var(--accent);
 }
 
-/* tank vitrine — archival frame with corner ticks */
+/* ---- the poster sheet ----------------------------------------------------
+   The tank is a pulled print, not a vitrine: aged paper ground, a hairline ink
+   trim, square corners, a paper margin so the sheet edge reads, and a coarse
+   halftone in that margin. No glow, no radius, no blur, no shadow. */
 .tank-wrap {
   position: relative;
   min-height: 560px;
   overflow: hidden;
-  border-radius: var(--radius);
-  border: 1px solid var(--hair-3);
-  background: #0c0c0e;
+  padding: 12px;
+  border-radius: 0;
+  border: 1px solid var(--ink-hair-2);
+  background-color: var(--paper);
+  background-image: radial-gradient(var(--paper-2) 1px, transparent 1.2px);
+  background-size: 5px 5px;
 }
 .tank-wrap::before {
-  content: "FIG.01 — 生态水球 / LIVE";
+  content: "FIG. 01 — 生态水球 / ECOSPHERE";
   position: absolute;
-  left: 12px;
-  top: 10px;
+  left: 14px;
+  top: 15px;
   z-index: 3;
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  color: var(--dim);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-size: 9.5px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--ink-50);
   pointer-events: none;
 }
 .tank-wrap::after {
-  content: "● REC";
+  content: "● LIVE PULL";
   position: absolute;
-  right: 12px;
-  top: 10px;
+  right: 14px;
+  top: 15px;
   z-index: 3;
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--accent);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--spot-warm);
   pointer-events: none;
 }
 #tankCanvas {
@@ -667,7 +687,10 @@ body.focus-mode .demo-layout {
   width: 100%;
   height: min(64vh, 640px);
   min-height: 520px;
+  border-radius: 0;
+  background: var(--paper);
 }
+/* overlay chips read as marginalia printed on the sheet, not as glass HUD */
 .canvas-overlays {
   position: absolute;
   right: 12px;
@@ -676,46 +699,54 @@ body.focus-mode .demo-layout {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  padding: 8px 13px;
-  border: 1px solid var(--hair-2);
-  border-radius: var(--radius);
-  background: rgba(8, 8, 10, 0.82);
-  backdrop-filter: blur(6px);
+  padding: 7px 12px;
+  border: 1px solid var(--ink-hair);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
 }
 .canvas-overlays .overlay-label {
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: 9.5px;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--ink-50);
 }
 .canvas-overlays label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--dim);
-  font-size: 13px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
   white-space: nowrap;
   cursor: pointer;
 }
+.canvas-overlays input[type="checkbox"] {
+  accent-color: var(--ink);
+}
 .canvas-overlays #overlayAll {
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   padding: 3px 10px;
-  border: 1px solid var(--hair-2);
-  border-radius: 999px;
+  border: 1px solid var(--ink-hair-2);
+  border-radius: 0;
   background: transparent;
-  color: var(--dim);
+  color: var(--ink-50);
   white-space: nowrap;
   cursor: pointer;
 }
 .canvas-overlays #overlayAll:hover {
-  color: var(--ink, #e8ecec);
-  border-color: var(--faint);
+  color: var(--ink);
+  border-color: var(--ink);
 }
 .canvas-overlays #overlayAll.active {
-  color: #081418;
-  background: var(--accent, #5eead4);
-  border-color: var(--accent, #5eead4);
+  color: var(--paper);
+  background: var(--spot-warm);
+  border-color: var(--spot-warm);
 }
 
 /* control deck */
@@ -1297,7 +1328,8 @@ body.focus-mode #demoTab.active .tank-wrap {
   min-height: calc(100vh - 150px);
 }
 body.focus-mode #demoTab.active #tankCanvas {
-  height: calc(100vh - 156px);
+  /* 156px of chrome + the 24px paper margin the sheet now carries */
+  height: calc(100vh - 180px);
 }
 body.focus-mode #monitorTab.active {
   overflow: auto;
@@ -1384,26 +1416,27 @@ body.focus-mode #monitorTab.active {
   flex-direction: column;
   align-items: flex-start;
   gap: 7px;
-  padding: 9px 10px;
-  border: 1px solid var(--hair-2);
-  border-radius: var(--radius);
-  background: rgba(8, 10, 14, 0.72);
-  backdrop-filter: blur(6px);
+  padding: 9px 11px;
+  border: 1px solid var(--ink-hair);
+  border-radius: 0;
+  background: var(--paper);
   z-index: 3;
 }
 .zoom-hud {
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--accent-2, #5eead4);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 /* clock + weather, read straight off the sky model in ecotank3d.js */
 .sky-hud {
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--food);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-50);
   font-variant-numeric: tabular-nums;
 }
 .zoom-btns {
@@ -1412,33 +1445,33 @@ body.focus-mode #monitorTab.active {
 }
 .zoom-btns button {
   min-width: 34px;
-  height: 30px;
+  height: 28px;
   padding: 0 9px;
-  border: 1px solid var(--hair-2);
-  border-radius: 7px;
-  background: var(--surface-2);
-  color: var(--text);
+  border: 1px solid var(--ink-hair-2);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
   line-height: 1;
   cursor: pointer;
   transition: background 0.14s, border-color 0.14s, color 0.14s;
 }
 .zoom-btns button:hover {
-  background: var(--accent-dim);
-  border-color: var(--accent-line);
-  color: var(--accent-2);
+  background: var(--paper-2);
+  border-color: var(--ink);
 }
 .zoom-btns button.active {
-  background: var(--accent-dim);
-  border-color: var(--accent-line);
-  color: var(--accent-2);
+  background: var(--spot-warm);
+  border-color: var(--spot-warm);
+  color: var(--paper);
 }
 .zoom-hint {
   font-family: var(--mono);
-  font-size: 10px;
-  color: var(--faint);
-  letter-spacing: 0.02em;
+  font-size: 9.5px;
+  color: var(--ink-50);
+  letter-spacing: 0.16em;
 }
 #tankCanvas {
   touch-action: none;
