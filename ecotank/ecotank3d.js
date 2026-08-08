@@ -344,13 +344,20 @@ const boot = () => {
         // Day and night are ink density, not room brightness: the shaded side
         // and the small hours simply take more ink. Keep the whole body between
         // 0.24 and 0.62 so organisms have somewhere darker to sit.
-        // The water is the *field*, not the subject. Hold it between 0.12 and
-        // 0.38 so the ecosystem has three quarters of the scale to itself —
-        // at 0.24..0.62 the shell printed as a grey slab and a fish laid on top
-        // of it had nowhere darker to go.
-        float k = mix(0.38, 0.12, depth * 0.72 + 0.28 * lam);
+        // The water is the *field*, not the subject. Hold it between 0.08 and
+        // 0.34 so the ecosystem has two thirds of the scale to itself — at
+        // 0.24..0.62 the shell printed as a grey slab and a fish laid on top of
+        // it had nowhere darker to go. Keep the five steps: they are the only
+        // thing left saying "sphere". Compressed to four, the ball printed as
+        // one even disc — legible, and no longer round.
+        float k = mix(0.34, 0.08, depth * 0.72 + 0.28 * lam);
         k += (1.0 - uSunI) * 0.10;          // night: a heavier plate
         k += uMurk * 0.08;                  // storm: murkier, not darker
+        // A storm at midnight adds 0.18, which used to walk the field straight
+        // into the organisms' band and hide the entire ecosystem for a third of
+        // the day cycle. Weather may take the field to the top of its range and
+        // no further — the animals own everything above this line.
+        k = min(k, 0.42);
         k = flat_(k, 5.0);                  // five tones, no ramp between them
         // Warmth is the other half of the clock. The cool ink is matched to the
         // warm one in luminance on purpose: swapping temperature must not
@@ -413,7 +420,10 @@ const boot = () => {
         // which step a face lands in — that stepping *is* the modelling now,
         // which is why the shading has to quantise rather than ramp.
         float lam = dot(nUp, uSun) * 0.5 + 0.5;
-        float k = mix(0.52, 0.28, lam) + (1.0 - uSunI) * 0.08;
+        // Kept under the plants' 0.58: rock at 0.52 and a blade at 0.58 is one
+        // tone apart on the plate, and the whole benthic layer printed as a
+        // single mud-coloured mass with a weed bed lost inside it.
+        float k = mix(0.42, 0.20, lam) + (1.0 - uSunI) * 0.08;
         gl_FragColor = vec4(mix(inkTone(flat_(k, 4.0)), inkTone(0.0), uFlash * 0.4), 1.0);
       }`,
   }));
@@ -734,15 +744,19 @@ const boot = () => {
           float lam = dot(n, uSun) * 0.5 + 0.5;
           // Three tones across the body and a fourth at the contour. Any more
           // and the screen turns them back into a gradient of dot sizes.
-          // Sit well below the water's 0.24..0.62: a body that shares the
-          // shell's tone is a body you cannot find, and at this camera distance
-          // the contour alone is two pixels wide.
-          float k = mix(0.82, 0.58, flat_(lam, 3.0));
+          // Sit well above the water's 0.09..0.30: a body that shares the
+          // shell's tone is a body you cannot find, and the gap has to be wide
+          // enough that it survives a halftone cell landing badly.
+          float k = mix(0.94, 0.66, flat_(lam, 3.0));
           // countershading survives as one step, not a ramp: pale belly, dark back
-          k += 0.10 * step(0.0, vDorsal) - 0.08 * step(vDorsal, 0.0);
+          k += 0.06 * step(0.0, vDorsal) - 0.10 * step(vDorsal, 0.0);
           k -= (1.0 - uSunI) * 0.06;        // at night the water darkens past them
-          // hard inked edge — the silhouette is what a print has instead of light
-          k += smoothstep(0.55, 0.78, 1.0 - abs(dot(n, v))) * 0.30;
+          // Hard inked edge — the silhouette is what a print has instead of
+          // light, and at this camera distance it is doing nearly all of the
+          // work. It starts far enough inboard to survive the screen: a contour
+          // thinner than about two halftone cells is a contour the press eats,
+          // which is what turned every animal into the same grey smudge.
+          k += smoothstep(0.40, 0.74, 1.0 - abs(dot(n, v))) * 0.45;
           // condition reads as a lighter, hungrier plate
           k *= 0.86 + 0.14 * clamp(vGlow, 0.0, 1.6);
           gl_FragColor = vec4(inkTone(k, desat(uBase * 0.42 + INK_S * 0.58, 0.22)), 1.0);
@@ -829,7 +843,11 @@ const boot = () => {
 
     const spec = SPECIES[agent.species];
     const grow = clamp(0.45 + 0.55 * (agent.age / Math.max(1, spec.matureAge)), 0.45, 1);
-    const len = spec.size * 2.3 * PX * grow;
+    // 2.65, not 2.3: an animal has to be worth several halftone cells before
+    // its shape survives the screen, and at 2.3 the shrimp and the lice were
+    // printing as the same three dots. Still small enough that the shoal reads
+    // as a shoal rather than a pile of models.
+    const len = spec.size * 2.65 * PX * grow;
     S.set(len, len, len);
     M.compose(P, Q, S);
     pool.mesh.setMatrixAt(index, M);
@@ -920,8 +938,14 @@ const boot = () => {
         // Two tones per blade, split at half height, plus an inked spine down
         // the middle. Blades print darker than the rock they root in, which is
         // the only thing keeping a bed from dissolving into the seabed.
+        float w = abs(vUv.x * 2.0 - 1.0);
         float k = mix(0.80, 0.58, flat_(vT, 2.0)) - (1.0 - uSunI) * 0.05;
-        k += (1.0 - smoothstep(0.0, 0.22, abs(vUv.x * 2.0 - 1.0))) * 0.10;
+        k += (1.0 - smoothstep(0.0, 0.22, w)) * 0.10;
+        // and a light edge down both sides, so a bed prints as a count of
+        // blades rather than one dark clump with a few spines in it. Kept
+        // small: a blade is a couple of cells wide, and a heavy edge on
+        // something that thin screens as speckle, not as an outline.
+        k += smoothstep(0.80, 1.0, w) * 0.09;
         gl_FragColor = vec4(inkTone(k, desat(uBase * 0.40 + INK_S * 0.60, 0.24)), 1.0);
       }`,
   });
@@ -1232,9 +1256,14 @@ const boot = () => {
     return pts;
   }
 
-  // Food is the one thing every animal in here is chasing, so it gets the spot
-  // plate. Marine snow goes the other way — faint ink dust, the paper's grain.
-  const foodPoints = motePoints(400, 3.6, new THREE.Color(SPOT_WARM), 0.95);
+  // Food used to take the spot plate on the grounds that every animal is
+  // chasing it. On the sheet that inverted the hierarchy: 400 fluorescent
+  // specks were the loudest thing in the frame and the animals were the
+  // quietest, so the eye kept landing on the scenery. Warm ink is now spent
+  // only where it means *look here* — the sun, the selection ring, a death.
+  // Food keeps the warm hue but at a fraction of the coverage, which reads as
+  // a tint in the water rather than a swarm of markers.
+  const foodPoints = motePoints(400, 2.6, new THREE.Color(SPOT_WARM), 0.42);
   // 700 specks of ink filled the ball edge to edge and buried the ecosystem in
   // its own dust. Marine snow is a suggestion, not a texture.
   const snowPoints = motePoints(220, 1.3, new THREE.Color(INK), 0.16);
@@ -1245,7 +1274,10 @@ const boot = () => {
   // it is nothing — and 4000 points is still one draw call.
   // A grain has to be worth more than one halftone cell or the screen drops it:
   // at 2.6/0.30 the whole cloud was mathematically present and visually absent.
-  const sandPoints = motePoints(4000, 3.4, new THREE.Color(INK), 0.5);
+  // Opacity tracks the rock: once the seabed was lightened to clear the weed
+  // beds, grains at 0.5 stopped being suspension and started being gravel
+  // scattered over the plate.
+  const sandPoints = motePoints(4000, 3.4, new THREE.Color(INK), 0.30);
 
   function setPoints(pts, list) {
     const attr = pts.geometry.getAttribute('position');

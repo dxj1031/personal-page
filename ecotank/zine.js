@@ -186,10 +186,12 @@ export function zinePass(opts = {}) {
       uInk: { value: raw(opts.ink ?? INK) },
       uSpotWarm: { value: raw(opts.spotWarm ?? SPOT_WARM) },
       uSpotCool: { value: raw(opts.spotCool ?? SPOT_COOL) },
-      // 3.6, not the 4.5 a poster would want: this print has to carry a live
+      // 3.1, not the 4.5 a poster would want: this print has to carry a live
       // simulation, and a coarser screen swallows the hairline overlay links
-      // and the smaller organisms whole.
-      uPitch: { value: opts.pitch ?? 3.6 },
+      // and the smaller organisms whole. The screen is still plainly a screen
+      // at this pitch — you can count the dots on the shell — but a shrimp now
+      // gets enough cells to have a shape instead of a smudge.
+      uPitch: { value: opts.pitch ?? 3.1 },
       uGrain: { value: opts.grain ?? 0.5 },
       uSpread: { value: opts.spread ?? 1.0 },
       uWhite: { value: opts.white ?? 0.10 },
