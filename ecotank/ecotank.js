@@ -1851,7 +1851,7 @@
      RENDER LAYER — this file no longer draws anything.
      It keeps the per-agent visual smoothing (position easing, heading, and
      the render-only depth axis) and hands the result to ecotank3d.js, which
-     owns the WebGL ecosphere. All sim state is read-only from here on;
+     owns the WebGL tank. All sim state is read-only from here on;
      visual state is stashed under __ keys.
      ===================================================================== */
 

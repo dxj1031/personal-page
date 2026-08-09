@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>EcoTank · 多智能体行为树生态水球</title>
+    <title>EcoTank · 多智能体行为树生态缸</title>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23efe6d2'/%3E%3Ccircle cx='32' cy='34' r='11' fill='%23ff4d1f'/%3E%3Cpath d='M8 20h48M8 48h48' stroke='%2322201c' stroke-width='3' stroke-linecap='butt'/%3E%3C/svg%3E"
@@ -30,7 +30,8 @@
 
       <div class="control-cluster">
         <div class="transport">
-          <button id="runToggle" class="primary">Run</button>
+          <!-- Run lives on the set's own rail; a television's power switch is
+               not kept in a menu three sections above the television -->
           <button id="stepButton">Step</button>
           <button id="resetButton">Reset</button>
         </div>
@@ -86,9 +87,9 @@
             <div class="exhibit-head">
               <div class="exhibit-title">
                 <p class="eyebrow accent">LIVE SIMULATION</p>
-                <h2 data-en="Ecosphere">生态水球</h2>
-                <p id="demoSubtitle" class="sub" data-en="A ball of water: drag to rotate, scroll to dive beneath the surface. Lifecycle, emotion, events and search results act on every individual at once.">
-                  一颗水球：拖拽旋转，滚轮深入水面之下。生命状态、情绪、事件与搜索结果同时作用于每一个个体。
+                <h2 data-en="Ecotank">生态缸</h2>
+                <p id="demoSubtitle" class="sub" data-en="A column of water: drag to orbit it, scroll to zoom into whatever the pointer is on. Lifecycle, emotion, events and search results act on every individual at once.">
+                  一根水柱：拖拽环绕，滚轮对准哪里就放大哪里。生命状态、情绪、事件与搜索结果同时作用于每一个个体。
                 </p>
               </div>
               <div class="food-chain" aria-hidden="true">
@@ -107,10 +108,11 @@
 
             <div class="tank-wrap">
               <canvas id="tankCanvas" width="1120" height="640" aria-label="EcoTank simulation"></canvas>
-              <div class="tv-rail" aria-hidden="true">
-                <span class="tv-grille"></span>
-                <span class="tv-knob"></span>
-                <span class="tv-knob on"></span>
+              <div class="tv-rail">
+                <button id="runToggle" class="tv-power">Run</button>
+                <span class="tv-grille" aria-hidden="true"></span>
+                <span class="tv-knob" aria-hidden="true"></span>
+                <span class="tv-knob on" aria-hidden="true"></span>
               </div>
             </div>
             <!-- the set's controls live on the cabinet, not on the picture -->
@@ -246,8 +248,8 @@
           <header class="paper-head">
             <p class="eyebrow accent">INSTRUMENTATION</p>
             <h2 data-en="Runtime Readout of the Behavior-Tree Stack">行为树技术栈运行时读数</h2>
-            <p class="paper-abstract" data-en="Every panel below is a live read of the running ecosphere, laid out the way the source paper reports it: state before search, search before communication, then the technique map that says which claim each readout supports.">
-              下列每个面板都是生态水球的实时读数，按论文的叙述顺序排列：先状态，再搜索，再通信，最后是说明每项读数支撑哪一条技术主张的映射表。
+            <p class="paper-abstract" data-en="Every panel below is a live read of the running ecotank, laid out the way the source paper reports it: state before search, search before communication, then the technique map that says which claim each readout supports.">
+              下列每个面板都是生态缸的实时读数，按论文的叙述顺序排列：先状态，再搜索，再通信，最后是说明每项读数支撑哪一条技术主张的映射表。
             </p>
           </header>
 

@@ -1,5 +1,5 @@
 /* =========================================================================
-   EcoTank · printed ecosphere
+   EcoTank · printed water column
    -------------------------------------------------------------------------
    A ball of water printed on aged paper. Nothing in here emits: zine.js runs
    last and turns luminance into ink coverage, so this scene's only job is to

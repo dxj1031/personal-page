@@ -33,7 +33,7 @@
   --status-ok: #6fae8f;
   --status-bad: #d4736e;
 
-  /* riso print inks — the poster frame around the ecosphere.
+  /* riso print inks — the poster frame around the tank.
      The press is PAPER / INK / WARM / COOL / GREEN #1f9e5a / YELLOW #f2b616;
      only the inks the chrome actually paints with are declared here.
      Must stay in step with COLORS in ecotank.js. */
@@ -691,13 +691,44 @@ body.focus-mode .demo-layout {
   position: absolute;
   left: 30px;
   right: 30px;
-  bottom: 9px;
-  height: 16px;
+  bottom: 7px;
+  height: 22px;
   z-index: 3;
   display: flex;
   align-items: center;
   gap: 10px;
-  pointer-events: none;
+}
+/* the set's power switch, on the set */
+.tv-power {
+  height: 20px;
+  padding: 0 12px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.tv-power:hover {
+  background: var(--paper-2);
+}
+/* ecotank.js toggles `primary` on this button: it is present while the sim is
+   stopped (the button reads "Run" and is the thing to press) and removed once
+   it is running (the button reads "Pause"). So `primary` is the lamp. */
+.tv-power.primary {
+  background: var(--spot-warm);
+  border-color: var(--spot-warm);
+  color: var(--paper);
+  font-weight: 700;
+}
+.tv-power.primary:hover {
+  background: var(--spot-warm);
+  filter: brightness(1.08);
 }
 .tv-grille {
   flex: 1;
@@ -718,19 +749,9 @@ body.focus-mode .demo-layout {
   border-color: var(--spot-warm);
   background: var(--spot-warm);
 }
-.tank-wrap::before {
-  content: "FIG. 01 — ECOSPHERE";
-  position: absolute;
-  left: 14px;
-  top: 15px;
-  z-index: 3;
-  font-family: var(--mono);
-  font-size: 9.5px;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  color: var(--ink-50);
-  pointer-events: none;
-}
+/* The FIG slug is gone. It labelled a sphere, the vessel is a cylinder, and a
+   caption that has to be corrected every time the thing it names changes is a
+   caption the picture was carrying for nothing. */
 .tank-wrap::after {
   content: "● LIVE PULL";
   position: absolute;
