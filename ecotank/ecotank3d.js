@@ -216,6 +216,16 @@ const boot = () => {
   };
   const LOOK_HOME = { yaw: 0.62, pitch: PITCH_HOME, dist: DIST_HOME };
   const orbitTarget = new THREE.Vector3(0, 0, 0);
+  // Seed the position the orbit would solve to. The frame loop decides whether
+  // the shell is visible from where the camera *is*, and it makes that call
+  // before it moves the camera — so a camera left at the origin spends frame
+  // one being "inside the tank" and blinks the vessel away.
+  camera.position.set(
+    DIST_HOME * Math.cos(PITCH_HOME) * Math.sin(LOOK_HOME.yaw),
+    DIST_HOME * Math.sin(PITCH_HOME),
+    DIST_HOME * Math.cos(PITCH_HOME) * Math.cos(LOOK_HOME.yaw),
+  );
+  camera.lookAt(orbitTarget);
 
   {
     let dragging = false, lastX = 0, lastY = 0;
