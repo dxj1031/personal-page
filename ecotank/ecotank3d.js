@@ -1352,15 +1352,12 @@ const boot = () => {
   const snowPoints = motePoints(220, 1.3, new THREE.Color(INK), 0.16);
   // Sand lifted off the rock. Coarser and fainter than marine snow, and it
   // never gets more than a sixth of the way up the ball.
-  // The seabed cap is most of the ball's surface area, so a few hundred grains
-  // land two or three of them in a close-up. Suspension is a density effect or
-  // it is nothing — and 4000 points is still one draw call.
-  // A grain has to be worth more than one halftone cell or the screen drops it:
-  // at 2.6/0.30 the whole cloud was mathematically present and visually absent.
-  // 0.5 was calibrated against the old darker water. Against a 0.08..0.28 shell
-  // the same grains punch through as salt-and-pepper static — the contrast the
-  // haze rides on went up, so the ink has to come down.
-  const sandPoints = motePoints(4000, 3.4, new THREE.Color(INK), 0.28);
+  /* The suspended sand is gone. It existed to give a featureless spherical cap
+     some grain, and it was always fighting the press to do it: 4000 near-black
+     motes on a plate that turns near-black into solid ink read as salt-and-
+     pepper static, and every pass at the size/opacity traded invisible for
+     filthy. The bed has real terrain now — that is where the texture comes
+     from, in silhouette rather than in stipple. */
 
   function setPoints(pts, list) {
     const attr = pts.geometry.getAttribute('position');
@@ -1387,53 +1384,6 @@ const boot = () => {
       if (s.y > WORLD.floor) { s.y = WORLD.waterTop; s.x = Math.random() * WORLD.width; }
     }
     setPoints(snowPoints, SNOW);
-  }
-
-  /* Suspended sand. The seabed met the water on a hard line, which is the one
-     edge on the ball that should have been soft — rock does not stop, it thins
-     out into what it has kicked up.
-
-     This is the one mote cloud that does not go through toTank(): a grain is
-     not an agent and has no tank depth, so it is placed straight in world
-     space — an angle and a radius on the disc, and a height that lifts it off
-     the rock. On the ball this had to fight the map, which plastered anything
-     at floor depth onto the skin; on a flat floor it is just y.
-
-     Each grain's ceiling is a cubed roll, so most never clear the rock and the
-     few that do are what makes the haze read as diffusion rather than as a
-     second layer floating above a hard edge. */
-  const SAND_LIFT = R * 0.24;
-  // sqrt keeps the grains even per unit of area instead of ringed at the axis
-  const newSandR = () => R * 0.985 * Math.sqrt(Math.random());
-  // Cubed put every grain inside three units of the rock, which is a texture on
-  // the bed, not a suspension. 1.7 still stacks them low but lets a tail climb.
-  const newSandTop = () => SAND_LIFT * Math.random() ** 1.7;
-  const SAND = Array.from({ length: 4000 }, () => ({
-    lon: Math.random() * Math.PI * 2,
-    rr: newSandR(),
-    h: Math.random() * SAND_LIFT,
-    top: newSandTop(),
-    v: R * (0.0004 + Math.random() * 0.0011),
-    drift: (Math.random() - 0.5) * 0.0035,         // radians of angle a frame
-  }));
-
-  function stepSand() {
-    const attr = sandPoints.geometry.getAttribute('position');
-    for (let i = 0; i < SAND.length; i += 1) {
-      const s = SAND[i];
-      s.h += s.v;
-      s.lon += s.drift;
-      if (s.h > s.top) {                           // out of suspension, settles
-        s.h = 0;
-        s.top = newSandTop();
-        s.lon = Math.random() * Math.PI * 2;
-        s.rr = newSandR();
-      }
-      const gx = s.rr * Math.cos(s.lon), gz = s.rr * Math.sin(s.lon);
-      attr.setXYZ(i, gx, bedY(gx, gz) + 0.6 + s.h, gz);
-    }
-    attr.needsUpdate = true;
-    sandPoints.geometry.setDrawRange(0, SAND.length);
   }
 
   /* ============================================================ LINK LINES
@@ -1852,7 +1802,6 @@ const boot = () => {
     syncOrganisms(world);
     setPoints(foodPoints, world.food);
     stepSnow();
-    stepSand();
     if (plantTimer-- <= 0) { rebuildPlants(world); plantTimer = 30; }
     buildLines(world);
     syncFx(world);
@@ -1914,7 +1863,7 @@ const boot = () => {
   // shader constant that has to be judged by eye, not derived.
   window.__eco3d = {
     scene, camera, renderer, composer, zine, sky, SUN, look, THREE,
-    surface, volume, seabed, shafts, plants, pools, lines, foodPoints, snowPoints, sandPoints, halo,
+    surface, volume, seabed, shafts, plants, pools, lines, foodPoints, snowPoints, halo,
     sunGroup, clouds, rain,
   };
   E.setRenderer({ frame, resize });
