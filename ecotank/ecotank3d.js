@@ -12,9 +12,11 @@
    press, which is close enough that k can be read as "how dark it prints".
 
    One thing to know before touching a colour: the print pass hands any pixel
-   with HSV saturation over ~0.16 to a *spot* plate. Fluorescent orange is the
-   poster's single anchor, so everything that is not meant to be the anchor is
-   kept under that threshold and stays on the ink plate.
+   with HSV saturation over ~0.16 to a *spot* plate, chosen by hue. The living
+   things are what carry those plates — one spot per species — so an organism
+   has to arrive *saturated*. Everything that is not alive (water, rock, snow,
+   sand, food) stays under the threshold and prints on ink, which is what makes
+   the colour on the sheet read as the ecosystem and nothing else.
 
    The ball is polar: light enters at the top pole, and the bottom pole is a
    rocky seabed cap. The simulation in ecotank.js stays strictly 2D:
@@ -70,11 +72,13 @@ const WEATHER = {
 const WEATHER_KEYS = Object.keys(WEATHER);
 
 /* ------------------------------------------------------------- the palette
-   Four inks, shared verbatim with zine.js and ecotank.css. Nothing else gets
-   invented: a riso deck is short, and a fifth colour is a fifth pass. */
+   Paper, ink, and the two spots this file names directly — the sun and the
+   selection ring are warm, a contest is blue. The rest of the deck is not
+   repeated here: species inks arrive as COLORS[species] and zine.js sorts them
+   onto plates by hue, so there is exactly one place they are authored. */
 const PAPER = 0xefe6d2;      // aged cream
 const INK = 0x22201c;        // warm near-black
-const SPOT_WARM = 0xff4d1f;  // fluorescent orange-red — the one anchor
+const SPOT_WARM = 0xff4d1f;  // fluorescent orange-red — sun, selection, alarm
 const SPOT_COOL = 0x2a4fd6;  // federal blue, sparingly
 
 /* Shader colours skip THREE.Color on purpose: it decodes sRGB into the linear
@@ -101,12 +105,7 @@ const INK_GLSL = /* glsl */`
     return pow(mix(PAPER_S, hue, clamp(k, 0.0, 1.0)), vec3(2.2));
   }
   vec3 inkTone(float k) { return inkTone(k, INK_S); }
-  float flat_(float v, float steps) { return floor(v * steps + 0.5) / steps; }
-  // Saturation is a plate assignment, not a mood: keep the body inks under the
-  // pass's ~0.16 spot threshold or the whole ball prints fluorescent.
-  vec3 desat(vec3 c, float keep) {
-    return mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, keep);
-  }`;
+  float flat_(float v, float steps) { return floor(v * steps + 0.5) / steps; }`;
 
 /* Drag interaction. Instead of a standing swell deforming the shell, the water
    answers the pointer: each drag sample drops a disturbance on the sphere and
@@ -342,24 +341,21 @@ const boot = () => {
         float depth = smoothstep(-0.95, 0.85, dir.y);   // 0 seabed .. 1 lit pole
         float lam = dot(dir, uSun) * 0.5 + 0.5;
         // Day and night are ink density, not room brightness: the shaded side
-        // and the small hours simply take more ink. Keep the whole body between
-        // 0.24 and 0.62 so organisms have somewhere darker to sit.
-        // The water is the *field*, not the subject. Hold it between 0.12 and
-        // 0.38 so the ecosystem has three quarters of the scale to itself —
-        // at 0.24..0.62 the shell printed as a grey slab and a fish laid on top
-        // of it had nowhere darker to go.
-        float k = mix(0.38, 0.12, depth * 0.72 + 0.28 * lam);
+        // and the small hours simply take more ink.
+        // The water is the *field*, not the subject, and now that the organisms
+        // carry the spot plates it has to get further out of the way still:
+        // 0.08..0.28, so a fish sits five or six steps above its ground and its
+        // colour has bare paper to sing against rather than a grey slab.
+        float k = mix(0.28, 0.08, depth * 0.72 + 0.28 * lam);
         k += (1.0 - uSunI) * 0.10;          // night: a heavier plate
         k += uMurk * 0.08;                  // storm: murkier, not darker
         k = flat_(k, 5.0);                  // five tones, no ramp between them
-        // Warmth is the other half of the clock. The cool ink is matched to the
-        // warm one in luminance on purpose: swapping temperature must not
-        // quietly change how much coverage the plate asks for.
-        vec3 hue = mix(INK_S, vec3(0.098, 0.126, 0.178),
-                       clamp(0.30 * uMurk + 0.45 * (1.0 - uSunI), 0.0, 1.0));
-        vec3 body = inkTone(k, hue);
+        // Strictly neutral. The night used to shift this toward a cool ink,
+        // which was a fifth plate spent on the background — the clock reads as
+        // coverage alone now, and every drop of chroma belongs to what lives.
+        vec3 body = inkTone(k);
         // ripples lift ink off the plate instead of adding light to it
-        body = mix(body, inkTone(k * 0.35, hue), smoothstep(0.18, 0.55, rippleAt(dir)));
+        body = mix(body, inkTone(k * 0.35), smoothstep(0.18, 0.55, rippleAt(dir)));
         gl_FragColor = vec4(mix(body, inkTone(0.0), uFlash * 0.55), 1.0);
       }`,
   });
@@ -412,8 +408,14 @@ const boot = () => {
         // Rock prints heavier than water, in four steps. The dunes read through
         // which step a face lands in — that stepping *is* the modelling now,
         // which is why the shading has to quantise rather than ramp.
+        // Pulled down with the water it meets: rock still prints about a third
+        // heavier than the shell, but the whole substrate now lives in the
+        // bottom third of the scale so the organisms own the top of it.
         float lam = dot(nUp, uSun) * 0.5 + 0.5;
-        float k = mix(0.52, 0.28, lam) + (1.0 - uSunI) * 0.08;
+        // Pulled down with the water, this landed on 0.20..0.40 — the same band
+        // the water now occupies, and the seabed stopped being a floor and
+        // became more of the same grey. Rock has to stay the denser thing.
+        float k = mix(0.52, 0.32, lam) + (1.0 - uSunI) * 0.08;
         gl_FragColor = vec4(mix(inkTone(flat_(k, 4.0)), inkTone(0.0), uFlash * 0.4), 1.0);
       }`,
   }));
@@ -649,9 +651,17 @@ const boot = () => {
     vec3 swim(vec3 pos, float spine, float phase) {
       float body = 1.0 - spine;              // 0 at the nose, 1 at the tail
       float effort = clamp(aBeat, 0.0, 1.6);
-      // gentler: half the throw, and effort barely widens it. A fish should
-      // read as unhurried even when it is moving quickly.
-      float amp = uSwim * (0.38 + 0.22 * effort);
+      /* Slack when slow, taut when fast — one continuous state, not an event.
+         This used to run the other way (amp widened with effort) and it is the
+         single wrongest thing the gait did: a fish that throws harder the
+         faster it goes reads as a wind-up toy. A hovering animal is loose —
+         one long low-frequency curve carried all the way to the nose. A
+         sprinting one is a stiff spring: short wave, small throw, high tempo.
+         Tempo already rises with effort inside each gait, so all three of the
+         other terms move against it. */
+      float taut = clamp(effort / 1.6, 0.0, 1.0);   // 0 hovering .. 1 fleeing
+      float amp = uSwim * mix(1.35, 0.34, taut);    // 4x, and inverted
+      float kw = mix(0.80, 1.22, taut);             // wavelengths on the body
       float env, wave, gate = 1.0;
 
       if (uMode < 0.5) {
@@ -659,13 +669,13 @@ const boot = () => {
         // never fully dies at the head, so nothing is rigid.
         float W = 0.95 * (0.65 + 0.45 * effort);
         env = 0.22 + 0.78 * body;
-        wave = sin(body * 4.0 - uTime * W + phase);
+        wave = sin(body * 4.0 * kw - uTime * W + phase);
       } else if (uMode < 1.5) {
         // 1 — carangiform: front third stiff, rear half does the work. The
         // classic trout/tuna gait.
         float W = 1.15 * (0.65 + 0.50 * effort);
         env = pow(body, 2.0);
-        wave = sin(body * 3.1 - uTime * W + phase);
+        wave = sin(body * 3.1 * kw - uTime * W + phase);
       } else if (uMode < 2.5) {
         // 2 — power stroke: same travelling wave, but time is skewed so the
         // fish sweeps fast through the middle of the stroke and lingers at
@@ -674,7 +684,7 @@ const boot = () => {
         float ph = uTime * W - phase;
         float sk = ph + 0.40 * sin(ph);      // fast through zero, slow at the ends
         env = 0.26 + 0.74 * pow(body, 1.35);
-        wave = sin(body * 2.9 - sk);
+        wave = sin(body * 2.9 * kw - sk);
       } else {
         // 3 — glide and burst: a short beat, then a long coast. The body
         // holds its curve through the glide instead of going limp.
@@ -683,12 +693,25 @@ const boot = () => {
         gate = smoothstep(0.0, 0.10, cyc) * (1.0 - smoothstep(0.30, 0.68, cyc));
         gate = 0.16 + 0.84 * gate;
         env = 0.20 + 0.80 * pow(body, 1.5);
-        wave = sin(body * 3.3 - uTime * W + phase);
+        wave = sin(body * 3.3 * kw - uTime * W + phase);
       }
 
+      // Slack also softens the envelope: hovering, the curve is carried
+      // forward past the shoulder; sprinting, each gait keeps its own stiff
+      // front. Same reason the wavelength stretches — it is one body state.
+      env = mix(0.30 + 0.70 * env, env, taut);
       pos.z += wave * env * amp * gate;
-      // and the whole body arcs through a turn, tail swinging widest
-      pos.z += aTurn * 0.085 * pow(body, 1.3);
+
+      /* A turn is a bend, not a flick. This was one weak term on the tail, so
+         a turning fish stayed a rigid model on a curved path. A body at
+         constant curvature is a parabola in the distance from mid-body, which
+         puts nose *and* tail to the inside of the turn and bulges the middle
+         out — the C every fish makes. Subtracting the mean of s*s (1/12 over
+         a unit span) keeps the centroid on the path, so the bend does not
+         translate the animal sideways. Reads as one piece with the bank roll
+         in placeOrganism, which rolls on the same sign. */
+      float s = spine - 0.5;                 // -0.5 tail .. +0.5 nose
+      pos.z += aTurn * 0.62 * (s * s - 0.0833);
       return pos;
     }
     // stable per-fish phase from where it is, not which instance slot it landed
@@ -698,10 +721,13 @@ const boot = () => {
       return t.x * 0.7 + t.y * 1.3 + t.z * 0.9;
     }`;
 
-  /* Printed specimen. Three flat tones and a hard contour — a woodcut of a
-     fish, not a lit model of one. The species colour survives only as a hint of
-     temperature: it is desaturated hard so the body stays on the ink plate
-     instead of being promoted to the fluorescent spot, which is reserved. */
+  /* Printed specimen. Three flat tones inside a hard contour — a woodcut of a
+     fish, not a lit model of one. The body is the species ink at full chroma:
+     that is what puts each species on its own spot plate, and colour is the
+     only thing left of a fish at poster distance. The contour is INK, not the
+     species colour, so every animal keeps a black outline around its plate —
+     that outline is what holds the silhouette together at six halftone cells
+     wide, and a colour edge on colour would simply dissolve. */
   function organismMaterial(species, swim, freq) {
     return new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
@@ -732,20 +758,29 @@ const boot = () => {
         void main() {
           vec3 n = normalize(vN); vec3 v = normalize(vView);
           float lam = dot(n, uSun) * 0.5 + 0.5;
-          // Three tones across the body and a fourth at the contour. Any more
-          // and the screen turns them back into a gradient of dot sizes.
-          // Sit well below the water's 0.24..0.62: a body that shares the
-          // shell's tone is a body you cannot find, and at this camera distance
-          // the contour alone is two pixels wide.
-          float k = mix(0.82, 0.58, flat_(lam, 3.0));
+          // Three tones across the body. Any more and the screen turns them
+          // back into a gradient of dot sizes. 0.56..0.80 before the modifiers,
+          // 0.60..0.88 after, against the water's 0.08..0.28: dense enough that
+          // the spot plate opens up, light enough that the ink contour reads.
+          float k = mix(0.80, 0.56, flat_(lam, 3.0));
           // countershading survives as one step, not a ramp: pale belly, dark back
           k += 0.10 * step(0.0, vDorsal) - 0.08 * step(vDorsal, 0.0);
           k -= (1.0 - uSunI) * 0.06;        // at night the water darkens past them
-          // hard inked edge — the silhouette is what a print has instead of light
-          k += smoothstep(0.55, 0.78, 1.0 - abs(dot(n, v))) * 0.30;
           // condition reads as a lighter, hungrier plate
           k *= 0.86 + 0.14 * clamp(vGlow, 0.0, 1.6);
-          gl_FragColor = vec4(inkTone(k, desat(uBase * 0.42 + INK_S * 0.58, 0.22)), 1.0);
+          // Floor it. Coverage and chroma are the same number here — thin the
+          // fill toward paper and the pass reads the pixel as unsaturated and
+          // hands it back to ink. Countershading and hunger stacked used to
+          // take the lit belly to 0.41, which printed a green fish grey. Which
+          // plate a species lands on is not allowed to depend on its mood.
+          k = clamp(k, 0.60, 0.88);
+          // Only a touch of ink in the hue — enough to keep the fill printed
+          // rather than candied, nowhere near enough to drop it off the spot.
+          vec3 body = inkTone(k, mix(uBase, INK_S, 0.10));
+          // Hard inked edge, laid over the colour rather than added to it: the
+          // silhouette is what a print has instead of light.
+          float edge = smoothstep(0.55, 0.78, 1.0 - abs(dot(n, v)));
+          gl_FragColor = vec4(mix(body, inkTone(0.95), edge), 1.0);
         }`,
     });
   }
@@ -917,12 +952,14 @@ const boot = () => {
       varying vec2 vUv; varying float vT;
       ${INK_GLSL}
       void main() {
-        // Two tones per blade, split at half height, plus an inked spine down
-        // the middle. Blades print darker than the rock they root in, which is
-        // the only thing keeping a bed from dissolving into the seabed.
+        // Two tones per blade, split at half height, plus a darker spine down
+        // the middle. Blades are the green spot now, not ink: they are alive,
+        // and green is the one plate nothing else on the sheet competes for —
+        // which is also what keeps a bed from dissolving into the rock.
         float k = mix(0.80, 0.58, flat_(vT, 2.0)) - (1.0 - uSunI) * 0.05;
         k += (1.0 - smoothstep(0.0, 0.22, abs(vUv.x * 2.0 - 1.0))) * 0.10;
-        gl_FragColor = vec4(inkTone(k, desat(uBase * 0.40 + INK_S * 0.60, 0.24)), 1.0);
+        k = clamp(k, 0.60, 0.90);           // same floor as the organisms, same reason
+        gl_FragColor = vec4(inkTone(k, mix(uBase, INK_S, 0.10)), 1.0);
       }`,
   });
 
@@ -1232,9 +1269,12 @@ const boot = () => {
     return pts;
   }
 
-  // Food is the one thing every animal in here is chasing, so it gets the spot
-  // plate. Marine snow goes the other way — faint ink dust, the paper's grain.
-  const foodPoints = motePoints(400, 3.6, new THREE.Color(SPOT_WARM), 0.95);
+  // Food used to take the warm spot, and 400 orange specks speckled the whole
+  // ball with the one colour that now belongs to the animals, the sun, the
+  // selection ring and the predation links. It is ink dots — small enough to
+  // read as crumbs, big enough that the screen does not drop them (a speck
+  // worth less than a halftone cell is a speck that is not printed).
+  const foodPoints = motePoints(400, 2.8, new THREE.Color(INK), 0.85);
   // 700 specks of ink filled the ball edge to edge and buried the ecosystem in
   // its own dust. Marine snow is a suggestion, not a texture.
   const snowPoints = motePoints(220, 1.3, new THREE.Color(INK), 0.16);
@@ -1245,7 +1285,10 @@ const boot = () => {
   // it is nothing — and 4000 points is still one draw call.
   // A grain has to be worth more than one halftone cell or the screen drops it:
   // at 2.6/0.30 the whole cloud was mathematically present and visually absent.
-  const sandPoints = motePoints(4000, 3.4, new THREE.Color(INK), 0.5);
+  // 0.5 was calibrated against the old darker water. Against a 0.08..0.28 shell
+  // the same grains punch through as salt-and-pepper static — the contrast the
+  // haze rides on went up, so the ink has to come down.
+  const sandPoints = motePoints(4000, 3.4, new THREE.Color(INK), 0.28);
 
   function setPoints(pts, list) {
     const attr = pts.geometry.getAttribute('position');

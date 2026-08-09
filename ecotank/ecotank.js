@@ -25,43 +25,59 @@
   const STATUS = { running: "running", success: "success", failure: "failure", idle: "idle" };
 
   /* Riso ink palette. The world is printed on aged paper, so every colour is a
-     spot ink, a screened tint of one, or an overprint of two — never an emitter.
-     Four plates only:
-       PAPER #efe6d2 · INK #22201c · SPOT_WARM #ff4d1f · SPOT_COOL #2a4fd6
-     SPOT_WARM at full strength is the poster's single high-chroma anchor and is
-     spent only on the predation story (big fish, danger, predation links).
+     spot ink or an overprint of two — never an emitter, never a pastel. Six
+     plates on the press:
+       PAPER #efe6d2 · INK #22201c
+       WARM #ff4d1f · COOL #2a4fd6 · GREEN #1f9e5a · YELLOW #f2b616
+     Four spot plates, so nothing here is a half-strength tint standing in for
+     an ink the press did not have: every organism owns a plate outright, and
+     the two that would share one are separated by an overprint, not a screen.
+     Saturation is load-bearing. zine.js hands a pixel to a spot plate by hue
+     and only if it is saturated — desaturate a value and it silently falls back
+     to the ink plate and prints flat grey. Do not "soften" anything below.
+     Big fish is YELLOW rather than the obvious WARM because the selection ring
+     is WARM: an orange ring around an orange fish has no edge.
      These are the values fed to uBase in ecotank3d.js as well as to the
      monitor's dots and bars, and the two must not drift apart. */
   const COLORS = {
-    bigfish: "#ff4d1f",   // SPOT_WARM 100% — the anchor
-    smallfish: "#2a4fd6", // SPOT_COOL 100%
-    shrimp: "#ff8a5c",    // SPOT_WARM ~58% screen
-    cleaner: "#7d92e0",   // SPOT_COOL ~52% screen
-    louse: "#7a2f6d",     // SPOT_WARM over SPOT_COOL — overprint plum
-    // substrate reads as one ink ramp: 25% / 50% / 75% INK on PAPER
-    food: "#c8b184",
-    snail: "#8c8168",
-    plant: "#4f4b3e",
-    danger: "#ff4d1f",    // alarm rides the anchor ink
+    bigfish: "#f2b616",   // YELLOW 100% — see note on the ring above
+    smallfish: "#2a4fd6", // COOL 100%
+    cleaner: "#1f9e5a",   // GREEN 100%
+    shrimp: "#ff4d1f",    // WARM 100%
+    // Overprints. Two solids laid on each other multiply, and any two of these
+    // inks at full strength multiply to near-black (#201702, #2a181a) — no
+    // press prints an overprint that way. Each plate is screened first, then
+    // multiplied, which is what the sheet actually shows.
+    snail: "#7f5e0b",     // INK 55% × YELLOW 100% — olive
+    louse: "#6a4357",     // WARM 70% × COOL 70% — plum
+    plant: "#14673a",     // GREEN 100% × INK 40% — deep weed green, so plants
+                          // and cleaner do not collide on the food-web graph
+    food: "#5a554b",      // INK ~72% on paper. Demoted: small ink dots, no spot
+    danger: "#ff4d1f",    // alarm rides the warm plate
     message: "#2a4fd6",   // comms are the cool plate
     subgoal: "#6b6553",   // annotation, drafted in ink not colour
     // legacy aliases the monitor's emotion bars ask for by hue name
-    red: "#ff4d1f",
-    amber: "#ff8a5c",
-    blue: "#2a4fd6",
-    teal: "#7d92e0",
-    green: "#6b6553",
+    red: "#ff4d1f",       // fear
+    amber: "#f2b616",     // hunger
+    blue: "#2a4fd6",      // social
+    green: "#1f9e5a",     // energy
+    teal: "#6a4357",      // curiosity — the plum overprint; the only value left
+                          // that is not one of the four spots or the ink
   };
 
-  /* relationship-type palette — six types, six separable plates:
-     orange 100 / orange 58 / blue 100 / blue 52 / overprint plum / flat ink */
+  /* relationship-type palette — six types on six separable plates:
+     WARM / COOL / GREEN / YELLOW / plum overprint / ink tint.
+     Predation keeps WARM: it is the story the demo leads with. Parasitism
+     borrows the louse's own plum so the link matches the organism drawing it. */
   const REL_COLORS = {
-    predation: "#ff4d1f",     // 捕食
-    mutualism: "#2a4fd6",     // 共生 (cleaner <-> host)
-    parasitism: "#7a2f6d",    // 寄生 (louse -> host)
-    competition: "#ff8a5c",   // 跨物种竞争
-    intraspecific: "#22201c", // 物种内竞争 — plain ink
-    cooperation: "#7d92e0",   // 合作
+    predation: "#ff4d1f",     // 捕食 — WARM
+    mutualism: "#1f9e5a",     // 共生 (cleaner <-> host) — GREEN
+    parasitism: "#6a4357",    // 寄生 (louse -> host) — plum overprint
+    competition: "#f2b616",   // 跨物种竞争 — YELLOW
+    intraspecific: "#8c8168", // 物种内竞争 — ink, no spot. Lifted to a 50%
+                              // screen so the legend swatch survives the dark
+                              // 2D panel; solid INK is invisible on it.
+    cooperation: "#2a4fd6",   // 合作 — COOL
   };
 
   const SPECIES = {
