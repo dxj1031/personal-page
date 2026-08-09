@@ -755,15 +755,17 @@ body.focus-mode .demo-layout {
 /* Both control blocks sit under the cabinet now. Anything parked on the glass
    covers the one thing the panel exists to look at, and moving it to a
    different corner only changes which part of the tank is hidden. */
+/* Full-width rows, not columns. Side by side each block got 368px, which is
+   narrower than its own contents, so both wrapped to three lines and the deck
+   became two 114px slabs of cream under the picture. One row each is 36. */
 .tank-deck {
   display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 10px;
 }
 .tank-deck > * {
-  flex: 1 1 320px;
+  width: 100%;
 }
 .canvas-overlays {
   display: flex;
