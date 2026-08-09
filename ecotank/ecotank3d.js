@@ -1905,7 +1905,7 @@ const boot = () => {
   // Handle for tuning the look from the console — every value in here is a
   // shader constant that has to be judged by eye, not derived.
   window.__eco3d = {
-    scene, camera, renderer, composer, zine, sky, SUN, look, THREE,
+    scene, camera, renderer, composer, zine, sky, SUN, look, orbitTarget, orbitTargetT, THREE,
     surface, volume, seabed, shafts, plants, pools, lines, foodPoints, snowPoints, halo,
     sunGroup, clouds, rain,
   };
