@@ -107,14 +107,14 @@
 
             <div class="tank-wrap">
               <canvas id="tankCanvas" width="1120" height="640" aria-label="EcoTank simulation"></canvas>
-              <div class="canvas-overlays">
-                <span class="overlay-label" data-en="Layers">图层</span>
-                <button id="overlayAll" type="button" title="显示/隐藏所有连线" data-en-title="Show/hide all link lines" data-en="All lines">全部连线</button>
-                <label><input id="overlayPerception" type="checkbox" /> <span data-en="Perception">感知</span></label>
-                <label><input id="overlayMessages" type="checkbox" /> <span data-en="Messages">通信</span></label>
-                <label><input id="overlaySubgoals" type="checkbox" /> <span data-en="Subgoals">子目标</span></label>
-                <label><input id="overlayIntentions" type="checkbox" /> <span data-en="Intentions">意图</span></label>
+              <div class="tv-rail" aria-hidden="true">
+                <span class="tv-grille"></span>
+                <span class="tv-knob"></span>
+                <span class="tv-knob on"></span>
               </div>
+            </div>
+            <!-- the set's controls live on the cabinet, not on the picture -->
+            <div class="tank-deck">
               <div class="zoom-controls">
                 <span id="skyHud" class="sky-hud">—</span>
                 <span id="zoomHud" class="zoom-hud">1.0× · —</span>
@@ -126,10 +126,13 @@
                 </div>
                 <span class="zoom-hint" data-en="Drag to orbit · Scroll to zoom · Click to select">拖拽环绕 · 滚轮远近 · 点击选中个体</span>
               </div>
-              <div class="tv-rail" aria-hidden="true">
-                <span class="tv-grille"></span>
-                <span class="tv-knob"></span>
-                <span class="tv-knob on"></span>
+              <div class="canvas-overlays">
+                <span class="overlay-label" data-en="Layers">图层</span>
+                <button id="overlayAll" type="button" title="显示/隐藏所有连线" data-en-title="Show/hide all link lines" data-en="All lines">全部连线</button>
+                <label><input id="overlayPerception" type="checkbox" /> <span data-en="Perception">感知</span></label>
+                <label><input id="overlayMessages" type="checkbox" /> <span data-en="Messages">通信</span></label>
+                <label><input id="overlaySubgoals" type="checkbox" /> <span data-en="Subgoals">子目标</span></label>
+                <label><input id="overlayIntentions" type="checkbox" /> <span data-en="Intentions">意图</span></label>
               </div>
             </div>
 

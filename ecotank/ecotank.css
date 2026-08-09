@@ -752,15 +752,20 @@ body.focus-mode .demo-layout {
   background: var(--paper);
 }
 /* overlay chips read as marginalia printed on the sheet, not as glass HUD */
-/* top right, opposite the FIG slug: the bottom of the tube is the strip's now,
-   and stacking both down there is what buried the seabed in the first place */
+/* Both control blocks sit under the cabinet now. Anything parked on the glass
+   covers the one thing the panel exists to look at, and moving it to a
+   different corner only changes which part of the tank is hidden. */
+.tank-deck {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 10px;
+}
+.tank-deck > * {
+  flex: 1 1 320px;
+}
 .canvas-overlays {
-  position: absolute;
-  right: 38px;
-  top: 36px;
-  z-index: 5;
-  max-width: 62%;
-  justify-content: flex-end;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1477,20 +1482,15 @@ body.focus-mode #monitorTab.active {
 /* One strip along the bottom edge rather than a column stacked into the
    corner: the column was ~110px tall and sat right where the seabed reads. */
 .zoom-controls {
-  position: absolute;
-  left: 38px;
-  right: 38px;
-  bottom: 44px;             /* inside the tube, clear of the cabinet's rail */
   display: flex;
   flex-direction: row;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 5px 10px;
+  padding: 7px 12px;
   border: 1px solid var(--ink-hair);
   border-radius: 0;
   background: var(--paper);
-  z-index: 5;               /* above the scanline plate, or it prints over them */
 }
 /* the hint is the widest thing here, so it goes last and takes the slack */
 .zoom-controls .zoom-hint {
