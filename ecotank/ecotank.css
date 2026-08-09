@@ -697,38 +697,76 @@ body.focus-mode .demo-layout {
   display: flex;
   align-items: center;
   gap: 10px;
+  pointer-events: none;
 }
-/* the set's power switch, on the set */
-.tv-power {
-  height: 20px;
-  padding: 0 12px;
+
+/* ---- the play button, centre screen -------------------------------------
+   ecotank.js toggles `primary` on this button: present while the sim is
+   stopped (it reads "Run" and is the thing to press), removed once running
+   (it reads "Pause"). So `primary` alone decides play triangle vs pause bars,
+   and no JS had to learn about any of this.
+
+   Stopped it sits there in the spot colour. Running it gets out of the way —
+   a control parked in the middle of the picture is the picture's problem —
+   and comes back when the pointer is over the set, the way a video player
+   does. `pointer-events` follows the fade so it cannot eat a drag while it
+   is invisible. */
+.tv-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  padding: 0;
   border: 1px solid var(--ink);
-  border-radius: 0;
+  border-radius: 50%;
   background: var(--paper);
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  line-height: 1;
+  font-size: 0;                 /* the label stays for screen readers only */
   cursor: pointer;
-  flex: 0 0 auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
-.tv-power:hover {
-  background: var(--paper-2);
+.tank-wrap:hover .tv-play,
+.tv-play:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
-/* ecotank.js toggles `primary` on this button: it is present while the sim is
-   stopped (the button reads "Run" and is the thing to press) and removed once
-   it is running (the button reads "Pause"). So `primary` is the lamp. */
-.tv-power.primary {
+.tv-play.primary {
+  opacity: 1;
+  pointer-events: auto;
   background: var(--spot-warm);
   border-color: var(--spot-warm);
-  color: var(--paper);
-  font-weight: 700;
 }
-.tv-power.primary:hover {
-  background: var(--spot-warm);
-  filter: brightness(1.08);
+.tv-play:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+/* stopped: a play triangle, optically centred by nudging it right */
+.tv-play.primary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  margin-left: 7px;
+  border-left: 23px solid var(--paper);
+  border-top: 15px solid transparent;
+  border-bottom: 15px solid transparent;
+}
+/* running: two bars */
+.tv-play:not(.primary)::before {
+  content: "";
+  width: 20px;
+  height: 24px;
+  border-left: 7px solid var(--ink);
+  border-right: 7px solid var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tv-play {
+    transition: none;
+  }
 }
 .tv-grille {
   flex: 1;
