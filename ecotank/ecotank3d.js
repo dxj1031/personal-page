@@ -81,12 +81,16 @@ function bedY(x, z) {
 // 220 tall against the ball's 200, so the camera backs off to hold the same
 // share of the frame: roughly a quarter of the area inked, three quarters
 // bare paper.
-// The camera sits inside the column, a little above the middle: high enough to
-// see the terrain fall away, low enough that the surface still reads as a lid.
-const CAM_Y = H * 0.12;
-const FOV_HOME = 62;         // wide: a tank you are standing in, not a specimen
-const FOV_MIN = 26;          // "zoom in" is now the lens, there is nowhere to dolly
-const FOV_MAX = 88;
+/* The camera looks at the whole column from outside. Standing *in* the water
+   reads as nothing at all: the shell hides itself once the lens is inside it,
+   so the vessel loses its silhouette and there is no tank left in the shot,
+   only water with no edges. The ecosystem is the subject, and a subject needs
+   to fit in the frame. */
+const DIST_HOME = R * 4.3;   // the whole column, with the quiet field around it
+const DIST_MIN = R * 1.25;   // close enough to read one fish, still outside
+const DIST_MAX = R * 9;      // far enough to print the column as a stamp
+const FOV_HOME = 42;
+const PITCH_HOME = 0.22;     // slightly above the waterline, looking down a touch
 const SUN = new THREE.Vector3(0, 1, 0);
 const SWIM_MODES = ['eel', 'carangiform', 'power', 'burst'];
 const RIPPLES = 6;          // concurrent drag disturbances tracked on the shell   // recomputed every frame by the day cycle
@@ -199,18 +203,19 @@ const boot = () => {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(FOV_HOME, 1, 0.5, 4000);
 
-  /* The lens is *in* the water now, so dragging turns a head rather than
-     swinging the vessel — which is why OrbitControls is gone: it can only
-     revolve a camera about a point, and a point you are standing on is not
-     something you can revolve around. Two angles are the whole state.
+  /* Three numbers carry the whole camera: two angles and a distance, all of
+     them orbiting the column's waist. OrbitControls did this too, but it also
+     owned the pointer, the damping and the target, and the follow behaviour
+     had to fight it for all three — this is the same orbit with the state
+     left out in the open where the follow can simply write to it.
 
-     Yaw is unbounded, pitch stops short of straight up and straight down so
-     the horizon can never roll over. Both are damped toward a target the
-     pointer writes, which is the one thing OrbitControls was still buying us. */
-  const look = { yaw: 0.5, pitch: -0.06, yawT: 0.5, pitchT: -0.06, fov: FOV_HOME, fovT: FOV_HOME };
-  const LOOK_HOME = { yaw: 0.5, pitch: -0.06 };
-  camera.position.set(0, CAM_Y, 0);
-  camera.rotation.order = 'YXZ';         // yaw then pitch, or the roll leaks in
+     Pitch stops short of the poles so the horizon never rolls over. */
+  const look = {
+    yaw: 0.62, pitch: PITCH_HOME, dist: DIST_HOME,
+    yawT: 0.62, pitchT: PITCH_HOME, distT: DIST_HOME,
+  };
+  const LOOK_HOME = { yaw: 0.62, pitch: PITCH_HOME, dist: DIST_HOME };
+  const orbitTarget = new THREE.Vector3(0, 0, 0);
 
   {
     let dragging = false, lastX = 0, lastY = 0;
@@ -226,15 +231,13 @@ const boot = () => {
     canvas.addEventListener('pointercancel', stop);
     canvas.addEventListener('pointermove', (e) => {
       if (!dragging) return;
-      view.follow = false;               // taking the wheel drops the tail
-      look.yawT -= (e.clientX - lastX) * 0.0042;
-      look.pitchT = clamp(look.pitchT - (e.clientY - lastY) * 0.0042, -1.30, 1.30);
+      look.yawT -= (e.clientX - lastX) * 0.0060;
+      look.pitchT = clamp(look.pitchT + (e.clientY - lastY) * 0.0060, -1.25, 1.25);
       lastX = e.clientX; lastY = e.clientY;
     });
-    // Inside the tank there is nowhere to dolly to, so the wheel works the lens
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      look.fovT = clamp(look.fovT * (e.deltaY > 0 ? 1.09 : 1 / 1.09), FOV_MIN, FOV_MAX);
+      look.distT = clamp(look.distT * (e.deltaY > 0 ? 1.10 : 1 / 1.10), DIST_MIN, DIST_MAX);
     }, { passive: false });
   }
 
@@ -1654,14 +1657,13 @@ const boot = () => {
   }
 
   /* ============================================================== CONTROLS */
-  // zoom is the lens now: there is no distance to a vessel you are inside of
-  const dolly = (factor) => { look.fovT = clamp(look.fovT * factor, FOV_MIN, FOV_MAX); };
+  const dolly = (factor) => { look.distT = clamp(look.distT * factor, DIST_MIN, DIST_MAX); };
   const byId = (id) => document.getElementById(id);
-  byId('zoomIn') && byId('zoomIn').addEventListener('click', () => dolly(1 / 1.25));
-  byId('zoomOut') && byId('zoomOut').addEventListener('click', () => dolly(1.25));
+  byId('zoomIn') && byId('zoomIn').addEventListener('click', () => dolly(1 / 1.4));
+  byId('zoomOut') && byId('zoomOut').addEventListener('click', () => dolly(1.4));
   byId('zoomReset') && byId('zoomReset').addEventListener('click', () => {
     view.follow = false;
-    look.yawT = LOOK_HOME.yaw; look.pitchT = LOOK_HOME.pitch; look.fovT = FOV_HOME;
+    look.yawT = LOOK_HOME.yaw; look.pitchT = LOOK_HOME.pitch; look.distT = LOOK_HOME.dist;
     E.syncHud();
   });
   byId('zoomFollow') && byId('zoomFollow').addEventListener('click', () => {
@@ -1828,16 +1830,13 @@ const boot = () => {
     shafts.quaternion.setFromUnitVectors(UP_Y, SUN);
     if (hudTimer-- <= 0) { pushHudLabel(); hudTimer = 30; }
 
-    // Following used to drag the orbit's centre onto the agent. From inside the
-    // tank there is nothing to drag: the camera stays put and simply turns to
-    // keep the thing in frame, which is what a follow *looked* like anyway.
+    // follow slides the orbit's centre onto the agent; the framing is untouched,
+    // so the shot stays global and the crowd around the fish stays readable
     if (view.follow) {
       const a = E.getAgent(E.selectedId);
-      if (a && a.alive) {
-        agentPos(a, followTarget).sub(camera.position);
-        look.yawT = Math.atan2(-followTarget.x, -followTarget.z);
-        look.pitchT = clamp(Math.asin(clamp(followTarget.y / (followTarget.length() || 1), -1, 1)), -1.30, 1.30);
-      }
+      if (a && a.alive) orbitTarget.lerp(agentPos(a, followTarget), 0.12);
+    } else if (orbitTarget.lengthSq() > 0.01) {
+      orbitTarget.multiplyScalar(0.88);
     }
 
     syncOrganisms(world);
@@ -1883,17 +1882,21 @@ const boot = () => {
       u.uMode.value = SWIM_MODES.indexOf(settings.swim) < 0 ? 2 : SWIM_MODES.indexOf(settings.swim);
     });
 
-    // damp the head toward wherever the pointer (or the follow) last asked for
+    // damp toward whatever the pointer (or the follow) last asked for, then
+    // solve the orbit: two angles and a radius about the target, looking in
     look.yaw += (look.yawT - look.yaw) * 0.12;
     look.pitch += (look.pitchT - look.pitch) * 0.12;
-    look.fov += (look.fovT - look.fov) * 0.15;
-    camera.rotation.y = look.yaw;
-    camera.rotation.x = look.pitch;
-    if (Math.abs(camera.fov - look.fov) > 0.01) { camera.fov = look.fov; camera.updateProjectionMatrix(); }
+    look.dist += (look.distT - look.dist) * 0.12;
+    const cp = Math.cos(look.pitch);
+    camera.position.set(
+      orbitTarget.x + look.dist * cp * Math.sin(look.yaw),
+      orbitTarget.y + look.dist * Math.sin(look.pitch),
+      orbitTarget.z + look.dist * cp * Math.cos(look.yaw),
+    );
+    camera.lookAt(orbitTarget);
     composer.render();
 
-    // the HUD still says "zoom", so give it one: a narrower lens reads as closer
-    const zoom = FOV_HOME / Math.max(look.fov, 1);
+    const zoom = DIST_HOME / Math.max(look.dist, 1);
     if (Math.abs(zoom - view.zoom) > 0.02) { view.zoom = zoom; E.syncHud(); }
   }
 
