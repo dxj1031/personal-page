@@ -50,8 +50,32 @@ import { zinePass } from './zine.js';
 const R = 100;             // the water cylinder's radius
 const H = 220;             // upright, a touch taller than it is wide
 const TOP_Y = H / 2;       // the water surface: light enters here
-const FLOOR_Y = -H / 2;    // the seabed disc
+const FLOOR_Y = -H / 2;    // the plane the seabed is built on
 const INNER = 0.56;        // living shell runs from INNER*R out to the skin
+
+/* ------------------------------------------------------------- the seabed
+   One height field, four consumers: the rock mesh, the agents that walk it,
+   the plants that root in it and the sand that settles on it. Anything that
+   reads a different floor than the mesh draws produces the same bug in a
+   different costume — a snail sunk to its eyes, a blade growing out of thin
+   water — so there is exactly one of these and everyone calls it.
+
+   The bed rides BED_LIFT above the shell's bottom cap so a trough has room to
+   cut without piercing the vessel, and the relief fades to nothing at the wall
+   so the seam where rock meets glass stays flush. */
+const BED_LIFT = 11;       // mean height of the bed above the cap
+const BED_AMP = 9;         // peak-to-trough swing around that mean
+function bedY(x, z) {
+  const rim = Math.min(1, Math.max(0, (1 - Math.hypot(x, z) / R) * 3.2));
+  // three octaves for the general lumpiness, plus one broad mound off-centre
+  // so the bed has a subject rather than being evenly agitated everywhere
+  const n = 0.55 * Math.sin(x * 0.031 + 1.7) * Math.cos(z * 0.026)
+    + 0.30 * Math.sin(z * 0.052 + x * 0.018)
+    + 0.15 * Math.sin(x * 0.098 + z * 0.081);
+  const d = Math.hypot(x - R * 0.34, z + R * 0.28) / (R * 0.42);
+  const mound = Math.exp(-d * d) * 0.85;
+  return FLOOR_Y + 0.5 + rim * (BED_LIFT + BED_AMP * n + BED_AMP * mound);
+}
 // A zine poster is 70-90% negative space, so the column is a modest anchor in
 // a quiet field rather than the subject filling the plate. The cylinder is
 // 220 tall against the ball's 200, so the camera backs off to hold the same
@@ -234,12 +258,16 @@ const boot = () => {
     const t = clamp((y - WORLD.waterTop) / DEPTH_SPAN, 0, 1);   // 0 surface, 1 floor
     const zf = clamp((z || 0) / WORLD.depth, 0, 1);
     const warped = Math.pow(t, DEPTH_WARP);
+    const lon = x * LON_K;
+    const r = R * (INNER + (0.98 - INNER) * zf);
+    // Depth 1 *is* the floor, so benthic species land without the radial shove
+    // the sphere needed. The bed is not flat, though, so the floor they land on
+    // is whatever the rock is doing under them — clamping here is what keeps a
+    // snail on top of a dune instead of buried inside it.
     return {
-      lon: x * LON_K,
-      // depth 1 *is* the floor plane, so benthic species land on the disc with
-      // no radial shove — the sphere needed one to keep a snail off the water
-      h: TOP_Y - warped * H,
-      r: R * (INNER + (0.98 - INNER) * zf),
+      lon,
+      h: Math.max(TOP_Y - warped * H, bedY(r * Math.cos(lon), r * Math.sin(lon))),
+      r,
     };
   }
 
@@ -360,29 +388,21 @@ const boot = () => {
   volume.renderOrder = 1;
   scene.add(volume);
 
-  /* Seabed: a rocky disc closing the bottom of the column. Everything the
+  /* Seabed: rocky terrain closing the bottom of the column. Everything the
      simulation calls "floor" lands on it, so it is where the plants root and
-     where the snails graze. Lit only by what filters down from the surface. */
-  // a ring from the axis out to the wall: 24 radial bands so the dunes have
-  // vertices to push, which a CircleGeometry fan does not have
-  const seabedGeo = new THREE.RingGeometry(0.01, R * 0.995, 128, 24);
+     where the snails graze. Lit only by what filters down from the surface.
+     The shape is bedY()'s, not this mesh's — the mesh only samples it. */
+  // 40 radial bands and 160 around: terrain needs vertices to push, and a
+  // CircleGeometry fan has exactly one ring of them
+  const seabedGeo = new THREE.RingGeometry(0.01, R * 0.995, 160, 40);
   seabedGeo.rotateX(-Math.PI / 2);              // lay it flat, facing up
-  seabedGeo.translate(0, FLOOR_Y + 0.5, 0);     // just above the shell's bottom cap
   {
     const p = seabedGeo.attributes.position;
     const n = new THREE.Vector3();
     for (let i = 0; i < p.count; i += 1) {
       n.fromBufferAttribute(p, i);
       // dunes and boulders, biggest away from the wall so the seam stays flush
-      const rr = Math.hypot(n.x, n.z) / R;
-      const rim = Math.min(1, (1 - rr) * 4.5);
-      // one-sided: on the ball this rode the radius and stayed under the skin,
-      // but a flat bed has a shell cap right beneath it, so a trough would poke
-      // straight out the bottom of the vessel. Dunes rise; nothing digs.
-      const dune = 0.055 * Math.sin(n.x * 0.11) * Math.cos(n.z * 0.09)
-        + 0.030 * Math.sin(n.z * 0.23 + n.x * 0.07)
-        + 0.016 * Math.sin(n.x * 0.47 + n.z * 0.39);
-      p.setXYZ(i, n.x, n.y + Math.max(0, rim) * R * Math.max(0, dune), n.z);
+      p.setXYZ(i, n.x, bedY(n.x, n.z), n.z);
     }
     seabedGeo.computeVertexNormals();
   }
@@ -996,7 +1016,7 @@ const boot = () => {
         const h1 = Math.sin((plant.x + 1) * 12.9898 + (plant.y + 1) * 78.233) * 43758.5453;
         const spread = h1 - Math.floor(h1);                  // stable 0..1
         rootR = R * 0.94 * Math.sqrt(0.06 + 0.94 * spread);
-        rootY = FLOOR_Y + 0.5;
+        rootY = bedY(rootR * Math.cos(lon), rootR * Math.sin(lon));
       }
       const co = Math.cos(lon), so = Math.sin(lon);
       radial.set(co, 0, so);
@@ -1335,7 +1355,6 @@ const boot = () => {
      few that do are what makes the haze read as diffusion rather than as a
      second layer floating above a hard edge. */
   const SAND_LIFT = R * 0.24;
-  const SAND_Y = FLOOR_Y + 0.6;                    // resting on the disc
   // sqrt keeps the grains even per unit of area instead of ringed at the axis
   const newSandR = () => R * 0.985 * Math.sqrt(Math.random());
   // Cubed put every grain inside three units of the rock, which is a texture on
@@ -1362,7 +1381,8 @@ const boot = () => {
         s.lon = Math.random() * Math.PI * 2;
         s.rr = newSandR();
       }
-      attr.setXYZ(i, s.rr * Math.cos(s.lon), SAND_Y + s.h, s.rr * Math.sin(s.lon));
+      const gx = s.rr * Math.cos(s.lon), gz = s.rr * Math.sin(s.lon);
+      attr.setXYZ(i, gx, bedY(gx, gz) + 0.6 + s.h, gz);
     }
     attr.needsUpdate = true;
     sandPoints.geometry.setDrawRange(0, SAND.length);
