@@ -643,20 +643,80 @@ body.focus-mode .demo-layout {
   color: var(--accent);
 }
 
-/* ---- the poster sheet ----------------------------------------------------
-   The tank is a pulled print, not a vitrine: aged paper ground, a hairline ink
-   trim, square corners, a paper margin so the sheet edge reads, and a coarse
-   halftone in that margin. No glow, no radius, no blur, no shadow. */
+/* ---- the set ------------------------------------------------------------
+   The tank is a broadcast now, not a pulled print: the sheet became a cabinet
+   and the sheet's margin became a bezel. The paper ground and its halftone
+   stay — this is a printed picture *of* a television, which is why the shell
+   carries no gloss, no highlight and no drop shadow. The screen is where the
+   ink is; everything around it is still bare stock. */
 .tank-wrap {
   position: relative;
   min-height: 560px;
   overflow: hidden;
-  padding: 12px;
-  border-radius: 0;
-  border: 1px solid var(--ink-hair-2);
+  padding: 26px 30px 34px;
+  border-radius: 18px / 14px;
+  border: 1px solid var(--ink);
   background-color: var(--paper);
   background-image: radial-gradient(var(--paper-2) 1px, transparent 1.2px);
   background-size: 5px 5px;
+}
+/* the tube: a rounded, faintly barrelled window cut into the cabinet */
+.tank-wrap #tankCanvas,
+.tank-wrap canvas {
+  border-radius: 26px / 20px;
+}
+/* scanlines + the corner falloff a tube has, both nailed to the screen and
+   both untouchable, so a drag still reaches the canvas underneath */
+.tank-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 26px 30px 34px;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: 26px / 20px;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(20, 18, 14, 0.11) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(
+      120% 120% at 50% 50%,
+      transparent 58%,
+      rgba(20, 18, 14, 0.16) 100%
+    );
+}
+/* speaker grille and a pair of knobs along the cabinet's bottom rail */
+.tv-rail {
+  position: absolute;
+  left: 30px;
+  right: 30px;
+  bottom: 9px;
+  height: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.tv-grille {
+  flex: 1;
+  height: 9px;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--ink-hair) 0 1px,
+    transparent 1px 4px
+  );
+}
+.tv-knob {
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--ink-hair);
+  border-radius: 50%;
+}
+.tv-knob.on {
+  border-color: var(--spot-warm);
+  background: var(--spot-warm);
 }
 .tank-wrap::before {
   content: "FIG. 01 — ECOSPHERE";
@@ -692,10 +752,15 @@ body.focus-mode .demo-layout {
   background: var(--paper);
 }
 /* overlay chips read as marginalia printed on the sheet, not as glass HUD */
+/* top right, opposite the FIG slug: the bottom of the tube is the strip's now,
+   and stacking both down there is what buried the seabed in the first place */
 .canvas-overlays {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  right: 38px;
+  top: 36px;
+  z-index: 5;
+  max-width: 62%;
+  justify-content: flex-end;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1413,9 +1478,9 @@ body.focus-mode #monitorTab.active {
    corner: the column was ~110px tall and sat right where the seabed reads. */
 .zoom-controls {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 10px;
+  left: 38px;
+  right: 38px;
+  bottom: 44px;             /* inside the tube, clear of the cabinet's rail */
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -1425,7 +1490,7 @@ body.focus-mode #monitorTab.active {
   border: 1px solid var(--ink-hair);
   border-radius: 0;
   background: var(--paper);
-  z-index: 3;
+  z-index: 5;               /* above the scanline plate, or it prints over them */
 }
 /* the hint is the widest thing here, so it goes last and takes the slack */
 .zoom-controls .zoom-hint {
