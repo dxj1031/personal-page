@@ -11,3 +11,7 @@ graphify-out/
 
 # personal hook and permission overrides, not a repo convention
 **/.claude/settings.local.json
+
+# code graph artifacts
+.code-review-graph/
+graphify-out/
