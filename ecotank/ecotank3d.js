@@ -18,18 +18,19 @@
    sand, food) stays under the threshold and prints on ink, which is what makes
    the colour on the sheet read as the ecosystem and nothing else.
 
-   The ball is polar: light enters at the top pole, and the bottom pole is a
-   rocky seabed cap. The simulation in ecotank.js stays strictly 2D:
+   The vessel is an upright cylinder: light enters through the water surface
+   at the top, and the bottom is a flat rocky disc. The simulation in
+   ecotank.js stays strictly 2D:
 
-     tank x   -> longitude  (0..2pi; the two side walls meet at the seam)
-     tank y   -> latitude   (waterTop = lit pole, floor = seabed cap)
+     tank x   -> angle      (0..2pi around the axis; the side walls meet at the seam)
+     tank y   -> height     (waterTop = surface, floor = seabed disc)
      vis.z    -> radius     (render-only axis, advected in ecotank.js)
 
-   Depth is latitude rather than radius so the sphere has an actual top and
-   bottom: swim up and you rise toward the light, sink and you land on the
-   rock. Radius only gives the shell its thickness, and it is pushed out to
-   the cap as depth approaches the floor so benthic species sit *on* the
-   seabed instead of floating above it.
+   Height is linear because a cylinder's wall has uniform area per unit of
+   height — the sphere needed an asin to stop the poles from bunching, and a
+   cylinder does not. Radius only gives the living shell its thickness, and
+   benthic species land on the disc for free: depth 1 *is* the floor plane,
+   so nothing has to be pushed outward to keep a snail off the water.
 
    The sun is a fixed world-space direction and the camera orbits, so the
    terminator is welded to the ball: spin it and the lit pole turns away.
@@ -46,15 +47,17 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { zinePass } from './zine.js';
 
-const R = 100;             // the water ball
-const MAX_LAT = 1.25;      // ~72deg: the latitude the tank floor maps to
-const CAP_LAT = 1.02;      // seabed cap covers everything below this latitude
+const R = 100;             // the water cylinder's radius
+const H = 220;             // upright, a touch taller than it is wide
+const TOP_Y = H / 2;       // the water surface: light enters here
+const FLOOR_Y = -H / 2;    // the seabed disc
 const INNER = 0.56;        // living shell runs from INNER*R out to the skin
-// A zine poster is 70-90% negative space, so the ball is a modest anchor in a
-// quiet field rather than the subject filling the plate. At 4.8R and a 42deg
-// lens it stands about 57% of the frame height: roughly a quarter of the area
-// inked, three quarters bare paper.
-const HOME_DIST = R * 3.9;   // quiet field around the ball, but the shoal still reads
+// A zine poster is 70-90% negative space, so the column is a modest anchor in
+// a quiet field rather than the subject filling the plate. The cylinder is
+// 220 tall against the ball's 200, so the camera backs off to hold the same
+// share of the frame: roughly a quarter of the area inked, three quarters
+// bare paper.
+const HOME_DIST = R * 4.3;   // pulled back: the column is taller than the ball was
 const SUN = new THREE.Vector3(0, 1, 0);
 const SWIM_MODES = ['eel', 'carangiform', 'power', 'burst'];
 const RIPPLES = 6;          // concurrent drag disturbances tracked on the shell   // recomputed every frame by the day cycle
@@ -219,48 +222,42 @@ const boot = () => {
 
   /* Measured on a settled world: ~89% of organisms sit in the bottom 20% of the
      tank, because the plants and the food are on the floor and the grazers —
-     and then their predators — follow. Two things compound to bury the whole
-     ecosystem in a thumbnail of sphere:
-
-       1. a linear depth->latitude map keeps that crowd inside one narrow band;
-       2. the area of a latitude band goes as cos(lat), so a band near the pole
-          is the *smallest* patch on the ball.
-
-     So warp depth before mapping it, letting the crowded floor band claim most
-     of the range, then go through asin so equal warped-depth intervals cover
-     equal surface area. The simulation is untouched; this is only how its
-     vertical axis gets laid out on the sphere. */
-  const SIN_MAX_LAT = Math.sin(MAX_LAT);
+     and then their predators — follow. On the ball that compounded twice: the
+     crowd sat in one narrow band, *and* a band near the pole is the smallest
+     patch on the sphere. The cylinder kills the second one for free — wall
+     area is uniform per unit of height, so the asin that used to equalise it
+     is gone — but the crowd is a property of the simulation, not the vessel,
+     so the warp stays: it hands the floor band most of the column. */
   const DEPTH_WARP = 2.6;
 
-  function lonLatRad(x, y, z) {
+  function tankToCyl(x, y, z) {
     const t = clamp((y - WORLD.waterTop) / DEPTH_SPAN, 0, 1);   // 0 surface, 1 floor
     const zf = clamp((z || 0) / WORLD.depth, 0, 1);
     const warped = Math.pow(t, DEPTH_WARP);
-    // radius gives the shell its thickness, but bottom-dwellers get pressed out
-    // onto the seabed cap — a snail floating above the rock reads as a bug
-    const free = R * (INNER + (0.98 - INNER) * zf);
     return {
       lon: x * LON_K,
-      lat: Math.asin(clamp((1 - 2 * warped) * SIN_MAX_LAT, -1, 1)),
-      r: free + (R * 0.985 - free) * (t * t),
+      // depth 1 *is* the floor plane, so benthic species land on the disc with
+      // no radial shove — the sphere needed one to keep a snail off the water
+      h: TOP_Y - warped * H,
+      r: R * (INNER + (0.98 - INNER) * zf),
     };
   }
 
-  function toSphere(x, y, z, out) {
-    const { lon, lat, r } = lonLatRad(x, y, z);
-    const cl = Math.cos(lat);
-    return out.set(r * cl * Math.cos(lon), r * Math.sin(lat), r * cl * Math.sin(lon));
+  function toTank(x, y, z, out) {
+    const { lon, h, r } = tankToCyl(x, y, z);
+    return out.set(r * Math.cos(lon), h, r * Math.sin(lon));
   }
 
   const agentPos = (a, out) => {
     const v = E.vis(a);
-    return toSphere(v.x, v.y, v.z == null ? WORLD.depth / 2 : v.z, out);
+    return toTank(v.x, v.y, v.z == null ? WORLD.depth / 2 : v.z, out);
   };
 
   /* ================================================================ WATER */
 
-  const shellGeo = new THREE.SphereGeometry(R, 128, 84);
+  // closed: the top cap is the water surface the light enters through, and the
+  // bottom one sits just under the seabed disc, where nothing ever sees it
+  const shellGeo = new THREE.CylinderGeometry(R, R, H, 128, 84, false);
 
   const surfaceMat = new THREE.ShaderMaterial({
     // Normal blending, not additive: adding light to a light ground only ever
@@ -363,25 +360,29 @@ const boot = () => {
   volume.renderOrder = 1;
   scene.add(volume);
 
-  /* Seabed: a rocky cap closing the bottom pole. Everything the simulation
-     calls "floor" lands on it, so it is where the plants root and where the
-     snails graze. Lit only by what filters down from the pole above. */
-  const CAP_THETA = Math.PI / 2 + CAP_LAT;      // polar angle where the rock starts
-  const seabedGeo = new THREE.SphereGeometry(
-    R * 0.995, 128, 40, 0, Math.PI * 2, CAP_THETA, Math.PI - CAP_THETA,
-  );
+  /* Seabed: a rocky disc closing the bottom of the column. Everything the
+     simulation calls "floor" lands on it, so it is where the plants root and
+     where the snails graze. Lit only by what filters down from the surface. */
+  // a ring from the axis out to the wall: 24 radial bands so the dunes have
+  // vertices to push, which a CircleGeometry fan does not have
+  const seabedGeo = new THREE.RingGeometry(0.01, R * 0.995, 128, 24);
+  seabedGeo.rotateX(-Math.PI / 2);              // lay it flat, facing up
+  seabedGeo.translate(0, FLOOR_Y + 0.5, 0);     // just above the shell's bottom cap
   {
     const p = seabedGeo.attributes.position;
     const n = new THREE.Vector3();
     for (let i = 0; i < p.count; i += 1) {
       n.fromBufferAttribute(p, i);
-      // dunes and boulders, biggest away from the rim so the seam stays flush
-      const rim = Math.min(1, (-n.y / R - Math.sin(CAP_LAT)) * 4.5);
-      const k = 1 + Math.max(0, rim) * (
-        0.055 * Math.sin(n.x * 0.11) * Math.cos(n.z * 0.09)
+      // dunes and boulders, biggest away from the wall so the seam stays flush
+      const rr = Math.hypot(n.x, n.z) / R;
+      const rim = Math.min(1, (1 - rr) * 4.5);
+      // one-sided: on the ball this rode the radius and stayed under the skin,
+      // but a flat bed has a shell cap right beneath it, so a trough would poke
+      // straight out the bottom of the vessel. Dunes rise; nothing digs.
+      const dune = 0.055 * Math.sin(n.x * 0.11) * Math.cos(n.z * 0.09)
         + 0.030 * Math.sin(n.z * 0.23 + n.x * 0.07)
-        + 0.016 * Math.sin(n.x * 0.47 + n.z * 0.39));
-      p.setXYZ(i, n.x * k, n.y * k, n.z * k);
+        + 0.016 * Math.sin(n.x * 0.47 + n.z * 0.39);
+      p.setXYZ(i, n.x, n.y + Math.max(0, rim) * R * Math.max(0, dune), n.z);
     }
     seabedGeo.computeVertexNormals();
   }
@@ -813,9 +814,9 @@ const boot = () => {
   });
 
   /* --------------------------------------------------- placing an organism
-     Orientation comes from the local sphere frame: tank +x runs east along
-     the longitude circle, tank +y runs *inward* (deeper = smaller radius),
-     and the dorsal side points out of the ball. */
+     Orientation comes from the local cylinder frame: tank +x runs east around
+     the axis, tank +y runs down the column, and the dorsal side points out
+     through the wall. "North" is now just world up — no latitude term. */
   const M = new THREE.Matrix4();
   const Q = new THREE.Quaternion();
   const S = new THREE.Vector3();
@@ -830,14 +831,13 @@ const boot = () => {
   function placeOrganism(agent, index, pool) {
     const v = E.vis(agent);
     const z = v.z == null ? WORLD.depth / 2 : v.z;
-    const { lon, lat, r } = lonLatRad(v.x, v.y, z);
-    const cl = Math.cos(lat), sl = Math.sin(lat);
+    const { lon, h, r } = tankToCyl(v.x, v.y, z);
     const co = Math.cos(lon), so = Math.sin(lon);
 
-    radial.set(cl * co, sl, cl * so);          // straight out of the ball
-    east.set(-so, 0, co);                      // along the latitude circle
-    north.set(-co * sl, cl, -so * sl);         // toward the lit pole
-    P.copy(radial).multiplyScalar(r);
+    radial.set(co, 0, so);                     // straight out through the wall
+    east.set(-so, 0, co);                      // around the axis
+    north.set(0, 1, 0);                        // toward the surface
+    P.set(r * co, h, r * so);
 
     // Tank +x runs east and tank +y runs *down* the sphere, so a heading of 0
     // is due east and a dive is southward. The lateral axis is the radial one:
@@ -984,27 +984,27 @@ const boot = () => {
     let i = 0;
     for (const plant of world.plants) {
       if (plant.biomass <= 1 || i >= PLANT_CAP) continue;
-      let lat, lon = plant.x * LON_K, rootR;
+      let rootY, lon = plant.x * LON_K, rootR;
       if (plant.benthic === false) {
         // drifting bed: sits where its own depth maps to, like any organism
-        const ll = lonLatRad(plant.x, plant.y, plant.z == null ? WORLD.depth / 2 : plant.z);
-        lat = ll.lat; rootR = ll.r;
+        const ll = tankToCyl(plant.x, plant.y, plant.z == null ? WORLD.depth / 2 : plant.z);
+        rootY = ll.h; rootR = ll.r;
       } else {
-        // rooted on the cap; latitude spread by a stable hash so beds cover the
-        // seabed instead of stacking on one ring
+        // rooted on the disc; the radius is spread by a stable hash so beds
+        // cover the seabed instead of stacking on one ring at the wall.
+        // sqrt keeps them even per unit *area* rather than bunched at the axis
         const h1 = Math.sin((plant.x + 1) * 12.9898 + (plant.y + 1) * 78.233) * 43758.5453;
         const spread = h1 - Math.floor(h1);                  // stable 0..1
-        lat = -(CAP_LAT + 0.04 + spread * (Math.PI / 2 - CAP_LAT - 0.10));
-        rootR = R * 0.93;
+        rootR = R * 0.94 * Math.sqrt(0.06 + 0.94 * spread);
+        rootY = FLOOR_Y + 0.5;
       }
-      const cl = Math.cos(lat), sl = Math.sin(lat);
       const co = Math.cos(lon), so = Math.sin(lon);
-      radial.set(cl * co, sl, cl * so);
-      north.set(-co * sl, cl, -so * sl);
-      // Root just inside the skin and grow mostly *along* the sphere toward the
-      // lit pole. Growing radially pushed every blade straight out through the
-      // surface, which read as a beard hanging off the bottom of the ball.
-      P.copy(radial).multiplyScalar(rootR);
+      radial.set(co, 0, so);
+      north.set(0, 1, 0);
+      // On the ball a blade had to grow *along* the surface toward the lit pole,
+      // or it speared out through the skin like a beard. A flat floor has no
+      // such problem: water plants stand up, which is what they actually do.
+      P.set(rootR * co, rootY, rootR * so);
       up.copy(north).multiplyScalar(0.94).addScaledVector(radial, -0.10).normalize();
       tA.copy(Math.abs(up.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : POLE).cross(up).normalize();
       tB.copy(up).cross(tA).normalize();
@@ -1016,10 +1016,9 @@ const boot = () => {
         side.crossVectors(fwd, up).normalize();
         M.makeBasis(fwd, up, side);
         Q.setFromRotationMatrix(M);
-        // capped: an unclamped blade on a fat bed reached past the water surface
-        // A blade leaves the rock along a tangent, so its tip sits at
-        // hypot(rootR, hgt) — longer than the radius. Root deeper and cap the
-        // length so sqrt(93^2 + 26^2) stays inside the skin.
+        // capped: an unclamped blade on a fat bed reached past the water surface.
+        // Standing on a flat floor the tip is just rootY + hgt, so the cap only
+        // has to keep a fat bed from becoming a column of its own.
         const hgt = Math.min(R * 0.26, (14 + plant.biomass * 0.40) * PX)
           * (0.72 + 0.28 * ((b * 7) % 5) / 4);
         S.set(hgt * 0.42, hgt, hgt * 0.42);
@@ -1041,11 +1040,13 @@ const boot = () => {
     const pos = [], along = [], seed = [];
     for (let i = 0; i < SHAFT_COUNT; i += 1) {
       const a = (i / SHAFT_COUNT) * Math.PI * 2 + i * 0.37;
-      const tilt = 0.20 + ((i * 7) % 5) / 5 * 0.55;      // how far off the pole
-      const len = R * (1.20 + ((i * 11) % 4) / 4 * 0.55);
+      const tilt = 0.20 + ((i * 7) % 5) / 5 * 0.55;      // how far off vertical
+      const len = H * (0.55 + ((i * 11) % 4) / 4 * 0.28);
       const halfW = R * (0.030 + ((i * 5) % 3) / 3 * 0.035);
-      // top of the beam sits just under the surface at the pole
-      const top = new THREE.Vector3(0, R * 0.94, 0);
+      // the surface is a whole disc now, not a point, so the beams enter it
+      // spread out instead of all springing from the axis
+      const tr = R * (0.10 + ((i * 13) % 5) / 5 * 0.62);
+      const top = new THREE.Vector3(tr * Math.cos(a), TOP_Y * 0.97, tr * Math.sin(a));
       const dir = new THREE.Vector3(Math.sin(tilt) * Math.cos(a), -Math.cos(tilt), Math.sin(tilt) * Math.sin(a));
       const perp = new THREE.Vector3(-Math.sin(a), 0, Math.cos(a));
       const bot = top.clone().addScaledVector(dir, len);
@@ -1236,7 +1237,10 @@ const boot = () => {
       const d = drops[i];
       if (!d.live) { if (n < want) seedDrop(d); else continue; }
       d.r -= d.v * dt;
-      if (d.r <= R) {
+      // the vessel is no longer a ball of constant radius, so a drop has
+      // arrived once its position is inside the column, not inside a sphere
+      dropP.copy(d.dir).multiplyScalar(d.r);
+      if (Math.hypot(dropP.x, dropP.z) <= R && Math.abs(dropP.y) <= TOP_Y) {
         // impact: ring the water through the same path a drag uses
         if (rippleBudget > 0 && Math.random() < 0.16) {
           spawnRipple(d.dir, 0.30 + Math.random() * 0.25);
@@ -1295,7 +1299,7 @@ const boot = () => {
     const n = Math.min(list.length, attr.count);
     for (let i = 0; i < n; i += 1) {
       const it = list[i];
-      toSphere(it.x, it.y, it.z == null ? WORLD.depth / 2 : it.z, P);
+      toTank(it.x, it.y, it.z == null ? WORLD.depth / 2 : it.z, P);
       attr.setXYZ(i, P.x, P.y, P.z);
     }
     attr.needsUpdate = true;
@@ -1321,29 +1325,29 @@ const boot = () => {
      edge on the ball that should have been soft — rock does not stop, it thins
      out into what it has kicked up.
 
-     This is the one mote cloud that cannot go through toSphere(). The tank->ball
-     map pushes anything at floor depth out onto the skin (that is what keeps
-     snails *on* the rock rather than hovering over it), so a grain authored in
-     tank coordinates ends up plastered to the cap. Sand is placed straight in
-     world space instead: a direction inside the cap, and a height that lifts it
-     off the rock by shrinking its radius.
+     This is the one mote cloud that does not go through toTank(): a grain is
+     not an agent and has no tank depth, so it is placed straight in world
+     space — an angle and a radius on the disc, and a height that lifts it off
+     the rock. On the ball this had to fight the map, which plastered anything
+     at floor depth onto the skin; on a flat floor it is just y.
 
      Each grain's ceiling is a cubed roll, so most never clear the rock and the
      few that do are what makes the haze read as diffusion rather than as a
      second layer floating above a hard edge. */
   const SAND_LIFT = R * 0.24;
-  const SAND_Y0 = -1;                              // bottom pole
-  const SAND_Y1 = -Math.sin(CAP_LAT) + 0.05;       // just over the rock's rim
+  const SAND_Y = FLOOR_Y + 0.6;                    // resting on the disc
+  // sqrt keeps the grains even per unit of area instead of ringed at the axis
+  const newSandR = () => R * 0.985 * Math.sqrt(Math.random());
   // Cubed put every grain inside three units of the rock, which is a texture on
-  // the cap, not a suspension. 1.7 still stacks them low but lets a tail climb.
+  // the bed, not a suspension. 1.7 still stacks them low but lets a tail climb.
   const newSandTop = () => SAND_LIFT * Math.random() ** 1.7;
   const SAND = Array.from({ length: 4000 }, () => ({
     lon: Math.random() * Math.PI * 2,
-    y: SAND_Y0 + Math.random() * (SAND_Y1 - SAND_Y0),
+    rr: newSandR(),
     h: Math.random() * SAND_LIFT,
     top: newSandTop(),
     v: R * (0.0004 + Math.random() * 0.0011),
-    drift: (Math.random() - 0.5) * 0.0035,         // radians of longitude a frame
+    drift: (Math.random() - 0.5) * 0.0035,         // radians of angle a frame
   }));
 
   function stepSand() {
@@ -1356,11 +1360,9 @@ const boot = () => {
         s.h = 0;
         s.top = newSandTop();
         s.lon = Math.random() * Math.PI * 2;
-        s.y = SAND_Y0 + Math.random() * (SAND_Y1 - SAND_Y0);
+        s.rr = newSandR();
       }
-      const r = R * 0.99 - s.h;
-      const cl = Math.sqrt(Math.max(0, 1 - s.y * s.y));
-      attr.setXYZ(i, r * cl * Math.cos(s.lon), r * s.y, r * cl * Math.sin(s.lon));
+      attr.setXYZ(i, s.rr * Math.cos(s.lon), SAND_Y + s.h, s.rr * Math.sin(s.lon));
     }
     attr.needsUpdate = true;
     sandPoints.geometry.setDrawRange(0, SAND.length);
@@ -1470,7 +1472,7 @@ const boot = () => {
       if (a && a.alive && a.subgoals && a.subgoals.length) {
         agentPos(a, pA);
         a.subgoals.forEach((zone) => {
-          toSphere(zone.x, zone.y, WORLD.depth / 2, pB);
+          toTank(zone.x, zone.y, WORLD.depth / 2, pB);
           arc(pA, pB, COLORS.subgoal, 0.85, 10);
           pA.copy(pB);
         });
@@ -1483,7 +1485,7 @@ const boot = () => {
         const t = a.action && a.action.target;
         if (!t) return;
         agentPos(a, pA);
-        toSphere(t.x, t.y, E.vis(a).z, pB);
+        toTank(t.x, t.y, E.vis(a).z, pB);
         arc(pA, pB, COLORS.subgoal, 0.5, 6);
       });
     }
@@ -1501,12 +1503,12 @@ const boot = () => {
   function zoneOutline(zone, color, alpha) {
     const x0 = zone.x - zone.w / 2, x1 = zone.x + zone.w / 2;
     const y0 = zone.y - zone.h / 2, y1 = zone.y + zone.h / 2;
-    const lat = WORLD.depth / 2, N = 14;
+    const midZ = WORLD.depth / 2, N = 14;
     const edge = (ax, ay, bx, by) => {
       let px = null, py = null, pz = null;
       for (let i = 0; i <= N; i += 1) {
         const t = i / N;
-        toSphere(ax + (bx - ax) * t, ay + (by - ay) * t, lat, pA);
+        toTank(ax + (bx - ax) * t, ay + (by - ay) * t, midZ, pA);
         if (px !== null) seg(px, py, pz, pA.x, pA.y, pA.z, color, alpha);
         px = pA.x; py = pA.y; pz = pA.z;
       }
@@ -1528,7 +1530,7 @@ const boot = () => {
     let px = null, py = null, pz = null;
     for (let i = 0; i <= N; i += 1) {
       const t = (i / N) * Math.PI * 2;
-      toSphere(v.x + Math.cos(t) * rad, clamp(v.y + Math.sin(t) * rad, WORLD.waterTop, WORLD.floor), z, pA);
+      toTank(v.x + Math.cos(t) * rad, clamp(v.y + Math.sin(t) * rad, WORLD.waterTop, WORLD.floor), z, pA);
       if (px !== null) seg(px, py, pz, pA.x, pA.y, pA.z, COLORS.message, 0.4);
       px = pA.x; py = pA.y; pz = pA.z;
     }
@@ -1585,7 +1587,7 @@ const boot = () => {
       if (shown >= FX_VISIBLE) continue;
       const m = FX_POOL[shown] || fxRing();
       shown += 1;
-      toSphere(fx.x, fx.y, WORLD.depth / 2, P);
+      toTank(fx.x, fx.y, WORLD.depth / 2, P);
       m.position.copy(P);
       m.lookAt(camera.position);
       const size = (2 + life * 8) * PX;
