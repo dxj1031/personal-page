@@ -149,16 +149,34 @@ const INK_GLSL = /* glsl */`
    rather than euclidean, so a ring travels *over* the surface at a constant
    rate however the ball is turned, and the geometry stays a true sphere. */
 const RIPPLE_GLSL = /* glsl */`
-  uniform vec3 uRipOrigin[${RIPPLES}];
+  uniform vec3 uRipOrigin[${RIPPLES}];    // the struck point, in world space
   uniform float uRipAge[${RIPPLES}];      // seconds alive; negative = free slot
   uniform float uRipAmp[${RIPPLES}];
 
-  float rippleAt(vec3 dir) {
+  /* Distance from the struck point *across the surface*, in radians of the
+     cylinder, so the crest constants below keep the tuning they were given.
+
+     A cylinder wall unrolls flat, which makes this exact rather than an
+     approximation: the geodesic is the hypotenuse of (arc around, rise along).
+     The lid is a disc, so there it is plain distance in the plane. Which one
+     applies is read off the surface normal — up-facing is lid, side-facing is
+     wall — and the two are blended over the corner so a ring crossing the rim
+     does not snap. */
+  float ripDist(vec3 p, vec3 o, float lid) {
+    float dth = atan(p.z, p.x) - atan(o.z, o.x);
+    dth = mod(dth + ${Math.PI.toFixed(6)}, ${(Math.PI * 2).toFixed(6)}) - ${Math.PI.toFixed(6)};
+    float wall = length(vec2(dth * ${R.toFixed(1)}, p.y - o.y));
+    float cap = length(p.xz - o.xz);
+    return mix(wall, cap, lid) / ${R.toFixed(1)};
+  }
+
+  float rippleAt(vec3 p, vec3 nrm) {
+    float lid = smoothstep(0.55, 0.92, abs(nrm.y));
     float sum = 0.0;
     for (int i = 0; i < ${RIPPLES}; i++) {
       float age = uRipAge[i];
       if (age < 0.0) continue;
-      float d = acos(clamp(dot(dir, uRipOrigin[i]), -1.0, 1.0));
+      float d = ripDist(p, uRipOrigin[i], lid);
       float front = age * 1.05;                       // radians per second
       float w = d - front;
       // a lead crest plus one trailing wave, both dying with age and distance
@@ -312,8 +330,10 @@ const boot = () => {
     uRipAmp: { value: ripAmp },
   });
 
-  function spawnRipple(pointOnSphere, strength) {
-    ripOrigin[ripCursor].copy(pointOnSphere).normalize();
+  // the struck point itself, not a direction: on a cylinder two points can share
+  // a direction from the centre and be a long way apart up the wall
+  function spawnRipple(pointOnSurface, strength) {
+    ripOrigin[ripCursor].copy(pointOnSurface);
     ripAge[ripCursor] = 0;
     ripAmp[ripCursor] = strength;
     ripCursor = (ripCursor + 1) % RIPPLES;
@@ -413,7 +433,7 @@ const boot = () => {
         float f = 1.0 - abs(dot(n, v));
         float rim = smoothstep(0.66, 0.80, f);
         // and the drag wake, as a hard light line scratched back to paper
-        float wake = smoothstep(0.26, 0.44, rippleAt(dir));
+        float wake = smoothstep(0.26, 0.44, rippleAt(vPos, normalize(vN)));
         float a = clamp(rim * 0.88 + wake * 0.60 + uFlash * 0.25, 0.0, 1.0);
         // contour is ink, wake is paper; whichever is present wins the pixel
         vec3 col = mix(inkTone(0.05), inkTone(0.92), rim / max(rim + wake, 0.001));
@@ -469,7 +489,7 @@ const boot = () => {
         // coverage alone now, and every drop of chroma belongs to what lives.
         vec3 body = inkTone(k);
         // ripples lift ink off the plate instead of adding light to it
-        body = mix(body, inkTone(k * 0.35), smoothstep(0.18, 0.55, rippleAt(dir)));
+        body = mix(body, inkTone(k * 0.35), smoothstep(0.18, 0.55, rippleAt(vPos, normalize(vN))));
         gl_FragColor = vec4(mix(body, inkTone(0.0), uFlash * 0.55), 1.0);
       }`,
   });
@@ -1281,7 +1301,7 @@ const boot = () => {
   const rainPos = new Float32Array(RAIN_COUNT * 3);
   const drops = [];
   for (let i = 0; i < RAIN_COUNT; i += 1) {
-    drops.push({ dir: new THREE.Vector3(), r: 0, v: 0, live: false });
+    drops.push({ x: 0, y: 0, z: 0, v: 0, live: false });
   }
   rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
   // rain is ink specks on paper — pale blue drops simply vanish off a light ground
@@ -1294,14 +1314,18 @@ const boot = () => {
   rain.renderOrder = 4;
   scene.add(rain);
 
+  /* Rain falls, rather than converging on the middle from every direction at
+     once. On a ball those were the same picture; on a column the old one drove
+     drops at the side wall and rang the water through the glass. A drop now
+     owns a spot on the lid and comes straight down onto it, which is also what
+     lets the ripple start where the drop actually landed. */
   function seedDrop(d) {
-    // start somewhere over the lit hemisphere-ish cap, fall inward
-    const lon = Math.random() * Math.PI * 2;
-    const lat = 0.15 + Math.random() * 1.25;
-    const cl = Math.cos(lat);
-    d.dir.set(cl * Math.cos(lon), Math.sin(lat), cl * Math.sin(lon));
-    d.r = SKY_R * (0.90 + Math.random() * 0.18);
-    d.v = 26 + Math.random() * 22;
+    const a = Math.random() * Math.PI * 2;
+    const rr = R * 0.97 * Math.sqrt(Math.random());   // even across the lid
+    d.x = rr * Math.cos(a);
+    d.z = rr * Math.sin(a);
+    d.y = TOP_Y + 40 + Math.random() * (SKY_R - TOP_Y);
+    d.v = 46 + Math.random() * 34;
     d.live = true;
   }
 
@@ -1345,20 +1369,17 @@ const boot = () => {
     for (let i = 0; i < RAIN_COUNT; i += 1) {
       const d = drops[i];
       if (!d.live) { if (n < want) seedDrop(d); else continue; }
-      d.r -= d.v * dt;
-      // the vessel is no longer a ball of constant radius, so a drop has
-      // arrived once its position is inside the column, not inside a sphere
-      dropP.copy(d.dir).multiplyScalar(d.r);
-      if (Math.hypot(dropP.x, dropP.z) <= R && Math.abs(dropP.y) <= TOP_Y) {
-        // impact: ring the water through the same path a drag uses
+      d.y -= d.v * dt;
+      if (d.y <= TOP_Y) {
+        // impact on the lid: ring the water through the same path a drag uses
         if (rippleBudget > 0 && Math.random() < 0.16) {
-          spawnRipple(d.dir, 0.30 + Math.random() * 0.25);
+          dropP.set(d.x, TOP_Y, d.z);
+          spawnRipple(dropP, 0.30 + Math.random() * 0.25);
           rippleBudget -= 1;
         }
         if (n < want) seedDrop(d); else { d.live = false; continue; }
       }
-      dropP.copy(d.dir).multiplyScalar(d.r);
-      attr.setXYZ(n, dropP.x, dropP.y, dropP.z);
+      attr.setXYZ(n, d.x, d.y, d.z);
       n += 1;
     }
     attr.needsUpdate = true;
@@ -1694,8 +1715,10 @@ const boot = () => {
     ripRay.setFromCamera(ripNdc, camera);
     const hit = ripRay.intersectObject(surface, false)[0];
     if (!hit) { hasLastHit = false; return; }
-    const p = hit.point.clone().normalize();
-    if (hasLastHit && p.angleTo(lastHit) < 0.09) return;   // too close to the last one
+    // keep the point. Normalising it threw the height away, which is exactly
+    // the coordinate the wall needs; spacing is a real distance now, not an angle
+    const p = hit.point;
+    if (hasLastHit && p.distanceTo(lastHit) < R * 0.09) return;
     lastHit.copy(p);
     hasLastHit = true;
     spawnRipple(p, strength);
