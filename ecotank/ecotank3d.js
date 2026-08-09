@@ -215,7 +215,13 @@ const boot = () => {
     yawT: 0.62, pitchT: PITCH_HOME, distT: DIST_HOME,
   };
   const LOOK_HOME = { yaw: 0.62, pitch: PITCH_HOME, dist: DIST_HOME };
+  /* Two of them: orbitTargetT is where the orbit's centre is *asked* to be, and
+     orbitTarget is where it has damped to. They used to be one vector that got
+     multiplied back toward the origin every frame, which is fine when zoom is
+     always toward the middle — but it would drag the view back off whatever the
+     pointer just zoomed into, one frame at a time. */
   const orbitTarget = new THREE.Vector3(0, 0, 0);
+  const orbitTargetT = new THREE.Vector3(0, 0, 0);
   // Seed the position the orbit would solve to. The frame loop decides whether
   // the shell is visible from where the camera *is*, and it makes that call
   // before it moves the camera — so a camera left at the origin spends frame
@@ -245,9 +251,44 @@ const boot = () => {
       look.pitchT = clamp(look.pitchT + (e.clientY - lastY) * 0.0060, -1.25, 1.25);
       lastX = e.clientX; lastY = e.clientY;
     });
+    /* Zoom lands where the pointer is, not on the middle of the tank. The
+       anchor is the point under the cursor on a plane through the orbit centre
+       facing the camera — a real raycast into the scene would work too, but its
+       depth jumps between a fish and the water behind it, and the zoom would
+       lurch every time the pointer crossed an edge.
+
+       Pulling the centre toward that point by exactly the fraction the distance
+       shrank is what keeps it pinned: close half the gap to the anchor while
+       halving the distance and the anchor does not move on screen. Zooming out
+       runs the same line with the sign flipped, so it retraces its own path. */
+    const zoomRay = new THREE.Raycaster();
+    const zoomNdc = new THREE.Vector2();
+    const focusPlane = new THREE.Plane();
+    const focusPt = new THREE.Vector3();
+    const camDir = new THREE.Vector3();
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      look.distT = clamp(look.distT * (e.deltaY > 0 ? 1.10 : 1 / 1.10), DIST_MIN, DIST_MAX);
+      const before = look.distT;
+      look.distT = clamp(before * (e.deltaY > 0 ? 1.10 : 1 / 1.10), DIST_MIN, DIST_MAX);
+      const applied = look.distT / before;         // the factor that survived the clamp
+      if (applied === 1) return;
+
+      const r = canvas.getBoundingClientRect();
+      zoomNdc.set(
+        ((e.clientX - r.left) / r.width) * 2 - 1,
+        -((e.clientY - r.top) / r.height) * 2 + 1,
+      );
+      zoomRay.setFromCamera(zoomNdc, camera);
+      camera.getWorldDirection(camDir);
+      focusPlane.setFromNormalAndCoplanarPoint(camDir, orbitTarget);
+      if (!zoomRay.ray.intersectPlane(focusPlane, focusPt)) return;
+
+      view.follow = false;                         // you are steering now
+      orbitTargetT.addScaledVector(focusPt.sub(orbitTargetT), 1 - applied);
+      // stay in the room: without this the centre can be walked out of the tank
+      orbitTargetT.x = clamp(orbitTargetT.x, -R, R);
+      orbitTargetT.z = clamp(orbitTargetT.z, -R, R);
+      orbitTargetT.y = clamp(orbitTargetT.y, FLOOR_Y, TOP_Y);
     }, { passive: false });
   }
 
@@ -1624,6 +1665,7 @@ const boot = () => {
   byId('zoomReset') && byId('zoomReset').addEventListener('click', () => {
     view.follow = false;
     look.yawT = LOOK_HOME.yaw; look.pitchT = LOOK_HOME.pitch; look.distT = LOOK_HOME.dist;
+    orbitTargetT.set(0, 0, 0);           // recentre whatever the wheel wandered into
     E.syncHud();
   });
   byId('zoomFollow') && byId('zoomFollow').addEventListener('click', () => {
@@ -1794,10 +1836,11 @@ const boot = () => {
     // so the shot stays global and the crowd around the fish stays readable
     if (view.follow) {
       const a = E.getAgent(E.selectedId);
-      if (a && a.alive) orbitTarget.lerp(agentPos(a, followTarget), 0.12);
-    } else if (orbitTarget.lengthSq() > 0.01) {
-      orbitTarget.multiplyScalar(0.88);
+      if (a && a.alive) orbitTargetT.copy(agentPos(a, followTarget));
     }
+    // no snap back to the origin: where you zoomed is where you stay, and Reset
+    // is the button that says otherwise
+    orbitTarget.lerp(orbitTargetT, 0.12);
 
     syncOrganisms(world);
     setPoints(foodPoints, world.food);
