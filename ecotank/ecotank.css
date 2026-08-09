@@ -711,11 +711,14 @@ body.focus-mode .demo-layout {
    and comes back when the pointer is over the set, the way a video player
    does. `pointer-events` follows the fade so it cannot eat a drag while it
    is invisible. */
+/* Centred on the *tube*, not on the cabinet: the shell's padding is asymmetric
+   (26 top, 34 bottom) and it carries a min-height, so the cabinet's 50% is a
+   good 80px below the middle of the picture. Same inset as the scanline plate
+   plus margin:auto centres a fixed-size box in exactly the screen. */
 .tv-play {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  inset: 26px 30px 34px;
+  margin: auto;
   z-index: 6;
   display: grid;
   place-items: center;
@@ -743,7 +746,7 @@ body.focus-mode .demo-layout {
   border-color: var(--spot-warm);
 }
 .tv-play:hover {
-  transform: translate(-50%, -50%) scale(1.06);
+  transform: scale(1.06);
 }
 /* stopped: a play triangle, optically centred by nudging it right */
 .tv-play.primary::before {
