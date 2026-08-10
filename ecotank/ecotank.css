@@ -748,27 +748,73 @@ body.focus-mode .demo-layout {
 .tv-play:hover {
   transform: scale(1.06);
 }
-/* stopped: a play triangle, optically centred by nudging it right */
-.tv-play.primary::before {
+/* ---- the eye -----------------------------------------------------------
+   Stopped the tank is asleep, so the eye is shut; running it is watching, so
+   the eye is open and blinks now and then. Pressing it is closing or opening
+   an eye, which is the same gesture either way.
+
+   Both halves are pseudo-elements on purpose: ecotank.js writes
+   `runToggle.textContent`, which would wipe any real child node the moment the
+   state changed. `inset: 0; margin: auto` centres them without a transform, so
+   the button's own hover scale and the blink's scaleY never fight. */
+.tv-play::before,
+.tv-play::after {
   content: "";
-  width: 0;
-  height: 0;
-  margin-left: 7px;
-  border-left: 23px solid var(--paper);
-  border-top: 15px solid transparent;
-  border-bottom: 15px solid transparent;
+  position: absolute;
+  inset: 0;
+  margin: auto;
 }
-/* running: two bars */
+/* the lid: an open almond that collapses to a closed line */
+.tv-play::before {
+  width: 46px;
+  height: 26px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: transparent;
+  transition: height 0.26s ease, width 0.26s ease, border-width 0.26s ease,
+    border-radius 0.26s ease, background 0.26s ease;
+}
+/* the pupil */
+.tv-play::after {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ink);
+  transition: transform 0.2s ease, opacity 0.18s ease;
+}
+/* shut, on the spot-colour disc */
+.tv-play.primary::before {
+  width: 42px;
+  height: 3px;
+  border-width: 0;
+  border-radius: 2px;
+  background: var(--paper);
+}
+.tv-play.primary::after {
+  transform: scale(0);
+  opacity: 0;
+}
+/* open: a slow blink so the thing reads as awake rather than as a decal */
 .tv-play:not(.primary)::before {
-  content: "";
-  width: 20px;
-  height: 24px;
-  border-left: 7px solid var(--ink);
-  border-right: 7px solid var(--ink);
+  animation: tvBlink 6.2s ease-in-out infinite;
+}
+.tv-play:not(.primary)::after {
+  animation: tvBlinkPupil 6.2s ease-in-out infinite;
+}
+@keyframes tvBlink {
+  0%, 93%, 100% { transform: scaleY(1); }
+  95.5%, 96.5% { transform: scaleY(0.06); }
+}
+@keyframes tvBlinkPupil {
+  0%, 93%, 100% { transform: scaleY(1); opacity: 1; }
+  95.5%, 96.5% { transform: scaleY(0.06); opacity: 0.5; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tv-play {
+  .tv-play,
+  .tv-play::before,
+  .tv-play::after {
     transition: none;
+    animation: none;
   }
 }
 .tv-grille {
