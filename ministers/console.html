@@ -87,6 +87,9 @@
   .tech .fact b { color:var(--ink); font-size:15px; }
   .tech code { font-size:11px; color:var(--dim); border:1px solid var(--line);
                border-radius:4px; padding:1px 5px; align-self:flex-start; }
+  .hit { display:flex; gap:9px; align-items:baseline; padding:5px 0;
+         border-bottom:1px solid #2e2a34; font-size:12.5px; }
+  .hit .num { color:var(--sand); min-width:46px; }
   [hidden] { display:none !important; }
   :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 </style>
@@ -210,6 +213,7 @@ function kpis(s) {
 // 技术点必须挂在真实数字上，否则就只是自吹。每张卡的 fact 都是从上面同一份 stats 里算出来的。
 function tech(s, sessions) {
   const speak = (s.by_op.find(o => o.op === 'speak') || { calls: 0 }).calls;
+  const r = s.rag || { facts: 0, searches: 0, with_hits: 0, retrieved: 0, cited: 0, vectorizers: [] };
   const parseFail = s.by_op.filter(o => o.op.endsWith('_parse')).reduce((n, o) => n + o.calls, 0);
   const cards = [
     ['规则在代码里，模型只填台词',
@@ -231,6 +235,14 @@ function tech(s, sessions) {
      '前端不轮询：开堂后连一条流，服务端每跑完一轮就推发言和最新票型。同一场朝会只允许一条流，两个标签页不会把模型钱花两遍。',
      `均延迟 <b>${ms(s.avg_latency_ms)}</b> · p95 <b>${ms(s.p95_latency_ms)}</b>`,
      'GET /api/court/{id}/stream'],
+    ['蝴蝶文库：检索到的 vs 真去引用的',
+     '事实切句后向量化入库，蝴蝶发言前做余弦 top-3 检索。它只引用支持自己结论的那几条 —— ' +
+     '检索到的条数和真正被引用的条数之差，就是「确认偏误」的可量化形式。' +
+     '没有 embedding API 时退回本地哈希向量（字符 n-gram），检索数学一样，用的哪种如实记在库里。',
+     `<b>${r.facts}</b> 条事实 · <b>${r.searches}</b> 次检索 · 命中率 <b>${pct(r.with_hits, r.searches)}</b>` +
+     ` · 引用 <b>${r.cited}/${r.retrieved}</b>` +
+     (r.vectorizers.length ? ` · 向量化器 ${r.vectorizers.map(v => esc(v.vectorizer) + '×' + v.n).join(' / ')}` : ''),
+     'app/back/services/library.py'],
     ['朝堂状态是查出来的，不是存出来的',
      '没有单独的状态表：每位大臣的当前立场 = 他最后一次发言时的立场，一条 JOIN 查出来。少一份会不一致的副本。SQL 写得可移植，换 Postgres 只要换驱动。',
      `<b>${s.sessions}</b> 场朝会 · 平均 <b>${sessions.length ? Math.round(sessions.reduce((n, x) => n + x.turns, 0) / sessions.length) : 0}</b> 条发言`,
@@ -283,6 +295,18 @@ function detail(s) {
              ${t.target ? '→ ' + esc(t.target) : ''}</span>
           <div>${esc(t.text)}</div></div>
       </div>`).join('')}
+    ${(s.retrievals || []).length ? `<h2>文库检索</h2>` + s.retrievals.map(r => `<details>
+        <summary>
+          <span class="${r.hits.length ? 'tag-ok' : 'muted'}">${r.hits.length ? '⌕' : '∅'}</span>
+          <b>${esc(r.minister || '?')}</b> 查「${esc(r.query.slice(0, 28))}」
+          <span class="muted">${esc(r.vectorizer || '—')}</span>
+          语料 ${r.corpus} · 命中 ${r.hits.length} · top ${r.top_score} · 引用 ${r.cited} · ${ms(r.latency_ms)}
+        </summary>
+        ${r.hits.length ? r.hits.map(h => `<div class="hit">
+             <span class="num">${h.score}</span>
+             <span class="pill">${esc(h.source)}</span> ${esc(h.text)}</div>`).join('')
+          : '<pre>没有命中（语料为空或相似度都低于阈值）</pre>'}
+      </details>`).join('') : ''}
     <h2>LLM 调用</h2>
     ${s.traces.length ? s.traces.map(t => `<details>
         <summary>
