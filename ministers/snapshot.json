@@ -1,5 +1,5 @@
 {
- "exported_at": "2026-08-11T21:47:58+00:00",
+ "exported_at": "2026-08-11T21:50:29+00:00",
  "health": {
   "ok": true,
   "db": "snapshot"
@@ -686,6 +686,41 @@
      "response": null,
      "created_at": "2026-08-11T21:46:24+00:00"
     }
+   ],
+   "retrievals": [
+    {
+     "id": 1,
+     "session_id": "b41d406377e6",
+     "turn_id": null,
+     "minister": "moth",
+     "query": "要不要辞职去开一家猫咖 存款够撑八个月。房东明年涨租百分之十五。同事说猫咖回本要两年。我对猫毛轻微过敏。",
+     "vectorizer": "hashing",
+     "corpus": 4,
+     "hits": [
+      {
+       "fact_id": 21,
+       "score": 0.4859,
+       "text": "房东明年涨租百分之十五",
+       "source": "petition"
+      },
+      {
+       "fact_id": 23,
+       "score": 0.4355,
+       "text": "我对猫毛轻微过敏",
+       "source": "petition"
+      },
+      {
+       "fact_id": 22,
+       "score": 0.4268,
+       "text": "同事说猫咖回本要两年",
+       "source": "petition"
+      }
+     ],
+     "top_score": 0.4859,
+     "cited": 0,
+     "latency_ms": 0,
+     "created_at": "2026-08-11T21:46:43+00:00"
+    }
    ]
   },
   "f8c6ab4f8993": {
@@ -1223,7 +1258,8 @@
      "response": null,
      "created_at": "2026-08-11T21:44:18+00:00"
     }
-   ]
+   ],
+   "retrievals": []
   },
   "3b6c82d8e192": {
    "id": "3b6c82d8e192",
@@ -1790,7 +1826,8 @@
      "response": null,
      "created_at": "2026-08-11T21:42:27+00:00"
     }
-   ]
+   ],
+   "retrievals": []
   },
   "05e0078ee710": {
    "id": "05e0078ee710",
@@ -2003,7 +2040,8 @@
      "response": null,
      "created_at": "2026-08-11T21:41:31+00:00"
     }
-   ]
+   ],
+   "retrievals": []
   },
   "890f3a9558b5": {
    "id": "890f3a9558b5",
@@ -2198,7 +2236,8 @@
      "response": "{\n  \"ministers\": {\n    \"fox\": {\"stance\": \"con\", \"text\": \"此事必有蹊跷，亏本无利可图\"},\n    \"rabbit\": {\"stance\": \"pro\", \"text\": \"现在就办，浪费时间等于放弃机会\"},\n    \"horse\": {\"stance\": \"pro\", \"text\": \"成败在此一举，竞争才有价值\"},\n    \"collie\": {\"stance\": \"con\", \"text\": \"财务分析显示亏损可能性极高\"},\n    \"raccoon\": {\"stance\": \"undecided\", \"text\": \"您上次说过创业风险很大\"},\n    \"snake\": {\"stance\": \"undecided\", \"text\": \"吉凶未卜，天意难测\"},\n    \"fish\": {\"stance\": \"pro\", \"text\": \"我刚看到猫咖流行趋势图表\"},\n    \"sheep\": {\"stance\": \"undecided\", \"text\": \"大家都在犹豫，我也觉得不妥\"},\n    \"moth\": {\"stance\": \"pro\", \"text\": \"参考成功案例，前景大好\"},\n    \"banana\": {\"stance\": \"undecided\", \"text\": \"干脆开个猫鼠共处的咖啡馆呢？\"},\n    \"octopus\": {\"stance\": \"con\", \"text\": \"得罪房东和同事不太好，情面为重\"}\n  }\n}",
      "created_at": "2026-08-11T21:40:04+00:00"
     }
-   ]
+   ],
+   "retrievals": []
   },
   "7721c53715f2": {
    "id": "7721c53715f2",
@@ -2621,7 +2660,8 @@
      "response": "{\n    \"ministers\": {\n        \"fox\": {\"stance\": \"con\", \"text\": \"此事必有蹊跷，养猫定会给国库添大亏空\"},\n        \"rabbit\": {\"stance\": \"pro\", \"text\": \"现在就办！拖久了反而更费心力\"},\n        \"horse\": {\"stance\": \"undecided\", \"text\": \"赢了才算数，先看看别人都怎么投\"},\n        \"collie\": {\"stance\": \"con\", \"text\": \"规矩有云：物多则杂，非良策也\"},\n        \"raccoon\": {\"stance\": \"pro\", \"text\": \"您上次说过要善待生灵，此言正合\"},\n        \"snake\": {\"stance\": \"undecided\", \"text\": \"喵星预卜吉凶未明，养否皆有险\"},\n        \"fish\": {\"stance\": \"con\", \"text\": \"我刚看到微博，好多人都说猫多麻烦\"},\n        \"sheep\": {\"stance\": \"pro\", \"text\": \"大家好像都赞成，我也投赞同票\"},\n        \"moth\": {\"stance\": \"pro\", \"text\": \"明书云：双猫方成气候，定能带来福音\"},\n        \"banana\": {\"stance\": \"undecided\", \"text\": \"何不养一只狗来凑成猫狗大战？\"},\n        \"octopus\": {\"stance\": \"con\", \"text\": \"恐伤及爱猫之大臣的心意，不宜冒犯\"}\n    }\n}",
      "created_at": "2026-08-11T19:27:55+00:00"
     }
-   ]
+   ],
+   "retrievals": []
   },
   "1b2eb8e15399": {
    "id": "1b2eb8e15399",
@@ -3068,7 +3108,8 @@
      "response": "{\n\"ministers\": {\n\"fox\": {\"stance\": \"con\", \"text\": \"养猫必有后患，此事必有蹊跷\"},\n\"rabbit\": {\"stance\": \"pro\", \"text\": \"拖延就是成本，现在就办！\"},\n\"horse\": {\"stance\": \"pro\", \"text\": \"比谁家的猫最棒，赢了扬眉吐气！\"},\n\"collie\": {\"stance\": \"con\", \"text\": \"养第二只猫违反效率原则，浪费资源。\"},\n\"raccoon\": {\"stance\": \"con\", \"text\": \"您上次说过要精简开支，言而无信吗？\"},\n\"snake\": {\"stance\": \"undecided\", \"text\": \"预兆不明，吉凶难料……\"},\n\"fish\": {\"stance\": \"pro\", \"text\": \"我刚看到养猫好处排行榜，第一名！\"},\n\"sheep\": {\"stance\": \"undecided\", \"text\": \"大多数人在考虑吗？\"},\n\"moth\": {\"stance\": \"con\", \"text\": \"经典文献记载，多猫之害……\"},\n\"banana\": {\"stance\": \"pro\", \"text\": \"养一只龙怎么样？省猫粮！\"},\n\"octopus\": {\"stance\": \"undecided\", \"text\": \"得罪了不喜欢猫的大臣怎么办呢？\"}\n}\n}",
      "created_at": "2026-08-11T19:26:22+00:00"
     }
-   ]
+   ],
+   "retrievals": []
   },
   "0d4cf358b20b": {
    "id": "0d4cf358b20b",
@@ -3557,7 +3598,8 @@
      "response": "{\n  \"ministers\": {\n    \"fox\": {\"stance\": \"con\", \"text\": \"此事必有蹊跷，风险可见一斑.\"},\n    \"rabbit\": {\"stance\": \"pro\", \"text\": \"现在就办！拖得越久成本越高.\"},\n    \"horse\": {\"stance\": \"pro\", \"text\": \"这是一场竞赛，赢者不考虑输家的顾虑.\"},\n    \"collie\": {\"stance\": \"con\", \"text\": \"根据预算规则，新项目需额外审批.\"},\n    \"raccoon\": {\"stance\": \"con\", \"text\": \"记得吗？您在2018年说过绝不做咖啡生意.\"},\n    \"snake\": {\"stance\": \"undecided\", \"text\": \"预兆不明，请君王留心吉凶.\"},\n    \"fish\": {\"stance\": \"pro\", \"text\": \"我刚看到，猫咖市场潜力巨大.\"},\n    \"sheep\": {\"stance\": \"undecided\", \"text\": \"很多同事都支持吗？...\"},\n    \"moth\": {\"stance\": \"con\", \"text\": \"根据我引经据典的分析，这是不明智之举.\"},\n    \"banana\": {\"stance\": \"pro\", \"text\": \"为什么不同时开个猫狗咖啡馆呢?\"},\n    \"octopus\": {\"stance\": \"undecided\", \"text\": \"考虑周围人的想法，尤其是那些在旧事业中的伙伴们.\"}\n  }\n}",
      "created_at": "2026-08-11T19:15:36+00:00"
     }
-   ]
+   ],
+   "retrievals": []
   }
  }
 }
