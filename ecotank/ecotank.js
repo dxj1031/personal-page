@@ -18,6 +18,17 @@
   const MIN_ACTION_AGE = 18;
   const MAX_ACTION_AGE = 96;
   const STUCK_LIMIT = 18;
+  /* Going nowhere has two shapes. One is wedged: the per-tick step is ~0, which
+     the old test caught. The other is shivering on the spot — a full step every
+     tick, in a direction that reverses — and the old test could never see it,
+     because it only ever asked how far the agent moved *this* tick. So net
+     travel over a window is the measure, and both shapes fall out of it. */
+  const STUCK_WINDOW = 36;   // ticks between net-travel checks
+  const STUCK_NET = 12;      // px it should have covered in that window
+  // Below a crawl the velocity vector is numerical noise, and atan2 of noise is
+  // a fish spinning on the spot. Heading and facing both hold under this.
+  const HEADING_MIN_SPD = 0.14;
+  const FACING_MIN_VX = 0.06;
   const ECO_MINIMUMS = { bigfish: 1, smallfish: 5, shrimp: 16, snail: 6, cleaner: 2 };
   const ECO_VISIBLE_TARGETS = { bigfish: 1, smallfish: 6, shrimp: 22, snail: 9, cleaner: 3 };
   const INITIAL_COUNTS = { plants: 80, food: 24, bigfish: 1, smallfish: 6, shrimp: 22, snail: 9, cleaner: 3, louse: 6 };
@@ -594,6 +605,9 @@
       stuckTicks: 0,
       lastX: x,
       lastY: y,
+      anchorX: x,
+      anchorY: y,
+      anchorTick: 0,
       actionStarted: 0,
       // relationship state
       host: null,          // louse: id of the fish it is attached to
@@ -1352,7 +1366,8 @@
     agent.vy = lerp(agent.vy, (desired.y * arrive + school.y * spec.schooling * arrive) * speed, 0.12);
     agent.x += agent.vx;
     agent.y += agent.vy;
-    agent.dir = agent.vx >= 0 ? 1 : -1;
+    // hysteresis: hovering, vx crosses zero every tick and the fish flips face
+    if (Math.abs(agent.vx) > FACING_MIN_VX) agent.dir = agent.vx >= 0 ? 1 : -1;
     constrainAgent(agent);
     // benthic crawlers (snails) stay pinned to the substrate
     if (spec.benthic) {
@@ -1396,10 +1411,26 @@
   function updateStuckState(agent, beforeX, beforeY, target) {
     const moved = Math.hypot(agent.x - beforeX, agent.y - beforeY);
     const targetDistance = distance(agent, target);
-    if (moved < 0.08 && targetDistance > arrivalRadius(agent, agent.action) + 16) {
+    const tryingToGetSomewhere = targetDistance > arrivalRadius(agent, agent.action) + 16;
+
+    // wedged: no step at all. Fast to spot, so it keeps its own per-tick test.
+    if (moved < 0.08 && tryingToGetSomewhere) {
       agent.stuckTicks += 1;
     } else {
       agent.stuckTicks = Math.max(0, agent.stuckTicks - 2);
+    }
+
+    // shivering: full steps, no ground covered. Only a window can see it.
+    if (agent.anchorTick == null || !tryingToGetSomewhere) {
+      agent.anchorX = agent.x;
+      agent.anchorY = agent.y;
+      agent.anchorTick = world.tick;
+    } else if (world.tick - agent.anchorTick >= STUCK_WINDOW) {
+      const net = Math.hypot(agent.x - agent.anchorX, agent.y - agent.anchorY);
+      if (net < STUCK_NET) agent.stuckTicks = STUCK_LIMIT;
+      agent.anchorX = agent.x;
+      agent.anchorY = agent.y;
+      agent.anchorTick = world.tick;
     }
 
     if (agent.stuckTicks >= STUCK_LIMIT) {
@@ -1417,6 +1448,11 @@
       agent.actionStarted = world.tick;
       agent.lastDecision = world.tick - DECISION_PERIOD;
       agent.stuckTicks = 0;
+      // give the escape a fresh window, or it is judged on the ground it had
+      // already failed to cover and trips again immediately
+      agent.anchorX = agent.x;
+      agent.anchorY = agent.y;
+      agent.anchorTick = world.tick;
       logEvent("replan", `${agent.id} stuck recovery -> new patrol target`);
     }
 
@@ -1891,13 +1927,18 @@
       else { v.x += dx * 0.28; v.y += dy * 0.28; }
       const targetSpd = Math.hypot(a.vx, a.vy);
       v.spd += (targetSpd - v.spd) * 0.18;
-      // heading eased (shortest angular path)
-      let ta = Math.atan2(a.vy, a.vx);
-      let da = ta - v.ang;
-      while (da > Math.PI) da -= Math.PI * 2;
-      while (da < -Math.PI) da += Math.PI * 2;
-      const applied = da * 0.2;
-      v.ang += applied;
+      // heading eased (shortest angular path) — but only while the agent is
+      // actually going somewhere. Under a crawl, atan2 is reading noise, and
+      // easing toward noise is what makes a settled fish swing on the spot.
+      let applied = 0;
+      if (targetSpd > HEADING_MIN_SPD) {
+        let ta = Math.atan2(a.vy, a.vx);
+        let da = ta - v.ang;
+        while (da > Math.PI) da -= Math.PI * 2;
+        while (da < -Math.PI) da += Math.PI * 2;
+        applied = da * 0.2;
+        v.ang += applied;
+      }
       // smoothed angular velocity. A fish that is turning should lean into the
       // arc and bend through it; without this it slides round corners flat,
       // which is what makes rendered fish look like they are on rails.
