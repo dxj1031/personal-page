@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Ministers · A society of LLM agents</title>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -55,11 +54,52 @@
   @keyframes vStagger { 0%,100% { transform:translateX(0) rotate(0);} 18% { transform:translateX(-15px) rotate(-9deg);} 42% { transform:translateX(10px) rotate(7deg);} 66% { transform:translateX(-7px) rotate(-5deg);} 84% { transform:translateX(13px) rotate(8deg);} }
   @keyframes vRum { 0%,100% { transform:rotate(0) translate(0,0);} 28%,60% { transform:rotate(46deg) translate(26px,12px);} 44% { transform:rotate(52deg) translate(30px,16px);} 80% { transform:rotate(0) translate(0,0);} }
   @keyframes vPuff { 0%,52% { transform:scale(.3); opacity:0;} 62% { transform:scale(1); opacity:.9;} 100% { transform:scale(1.6); opacity:0;} }
+
+  /* ── desktop fit ──────────────────────────────────────────────────────────────
+     手机画框内部永远是 390×844，一格都不重排；大屏只是把整块 scale 上去。
+     窄屏（<480px）完全不进这些规则，观感和以前一模一样。 */
+  :root { --mm-scale:1; }
+  .mm-stage { width:100vw; height:100dvh; min-height:560px; background:#1c1a20; display:flex; align-items:center; justify-content:center; }
+  .mm-slot  { flex:none; width:calc(390px * var(--mm-scale)); height:calc(844px * var(--mm-scale)); display:flex; align-items:center; justify-content:center; }
+  .mm-frame { flex:none; }
+  @media (min-width:480px) {
+    :root { --mm-scale:.70; }
+    .mm-stage { overflow:hidden; }
+    .mm-frame { transform:scale(var(--mm-scale)); transform-origin:50% 50%; }
+  }
+  /* 每档都保证 844 × scale ≤ 视口高，所以永远不产生滚动条 */
+  @media (min-width:480px) and (min-height:634px)  { :root { --mm-scale:.75; } }
+  @media (min-width:480px) and (min-height:676px)  { :root { --mm-scale:.80; } }
+  @media (min-width:480px) and (min-height:718px)  { :root { --mm-scale:.85; } }
+  @media (min-width:480px) and (min-height:760px)  { :root { --mm-scale:.90; } }
+  @media (min-width:480px) and (min-height:802px)  { :root { --mm-scale:.95; } }
+  @media (min-width:480px) and (min-height:844px)  { :root { --mm-scale:1; } }
+  @media (min-width:480px) and (min-height:887px)  { :root { --mm-scale:1.05; } }
+  @media (min-width:480px) and (min-height:929px)  { :root { --mm-scale:1.10; } }
+  @media (min-width:480px) and (min-height:971px)  { :root { --mm-scale:1.15; } }
+  @media (min-width:480px) and (min-height:1013px) { :root { --mm-scale:1.20; } }
+  @media (min-width:480px) and (min-height:1055px) { :root { --mm-scale:1.25; } }
+  @media (min-width:480px) and (min-height:1098px) { :root { --mm-scale:1.30; } }
+  @media (min-width:480px) and (min-height:1140px) { :root { --mm-scale:1.35; } }
+
+  /* ── desktop only · 朝堂实录 ── */
+  .mm-log { flex:0 1 400px; min-width:0; margin-left:24px; height:calc(844px * var(--mm-scale)); max-height:100dvh;
+            display:flex; flex-direction:column; background:#2b2733; color:#f1ede4;
+            border:4px solid #b2a181; border-radius:18px; overflow:hidden;
+            font-family:'Baloo 2','ZCOOL KuaiLe',sans-serif; box-shadow:6px 7px 0 rgba(0,0,0,.45); }
+  .mm-log-head { margin:0; padding:14px 16px; display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+                 border-bottom:3px solid rgba(241,237,228,.28); background:rgba(241,237,228,.05); }
+  .mm-log-body { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column-reverse; gap:10px; padding:14px;
+                 scrollbar-color:#b2a181 #2b2733; }
+  .mm-log-body:focus-visible { outline:3px solid #b2a181; outline-offset:-3px; }
+  /* sc-if 已经不渲染了；这条只是兜底，保证窄屏任何一帧都不可能占位 */
+  @media (max-width:1023px) { .mm-log { display:none; } }
 </style>
 </helmet>
 
-<div style="width:100vw; height:100dvh; min-height:560px; background:#1c1a20; display:flex; align-items:center; justify-content:center;">
-<div data-screen-label="The Court · Cel×Type" style="position:relative; width:390px; height:844px; flex-shrink:0; background:#f1ede4; overflow:hidden; display:flex; flex-direction:column; font-family:'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#2b2733;">
+<div class="mm-stage">
+<div class="mm-slot">
+<div class="mm-frame" data-screen-label="The Court · Cel×Type" style="position:relative; width:390px; height:844px; flex-shrink:0; background:#f1ede4; overflow:hidden; display:flex; flex-direction:column; font-family:'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#2b2733;">
 
   <!-- ============================== SCREEN 1 · OPENING ============================== -->
   <sc-if value="{{ scr1 }}" hint-placeholder-val="{{ true }}">
@@ -183,19 +223,20 @@
       <div style="position:absolute; left:4px; top:-14px; font:400 140px/1 'ZCOOL KuaiLe',sans-serif; color:rgba(164,120,112,.25);">「</div>
       <div style="position:absolute; right:4px; bottom:30px; font:400 140px/1 'ZCOOL KuaiLe',sans-serif; color:rgba(164,120,112,.25);">」</div>
       <div style="font:800 12px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#847d88;">{{ t.petLabel }}</div>
-      <div style="margin-top:12px; font:{{ t.qFont }}; text-shadow:3px 4px 0 rgba(178,166,140,.55);">{{ t.q1 }}<br>{{ t.q2 }}<span style="display:inline-block; width:4px; height:34px; background:#a4726a; vertical-align:-3px; animation:blinkCaret 1s steps(1) infinite;"></span></div>
-      <div style="margin-top:14px; font:600 14.5px/1.55 'Baloo 2',sans-serif; color:#847d88;">{{ t.stakes }}</div>
+      <input value="{{ topic }}" onInput="{{ topicChange }}" placeholder="{{ t.topicPh }}" style="margin-top:12px; width:100%; border:3px solid #2b2733; border-radius:14px; background:#f7f4ec; padding:12px 13px; font:400 21px/1.3 {{ dispFont }}; color:#2b2733; outline:none; box-shadow:3px 4px 0 rgba(178,166,140,.75);">
+      <input value="{{ ctx }}" onInput="{{ ctxChange }}" placeholder="{{ t.ctxPh }}" style="margin-top:9px; width:100%; border:2.5px dashed rgba(43,39,51,.4); border-radius:12px; background:transparent; padding:9px 12px; font:600 14px/1.4 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#2b2733; outline:none;">
+      <div style="margin-top:12px; font:600 14.5px/1.55 'Baloo 2',sans-serif; color:{{ errColor }};">{{ stakesLine }}</div>
       <div style="margin-top:24px;">
         <div style="display:flex; align-items:center; gap:8px; padding-bottom:8px; border-bottom:3px solid #2b2733;">
           <span style="font:400 16px/1 {{ dispFont }};">{{ t.rerunTitle }}</span>
           <span style="font:400 10px/1 {{ altFont }}; letter-spacing:2px; color:#a4726a;">{{ t.rerunSub }}</span>
         </div>
         <sc-for list="{{ reruns }}" as="r" hint-placeholder-count="3">
-          <button onClick="{{ noopBtn }}" style="all:unset; display:flex; align-items:center; gap:10px; width:100%; padding:11px 0; border-bottom:2px dashed rgba(43,39,51,.3); cursor:pointer;"><span style="font-size:20px;">{{ r.icon }}</span><span style="font:400 17px/1.25 {{ dispFont }};">{{ r.text }}</span><span style="margin-left:auto; font:400 11px/1 'Lilita One',sans-serif; color:#a4726a; letter-spacing:1px;">{{ r.tag }}</span></button>
+          <button onClick="{{ r.pick }}" style="all:unset; display:flex; align-items:center; gap:10px; width:100%; padding:11px 0; border-bottom:2px dashed rgba(43,39,51,.3); cursor:pointer;"><span style="font-size:20px;">{{ r.icon }}</span><span style="font:400 17px/1.25 {{ dispFont }};">{{ r.text }}</span><span style="margin-left:auto; font:400 11px/1 'Lilita One',sans-serif; color:#a4726a; letter-spacing:1px;">{{ r.tag }}</span></button>
         </sc-for>
       </div>
     </div>
-    <button onClick="{{ go4 }}" style="border:none; border-top:4px solid #2b2733; background:#a4726a; color:#f1ede4; padding:18px 18px calc(18px + env(safe-area-inset-bottom)); display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-family:inherit;">
+    <button onClick="{{ startCourt }}" style="border:none; border-top:4px solid #2b2733; background:#a4726a; color:#f1ede4; padding:18px 18px calc(18px + env(safe-area-inset-bottom)); display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-family:inherit;">
       <span style="font:400 24px/1 {{ dispFont }}; letter-spacing:{{ t.ctaSpacing }};">🎬 {{ t.cta3Main }}</span>
       <span style="font:400 14px/1 {{ altFont }}; color:#b2a181; letter-spacing:1.5px; animation:wiggle 1.8s ease-in-out infinite;">{{ t.cta3Sub }} →</span>
     </button>
@@ -402,27 +443,37 @@
       <span style="position:absolute; left:16px; bottom:30px; color:#b2a181; font-size:22px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.7s .4s ease-in-out infinite;">✦</span>
       <div style="position:relative; animation:riseIn .6s cubic-bezier(.2,.9,.2,1) both;">
         <div style="font:{{ t.verTitleFont }}; letter-spacing:-1px; color:#b2a181; -webkit-text-stroke:4px #2b2733; paint-order:stroke fill; text-shadow:6px 7px 0 #2b2733;">{{ t.verTitle1 }}<span style="color:transparent; -webkit-text-stroke:3px #f1ede4; text-shadow:none;">{{ t.verTitle2 }}</span></div>
-        <div style="margin-top:14px; font:400 19px/1.5 {{ dispFont }}; color:#f1ede4;">{{ t.decree }}</div>
+        <div style="margin-top:14px; font:400 19px/1.5 {{ dispFont }}; color:#f1ede4;">{{ decreeText }}</div>
         <div style="margin-top:18px; display:flex; align-items:baseline; gap:13px;">
-          <span style="font:400 54px/1 'Lilita One',sans-serif; text-shadow:4px 4px 0 #2b2733;">6</span>
+          <span style="font:400 54px/1 'Lilita One',sans-serif; text-shadow:4px 4px 0 #2b2733;">{{ proN }}</span>
           <span style="font:400 15px/1.1 {{ dispFont }};">{{ t.proWord }}</span>
           <span style="font:400 30px/1 'Lilita One',sans-serif; color:rgba(241,237,228,.6);">:</span>
-          <span style="font:400 54px/1 'Lilita One',sans-serif; color:#b2a181; text-shadow:4px 4px 0 #2b2733;">3</span>
+          <span style="font:400 54px/1 'Lilita One',sans-serif; color:#b2a181; text-shadow:4px 4px 0 #2b2733;">{{ conN }}</span>
           <span style="font:400 15px/1.1 {{ dispFont }};">{{ t.conWord }}</span>
           <span style="font:400 30px/1 'Lilita One',sans-serif; color:rgba(241,237,228,.6);">:</span>
-          <span style="font:400 54px/1 'Lilita One',sans-serif; color:rgba(241,237,228,.7); text-shadow:4px 4px 0 #2b2733;">2</span>
+          <span style="font:400 54px/1 'Lilita One',sans-serif; color:rgba(241,237,228,.7); text-shadow:4px 4px 0 #2b2733;">{{ absN }}</span>
           <span style="font:400 15px/1.1 {{ dispFont }}; color:rgba(241,237,228,.8);">{{ t.abstainWord }}</span>
         </div>
       </div>
+      <!-- 皇帝的四个裁决：没下旨之前，判词那一栏是空的 -->
+      <sc-if value="{{ needVerdict }}" hint-placeholder-val="{{ false }}">
+        <div style="position:relative; margin-top:20px; display:flex; flex-wrap:wrap; gap:9px;">
+          <sc-for list="{{ rulings }}" as="v" hint-placeholder-count="4">
+            <button onClick="{{ v.pick }}" style="all:unset; flex:1 1 40%; text-align:center; background:{{ v.bg }}; color:{{ v.fg }}; border:3px solid #2b2733; border-radius:14px; box-shadow:3.5px 4px 0 #2b2733; padding:12px 0; cursor:pointer;" style-active="transform:translate(2px,2px); box-shadow:1.5px 1.5px 0 #2b2733;">
+              <span style="font:400 20px/1.1 {{ dispFont }}; letter-spacing:2px;">{{ v.icon }} {{ v.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
       <!-- collectible ticket -->
       <div style="position:relative; margin-top:24px; background:#f7f4ec; color:#2b2733; border:4px solid #2b2733; border-radius:16px; display:flex; animation:stampIn .55s .35s cubic-bezier(.2,1.2,.3,1) both; box-shadow:0 0 0 4px #b2a181, 8px 9px 0 rgba(43,39,51,.4); overflow:hidden;">
         <div style="flex:1; padding:13px 15px;">
           <div style="font:800 10px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#a4726a;">{{ t.ticketKicker }} ★★★☆</div>
-          <div style="margin-top:7px; font:400 20px/1.3 {{ dispFont }};">{{ t.ticketQuote }}</div>
-          <div style="margin-top:4px; font:700 11.5px/1.35 'Baloo 2',sans-serif; color:#847d88;">{{ t.ticketByline }}</div>
+          <div style="margin-top:7px; font:400 20px/1.3 {{ dispFont }};">{{ ticketQuote }}</div>
+          <div style="margin-top:4px; font:700 11.5px/1.35 'Baloo 2',sans-serif; color:#847d88;">{{ ticketByline }}</div>
         </div>
         <div style="width:88px; border-left:3px dashed rgba(43,39,51,.35); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:#eae4d6;">
-          <div style="width:52px; height:52px; border-radius:50%; border:3px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, #e8e0dc); box-shadow:0 0 0 3.5px #a4726a; display:flex; align-items:center; justify-content:center; font-size:30px;">🐰</div>
+          <div style="width:52px; height:52px; border-radius:50%; border:3px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, #e8e0dc); box-shadow:0 0 0 3.5px #a4726a; display:flex; align-items:center; justify-content:center; font-size:30px;">{{ ticketHead }}</div>
           <span style="font:800 9px/1 'Baloo 2',sans-serif; letter-spacing:1px;">{{ t.rareTag }}</span>
         </div>
       </div>
@@ -445,6 +496,35 @@
 </div>
 </div>
 
+<!-- ====================== DESKTOP ONLY · 朝堂实录 / TRANSCRIPT ====================== -->
+<sc-if value="{{ wideOn }}" hint-placeholder-val="{{ false }}">
+<section class="mm-log" aria-label="{{ t.logTitle }}">
+  <h2 class="mm-log-head">
+    <span style="font:400 22px/1.1 {{ dispFont }}; letter-spacing:2px; color:#f1ede4;">📜 {{ t.logTitle }}</span>
+    <span style="font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px; color:#b2a181;">{{ logCount }}</span>
+  </h2>
+  <div class="mm-log-body" tabIndex="0" role="log" aria-label="{{ t.logTitle }}">
+    <sc-if value="{{ logEmpty }}" hint-placeholder-val="{{ true }}">
+      <p style="margin:auto 0; text-align:center; font:600 14px/1.7 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#a9a3ab;">{{ t.logEmpty }}</p>
+    </sc-if>
+    <sc-for list="{{ transcript }}" as="q" hint-placeholder-count="3">
+      <article style="flex:none; display:flex; gap:10px; padding:10px 12px; border-left:5px solid {{ q.stance }}; border-radius:4px 12px 12px 4px; background:{{ q.rowBg }};">
+        <span aria-hidden="true" style="flex:none; width:34px; height:34px; border-radius:50%; border:2.5px solid #f1ede4; background:rgba(241,237,228,.1); display:flex; align-items:center; justify-content:center; font-size:20px;">{{ q.head }}</span>
+        <div style="min-width:0;">
+          <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:8px;">
+            <b style="font:400 15px/1.2 {{ dispFont }}; letter-spacing:1px; color:{{ q.nameCol }};">{{ q.name }}</b>
+            <span style="font:800 10px/1.2 'Baloo 2',sans-serif; letter-spacing:1.2px; color:#a9a3ab;">{{ q.meta }}</span>
+          </div>
+          <p style="margin:5px 0 0; font:600 14px/1.55 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#f1ede4; overflow-wrap:anywhere;">{{ q.text }}</p>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+</section>
+</sc-if>
+
+</div>
+
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{
   &quot;$preview&quot;: { &quot;width&quot;: 390, &quot;height&quot;: 844 },
@@ -452,7 +532,71 @@
   &quot;lang&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;zh&quot;, &quot;en&quot;], &quot;default&quot;: &quot;en&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;语言&quot; }
 }">
 class Component extends DCLogic {
-  state = { screen: 1, lang: 'en', duelTurn: 0, poke: null, lobPhase: 0, lobSc: 'A', fishCamp: 'pro', rotTick: 0, itvOpen: false, itv: null, castPoke: null, pairIdx: 0, cut: null };
+  state = { screen: 1, lang: 'en', duelTurn: 0, poke: null, lobPhase: 0, lobSc: 'A', fishCamp: 'pro', rotTick: 0, itvOpen: false, itv: null, castPoke: null, pairIdx: 0, cut: null,
+            topic: '', ctx: '', sid: null, live: null, feed: [], phase: 'idle', err: '', wide: false };
+
+  // ---- 后端 ----
+  // phase: idle 还没开堂 · opening 等十一位大臣表态 · debating 直播中 · recess 辩完待裁决 · offline 后端不在
+  // live === null 时整个界面退回原来那套写死的演示数据，所以这个文件单独打开仍然是一份完整的设计稿。
+
+  apiBase() { return location.protocol === 'file:' ? 'http://127.0.0.1:8010' : ''; }
+
+  async api(path, body) {
+    const r = await fetch(this.apiBase() + path, body
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      : undefined);
+    if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+    return r.json();
+  }
+
+  async startCourt() {
+    const zh = this.state.lang === 'zh';
+    const topic = (this.state.topic || '').trim();
+    if (!topic) { this.setState({ err: zh ? '先写下今天要裁决的事。' : 'Write today’s petition first.' }); return; }
+    this.closeStream();
+    this.setState({ screen: 4, phase: 'opening', err: '', feed: [], live: null, sid: null });
+    try {
+      const s = await this.api('/api/court', { topic, context: this.state.ctx, lang: this.state.lang });
+      this.setState({ sid: s.id, live: s, phase: 'debating' });
+      this.openStream(s.id, s.turns.length);
+    } catch (e) {
+      // 后端没起来不该白屏：退回演示朝堂，只在奏章屏留一句人话
+      this.setState({ phase: 'offline', err: (zh ? '朝堂离线，正在放演示：' : 'Court offline, showing demo: ') + (e.message || e) });
+    }
+  }
+
+  openStream(sid, after) {
+    this.closeStream();
+    const es = new EventSource(this.apiBase() + '/api/court/' + sid + '/stream?after=' + (after || 0));
+    this._es = es;
+    es.addEventListener('turn', e => {
+      const t = JSON.parse(e.data);
+      this.setState(st => ({ feed: st.feed.concat(t).slice(-24) }));
+    });
+    es.addEventListener('state', e => this.setState({ live: JSON.parse(e.data) }));
+    es.addEventListener('done', () => { this.closeStream(); this.setState({ phase: 'recess' }); });
+    es.addEventListener('error', e => {
+      this.closeStream();
+      let m = ''; try { m = JSON.parse(e.data).message; } catch (x) {}
+      this.setState({ phase: 'recess', err: m });
+    });
+    // EventSource 自身的 onerror（断网、后端挂了）没有 data，不能和上面的业务 error 混为一谈
+    es.onerror = () => { this.closeStream(); this.setState({ phase: 'offline' }); };
+  }
+
+  closeStream() { if (this._es) { this._es.close(); this._es = null; } }
+
+  async rule(choice) {
+    this.closeStream();
+    if (!this.state.sid) { this.setState({ screen: 5, phase: 'ruled' }); return; }
+    this.setState({ phase: 'ruling' });
+    try {
+      const s = await this.api('/api/court/' + this.state.sid + '/verdict', { choice });
+      this.setState({ live: s, phase: 'ruled', screen: 5 });
+    } catch (e) {
+      this.setState({ phase: 'offline', err: String(e.message || e) });
+    }
+  }
 
   componentDidMount() {
     const p = this.props.startScreen;
@@ -492,6 +636,11 @@ class Component extends DCLogic {
       }
     }, 9500);
     this._lobT.push(setTimeout(runLobby, 3000));
+    // 宽屏才挂朝堂实录；窄屏下 sc-if 直接不渲染，一个占位都不留
+    this._mq = window.matchMedia('(min-width:1024px)');
+    this._onMq = () => this.setState({ wide: this._mq.matches });
+    this._mq.addEventListener('change', this._onMq);
+    this._onMq();
   }
 
   componentWillUnmount() {
@@ -504,14 +653,102 @@ class Component extends DCLogic {
     (this._lobT || []).forEach(clearTimeout);
     clearTimeout(this._pk);
     clearTimeout(this._cpT);
+    if (this._mq) this._mq.removeEventListener('change', this._onMq);
+    this.closeStream();
   }
 
-  pickItv(type) {
+  // ---- 把后端快照翻译成界面已有的那些变量名 ----
+  // 没有 live 就返回空对象，render() 里原来的演示值原样生效。
+
+  liveView() {
+    const L = this.state.live;
+    if (!L) return {};
+    const zh = this.state.lang === 'zh';
+    const meta = this.minMeta();
+    const ring = { pro: '#a4726a', con: '#b2a181', undecided: '#a9a3ab' };
+    const nameOf = id => (meta[id] ? (zh ? meta[id].zh : meta[id].en) : id);
+
+    // 最近两句对呛决定台上的主角；没有就用影响力最高的一对
+    const said = this.state.feed.filter(f => f.kind === 'rebuttal' || f.kind === 'lobby');
+    const last = said[said.length - 1];
+    const prev = said[said.length - 2];
+    const byInf = st => L.ministers.filter(m => m.stance === st)
+                        .sort((a, b) => b.influence - a.influence)[0];
+    const lid = (prev && meta[prev.minister]) ? prev.minister : ((byInf('pro') || L.ministers[0]).id);
+    const rid = (last && meta[last.minister] && last.minister !== lid) ? last.minister
+              : ((byInf('con') || L.ministers[1] || L.ministers[0]).id);
+
+    // 两侧列队：影响力高的站前排（越靠下越大）
+    const place = (list, side) => list.map((m, i) => {
+      const row = i % 4, col = (i / 4) | 0;
+      return Object.assign({}, m, {
+        x: (side === 'pro' ? 4 + row * 6 + col * 14 : 80 - row * 6 - col * 14) + '%',
+        y: (28 + row * 9) + '%', z: 3 + row,
+        scale: (0.8 + row * 0.07).toFixed(2), dur: (1.6 + row * 0.2) + 's', side,
+      });
+    });
+    const camp = st => L.ministers.filter(m => m.stance === st && m.id !== lid && m.id !== rid)
+                       .sort((a, b) => a.influence - b.influence);
+    const mid = camp('undecided').map((m, i) => Object.assign({}, m, {
+      x: (34 + i * 8) + '%', y: (20 + (i % 2) * 6) + '%', z: 2, scale: '.72', dur: '2.4s', side: 'mid',
+    }));
+
+    const speaking = last ? last.minister : null;
+    const plaza = place(camp('pro'), 'pro').concat(place(camp('con'), 'con'), mid).map(m => ({
+      id: m.id, head: meta[m.id] ? meta[m.id].head : '❔', bg: meta[m.id] ? meta[m.id].bg : '#e8e0dc',
+      ring: ring[m.stance], x: m.x, y: m.y, z: m.id === speaking ? 14 : m.z,
+      scale: m.scale, dur: m.dur, wander: 'none',
+      poked: this.state.poke === m.id || m.id === speaking,
+      line: m.id === speaking ? last.text : (this.state.poke === m.id ? this.lineOf(m.id) : ''),
+      sup: false, supLine: '',
+      poke: () => this.pokeM(m.id),
+      bLeft: m.side === 'con' ? 'auto' : (m.side === 'mid' ? '50%' : '0'),
+      bRight: m.side === 'con' ? '0' : 'auto',
+      bXform: m.side === 'mid' ? 'translateX(-50%)' : 'translateX(0)',
+      bRad: m.side === 'con' ? '12px 12px 3px 12px' : '12px 12px 12px 3px',
+    }));
+
+    const pad = n => String(n).padStart(2, '0');
+    const loud = L.ministers.slice().sort((a, b) => b.influence - a.influence)[0];
+    const verdictTurn = (L.turns || []).filter(t => t.kind === 'verdict').pop();
+    const waiting = this.state.phase === 'opening' || this.state.phase === 'ruling';
+
+    return {
+      plaza,
+      proCount: pad(L.tally.pro), conCount: pad(L.tally.con),
+      lobActive: !!(last && last.kind === 'lobby'),
+      duelL: { head: meta[lid].head, bg: meta[lid].bg, name: nameOf(lid) },
+      duelR: { head: meta[rid].head, bg: meta[rid].bg, name: nameOf(rid) },
+      duelLine: waiting ? (zh ? '「……朝堂正在集结」' : '"…THE COURT IS GATHERING"')
+                        : (last ? last.text : (zh ? '「……」' : '"…"')),
+      cutLHead: meta[lid].head, cutLBg: meta[lid].bg, cutLName: nameOf(lid),
+      cutRHead: meta[rid].head, cutRBg: meta[rid].bg, cutRName: nameOf(rid),
+      proN: String(L.tally.pro), conN: String(L.tally.con), absN: String(L.tally.undecided),
+      decreeText: verdictTurn ? verdictTurn.text
+                : (zh ? '朕还未下旨。' : 'No decree yet.'),
+      needVerdict: L.status !== 'decided',
+      ticketQuote: last ? last.text : L.topic,
+      ticketByline: nameOf(last ? last.minister : loud.id) + ' · ' + L.topic,
+      ticketHead: meta[last && meta[last.minister] ? last.minister : loud.id].head,
+    };
+  }
+
+  lineOf(id) {
+    const t = (this.state.live.turns || []).filter(x => x.minister === id).pop();
+    return t ? t.text : '……';
+  }
+
+  pickItv(type, text) {
     clearTimeout(this._itvT);
     const upd = { itvOpen: false, itv: type, cut: null };
     if (type === 'swap') upd.pairIdx = (this.state.pairIdx + 1) % 4;
     this.setState(upd);
     this._itvT = setTimeout(() => this.setState({ itv: null }), 3200);
+    // 圣旨要进朝堂记录：下一轮的 prompt 会带上它，大臣得知道皇帝插过话
+    if (this.state.sid) {
+      this.api('/api/court/' + this.state.sid + '/decree',
+               { kind: type, text: text || '' }).catch(() => {});
+    }
   }
 
   pair() {
@@ -747,6 +984,9 @@ class Component extends DCLogic {
       proLabel:'赞成', conLabel:'反对', swingLabel:'摇摆',
       sbLabel:'本集分镜 — 点击插手', actNo:'第 3/5 幕',
       intervene:'插手这一幕', ruleNow:'圣裁',
+      topicPh:'今天要裁决的是……', ctxPh:'补充背景（可留空，写了大臣更贴题）',
+      ruleApprove:'准奏', ruleReject:'驳回', ruleShelve:'搁置', ruleAdjourn:'退朝',
+      waitLine:'朝堂正在集结……', recessLine:'辩毕，请陛下圣裁。',
       verKicker:'VERDICT — 判決', verChip:'第108集 · 终审',
       verTitleFont:"400 70px/1 " + D, verTitle1:'聖裁', verTitle2:'已下',
       decree:'缓辞三月，周末试营业，九十日后再奏。',
@@ -762,6 +1002,10 @@ class Component extends DCLogic {
       itvOpt1:'拍案肃静', itvOpt1Sub:'拍案震殿，满堂闭嘴', itvOpt2:'朱笔换将', itvOpt2Sub:'朱笔一挥，换新对手上台', itvOpt3:'宣香蕉发言', itvOpt3Sub:'香蕉雨伺候，让最离谱的上台',
       itvToastSilence:'奉旨：满殿肃静！', itvToastSwap:'奉旨：朱笔一挥，换将再战！', itvToastBanana:'奉旨：宣香蕉大臣发言！',
       timeStop:'时停 · 特写', cutSoloTag:'单人特写', cutDuoTag:'双人交锋', closeupBtn:'特写',
+      logTitle:'朝堂实录', logEmpty:'尚无发言。递上奏章、开堂，众卿说的每一句都会逐条落在这里。',
+      logKind:{ opening:'表态', rebuttal:'驳斥', lobby:'游说', decree:'圣旨', verdict:'判词' },
+      logStance:{ pro:'赞成', con:'反对', undecided:'中立' },
+      logEmperor:'猫皇', logUnit:' 条',
     };
     const T_EN = {
       epChip:'EP.108 · A DAILY SHOW',
@@ -788,6 +1032,9 @@ class Component extends DCLogic {
       proLabel:'PRO', conLabel:'CON', swingLabel:'SWING',
       sbLabel:'STORYBOARD — TAP TO STEP IN', actNo:'ACT 3/5',
       intervene:'INTERVENE', ruleNow:'RULE NOW',
+      topicPh:'TODAY I MUST DECIDE…', ctxPh:'Context (optional — sharpens the ministers)',
+      ruleApprove:'APPROVE', ruleReject:'REJECT', ruleShelve:'SHELVE', ruleAdjourn:'ADJOURN',
+      waitLine:'THE COURT IS GATHERING…', recessLine:'DEBATE CLOSED. YOUR RULING, SIRE.',
       verKicker:'VERDICT — FINAL', verChip:'EP.108 · FINAL',
       verTitleFont:"400 52px/1.02 " + D, verTitle1:'DECREE ', verTitle2:'IS OUT',
       decree:'Keep the job. Pilot the cat café on weekends. Report back in 90 days.',
@@ -803,6 +1050,10 @@ class Component extends DCLogic {
       itvOpt1:'SLAM — SILENCE!', itvOpt1Sub:'The bench rattles. Everyone shuts up.', itvOpt2:'VERMILION SWAP', itvOpt2Sub:'One brushstroke — fresh duelists', itvOpt3:'CALL ON BANANA', itvOpt3Sub:'Banana rain. Chaos has the floor.',
       itvToastSilence:'BY DECREE: SILENCE!', itvToastSwap:'BY DECREE: NEW DUELISTS TAKE THE FLOOR!', itvToastBanana:'BY DECREE: BANANA HAS THE FLOOR!',
       timeStop:'TIME STOP · CLOSE-UP', cutSoloTag:'SOLO', cutDuoTag:'DUO CLASH', closeupBtn:'CLOSE-UP',
+      logTitle:'COURT TRANSCRIPT', logEmpty:'No lines yet. File a petition and open court — every word lands here, in order.',
+      logKind:{ opening:'OPENING', rebuttal:'REBUTTAL', lobby:'LOBBY', decree:'DECREE', verdict:'VERDICT' },
+      logStance:{ pro:'PRO', con:'CON', undecided:'SWING' },
+      logEmperor:'THE EMPEROR', logUnit:' LINES',
     };
     const t = zh ? T_ZH : T_EN;
 
@@ -861,8 +1112,17 @@ class Component extends DCLogic {
     ];
 
     const actLabels = zh ? ['开题','首轮','白热化','游说','终幕'] : ['OPEN','CLASH','IGNITE','LOBBY','FINALE'];
+    const L = this.state.live;
+    const act = this.state.phase === 'opening' ? 1 : Math.min(5, (L ? L.round : 2) + 1);
+    const canRule = !L || this.state.phase === 'recess' || L.status === 'decided';
     const cS = this.state.cut;
     const soloV = (cS && cS.mode === 'solo') ? this.vig()[cS.id][cS.v || 0] : null;
+
+    // 实录的底稿 = 后端快照 live.turns，再把还没进快照的那几条 SSE 新发言（feed）按 seq 补在后面。
+    // 快照是每轮才推一次的，不补的话新台词要等一整轮才上墙。只读，不动数据层。
+    const baseTurns = (L && L.turns) || [];
+    const lastSeq = baseTurns.length ? baseTurns[baseTurns.length - 1].seq : 0;
+    const logTurns = baseTurns.concat((this.state.feed || []).filter(x => x && x.seq > lastSeq));
 
     return {
       scr1: s === 1, scr2: s === 2, scr3: s === 3, scr4: s === 4, scr5: s === 5,
@@ -1007,7 +1267,10 @@ class Component extends DCLogic {
       langBg: (s === 4) ? '#b2a181' : (s === 5 ? '#2b2733' : '#a4726a'),
       langFg: (s === 4) ? '#2b2733' : '#f1ede4',
       floatTopics: (zh ? topicsZh : topicsEn).map((x, i) => Object.assign({}, x, topicMeta[i])),
-      reruns: zh ? rerunsZh : rerunsEn,
+      // 点推荐议题 = 填进输入框，不是直接开堂 —— 让用户还能改一改再递奏章
+      reruns: (zh ? rerunsZh : rerunsEn).map(r => Object.assign({}, r, {
+        pick: () => this.setState({ topic: r.text.replace(/^[「"]|[」"]$/g, ''), err: '' }),
+      })),
       dots: [1,2,3,4,5].map(n => ({
         no: String(n),
         label: zh ? ['开场','名册','奏章','辩论','判决'][n-1] : ['OPENING','CAST','PETITION','DEBATE','VERDICT'][n-1],
@@ -1024,13 +1287,84 @@ class Component extends DCLogic {
         roleColor: '#a4726a',
         avAnim: 'idleBob ' + m.dur + ' ease-in-out infinite',
       })),
-      acts: [
-        { no:'01', label:actLabels[0], bg:'transparent', bd:'rgba(241,237,228,.4)', fg:'rgba(241,237,228,.65)', shadow:'none' },
-        { no:'02', label:actLabels[1], bg:'transparent', bd:'rgba(241,237,228,.4)', fg:'rgba(241,237,228,.65)', shadow:'none' },
-        { no:'03', label:actLabels[2], bg:'#b2a181', bd:'#2b2733', fg:'#2b2733', shadow:'3px 3px 0 rgba(0,0,0,.45)' },
-        { no:'04', label:actLabels[3], bg:'transparent', bd:'rgba(241,237,228,.22)', fg:'rgba(241,237,228,.4)', shadow:'none' },
-        { no:'05', label:actLabels[4], bg:'transparent', bd:'rgba(241,237,228,.22)', fg:'rgba(241,237,228,.4)', shadow:'none' },
-      ],
+      // 分镜跟着真实回合走：演过的亮一点，当前幕高亮，还没到的暗
+      acts: actLabels.map((label, i) => {
+        const n = i + 1, cur = n === act, past = n < act;
+        return {
+          no: String(n).padStart(2, '0'), label, go: () => {},
+          bg: cur ? '#b2a181' : 'transparent',
+          bd: cur ? '#2b2733' : (past ? 'rgba(241,237,228,.4)' : 'rgba(241,237,228,.22)'),
+          fg: cur ? '#2b2733' : (past ? 'rgba(241,237,228,.65)' : 'rgba(241,237,228,.4)'),
+          shadow: cur ? '3px 3px 0 rgba(0,0,0,.45)' : 'none',
+        };
+      }),
+
+      // ---- 奏章屏：真正的输入 ----
+      topic: this.state.topic,
+      ctx: this.state.ctx,
+      topicChange: (e) => this.setState({ topic: e.target.value, err: '' }),
+      ctxChange: (e) => this.setState({ ctx: e.target.value }),
+      startCourt: () => this.startCourt(),
+      stakesLine: this.state.err || t.stakes,
+      errColor: this.state.err ? '#a4726a' : '#847d88',
+
+      // ---- 辩论屏原来漏接的几个槽位 ----
+      heatWord: t.heatWord, heatSize: t.heatSize,
+      actTicker: '★ ' + actLabels.join(' ★ ') + ' ★ ',
+      actNo: zh ? `第 ${act}/5 幕` : `ACT ${act}/5`,
+      ruleAnim: canRule ? 'wiggle 1.6s ease-in-out infinite' : 'none',
+      itvCustom: this.state.itvCustom || '',
+      itvCustomChange: (e) => this.setState({ itvCustom: e.target.value }),
+      itvCustomGo: () => {
+        const txt = (this.state.itvCustom || '').trim();
+        if (txt) this.pickItv('swap', txt);
+        this.setState({ itvCustom: '' });
+      },
+
+      // ---- 判决屏（离线时是演示值，liveView() 会盖掉）----
+      proN: '6', conN: '3', absN: '2',
+      decreeText: t.decree,
+      needVerdict: false,
+      rulings: [
+        { key:'approve', icon:'✅', label:t.ruleApprove, bg:'#f1ede4', fg:'#2b2733' },
+        { key:'reject',  icon:'🚫', label:t.ruleReject,  bg:'#2b2733', fg:'#f1ede4' },
+        { key:'shelve',  icon:'📥', label:t.ruleShelve,  bg:'#b2a181', fg:'#2b2733' },
+        { key:'adjourn', icon:'🚪', label:t.ruleAdjourn, bg:'transparent', fg:'#f1ede4' },
+      ].map(v => Object.assign({}, v, { pick: () => this.rule(v.key) })),
+      ticketQuote: t.ticketQuote,
+      ticketByline: t.ticketByline,
+      ticketHead: '🐰',
+
+      // ---- 电脑端多出来的那一栏：朝堂实录 ----
+      // live 为 null（纯设计稿 / 后端没起）时 transcript 是空数组，面板只显示一句占位。
+      wideOn: this.state.wide,
+      logEmpty: !logTurns.length,
+      logCount: logTurns.length + t.logUnit,
+      transcript: (() => {
+        const mm = this.minMeta();
+        const stColor = { pro:'#a4726a', con:'#b2a181', undecided:'#a9a3ab' };
+        // column-reverse 的容器里，DOM 第一条显示在最下面，所以倒过来排 = 新发言总在底部且自动跟随
+        return logTurns.slice().reverse().map(q => {
+          const emp = q.minister === 'emperor';
+          const M = mm[q.minister];
+          const bits = [t.logKind[q.kind] || q.kind];
+          // 皇帝没有立场，后端给的 undecided 不该显示成「中立」
+          if (!emp && t.logStance[q.stance]) bits.push(t.logStance[q.stance]);
+          if (q.target && mm[q.target]) bits.push('→ ' + (zh ? mm[q.target].zh : mm[q.target].en));
+          return {
+            head: emp ? '😾' : (M ? M.head : '❔'),
+            name: emp ? t.logEmperor : (M ? (zh ? M.zh : M.en) : q.minister),
+            meta: bits.join(' · '),
+            text: q.text,
+            stance: emp ? '#f1ede4' : (stColor[q.stance] || '#847d88'),
+            rowBg: emp ? 'rgba(164,114,106,.32)' : 'rgba(241,237,228,.05)',
+            nameCol: emp ? '#f1ede4' : '#b2a181',
+          };
+        });
+      })(),
+
+      // 有真数据就用真数据覆盖上面这些演示值
+      ...this.liveView(),
     };
   }
 }
