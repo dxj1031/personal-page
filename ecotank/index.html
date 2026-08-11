@@ -115,74 +115,78 @@
                 <span class="tv-knob on"></span>
               </div>
             </div>
-            <!-- the set's controls live on the cabinet, not on the picture -->
-            <div class="tank-deck">
-              <div class="zoom-controls">
-                <span id="skyHud" class="sky-hud">—</span>
-                <span id="zoomHud" class="zoom-hud">1.0× · —</span>
-                <div class="zoom-btns">
-                  <button id="zoomOut" type="button" title="缩小" aria-label="缩小" data-en-title="Zoom out">−</button>
-                  <button id="zoomIn" type="button" title="放大" aria-label="放大" data-en-title="Zoom in">＋</button>
-                  <button id="zoomFollow" type="button" title="跟随选中个体" data-en-title="Follow selected agent" data-en="Follow">跟随</button>
-                  <button id="zoomReset" type="button" title="复位视图" data-en-title="Reset view" data-en="Reset">复位</button>
+            <!-- One console on the cabinet, three groups: what the camera does,
+                 what the simulation does, how the fish move. Seven boxes stacked
+                 under the picture was the layout; this is the same controls with
+                 the boxes taken away. -->
+            <div class="console">
+              <section class="console-group">
+                <h3 class="console-label" data-en="View">视图</h3>
+                <div class="console-row">
+                  <span id="skyHud" class="sky-hud">—</span>
+                  <span id="zoomHud" class="zoom-hud">1.0× · —</span>
+                  <div class="zoom-btns">
+                    <button id="zoomOut" type="button" title="缩小" aria-label="缩小" data-en-title="Zoom out">−</button>
+                    <button id="zoomIn" type="button" title="放大" aria-label="放大" data-en-title="Zoom in">＋</button>
+                    <button id="zoomFollow" type="button" title="跟随选中个体" data-en-title="Follow selected agent" data-en="Follow">跟随</button>
+                    <button id="zoomReset" type="button" title="复位视图" data-en-title="Reset view" data-en="Reset">复位</button>
+                  </div>
+                  <span class="console-sep" aria-hidden="true"></span>
+                  <span class="console-key" data-en="Layers">图层</span>
+                  <button id="overlayAll" type="button" title="显示/隐藏所有连线" data-en-title="Show/hide all link lines" data-en="All lines">全部连线</button>
+                  <label><input id="overlayPerception" type="checkbox" /> <span data-en="Perception">感知</span></label>
+                  <label><input id="overlayMessages" type="checkbox" /> <span data-en="Messages">通信</span></label>
+                  <label><input id="overlaySubgoals" type="checkbox" /> <span data-en="Subgoals">子目标</span></label>
+                  <label><input id="overlayIntentions" type="checkbox" /> <span data-en="Intentions">意图</span></label>
+                  <span class="console-hint" data-en="Drag to orbit · Scroll to zoom · Click to select">拖拽环绕 · 滚轮远近 · 点击选中个体</span>
                 </div>
-                <span class="zoom-hint" data-en="Drag to orbit · Scroll to zoom · Click to select">拖拽环绕 · 滚轮远近 · 点击选中个体</span>
-              </div>
-              <div class="canvas-overlays">
-                <span class="overlay-label" data-en="Layers">图层</span>
-                <button id="overlayAll" type="button" title="显示/隐藏所有连线" data-en-title="Show/hide all link lines" data-en="All lines">全部连线</button>
-                <label><input id="overlayPerception" type="checkbox" /> <span data-en="Perception">感知</span></label>
-                <label><input id="overlayMessages" type="checkbox" /> <span data-en="Messages">通信</span></label>
-                <label><input id="overlaySubgoals" type="checkbox" /> <span data-en="Subgoals">子目标</span></label>
-                <label><input id="overlayIntentions" type="checkbox" /> <span data-en="Intentions">意图</span></label>
-              </div>
-            </div>
+              </section>
 
-            <div class="control-deck">
-              <fieldset>
-                <legend data-en="Search Strategy">搜索策略</legend>
-                <div id="searchMode" class="segmented">
-                  <button data-value="bt">BT</button>
-                  <button data-value="mcts">MCTS</button>
-                  <button data-value="decmcts">Dec-MCTS</button>
-                  <button data-value="decsgts" class="active">Dec-SGTS</button>
+              <section class="console-group">
+                <h3 class="console-label" data-en="Simulation">模拟</h3>
+                <div class="console-row">
+                  <span class="console-key" data-en="Search">搜索策略</span>
+                  <div id="searchMode" class="segmented">
+                    <button data-value="bt">BT</button>
+                    <button data-value="mcts">MCTS</button>
+                    <button data-value="decmcts">Dec-MCTS</button>
+                    <button data-value="decsgts" class="active">Dec-SGTS</button>
+                  </div>
+                  <span class="console-sep" aria-hidden="true"></span>
+                  <span class="console-key" data-en="Comms">通信模式</span>
+                  <div id="commMode" class="segmented">
+                    <button data-value="qra">QRA</button>
+                    <button data-value="qru">QRU</button>
+                    <button data-value="eu">EU</button>
+                    <button data-value="ebu" class="active">EBU</button>
+                  </div>
+                  <span class="console-sep" aria-hidden="true"></span>
+                  <label class="console-range" for="commRange">
+                    <span class="console-key" data-en="Radius">通信半径</span>
+                    <input id="commRange" type="range" min="70" max="240" step="10" value="150" />
+                    <output id="commRangeValue">150</output>
+                  </label>
                 </div>
-              </fieldset>
-
-              <fieldset>
-                <legend data-en="Communication Mode">通信模式</legend>
-                <div id="commMode" class="segmented">
-                  <button data-value="qra">QRA</button>
-                  <button data-value="qru">QRU</button>
-                  <button data-value="eu">EU</button>
-                  <button data-value="ebu" class="active">EBU</button>
+                <div class="console-row">
+                  <span class="console-key" data-en="Toggles">技术开关</span>
+                  <label><input id="emotionToggle" type="checkbox" checked /> Emotional BT</label>
+                  <label><input id="eventToggle" type="checkbox" checked /> EDBT</label>
+                  <label><input id="lifecycleToggle" type="checkbox" checked /> <span data-en="Lifecycle">生命周期</span></label>
                 </div>
-              </fieldset>
+              </section>
 
-              <fieldset>
-                <legend data-en="Swim Gait">游动步态</legend>
-                <div id="swimMode" class="segmented">
-                  <button data-value="eel" data-en="Eel">鳗形</button>
-                  <button data-value="carangiform" data-en="Trout">鲹形</button>
-                  <button data-value="power" class="active" data-en="Power">发力</button>
-                  <button data-value="burst" data-en="Burst">滑冲</button>
+              <section class="console-group">
+                <h3 class="console-label" data-en="Motion">表现</h3>
+                <div class="console-row">
+                  <span class="console-key" data-en="Gait">游动步态</span>
+                  <div id="swimMode" class="segmented">
+                    <button data-value="eel" data-en="Eel">鳗形</button>
+                    <button data-value="carangiform" data-en="Trout">鲹形</button>
+                    <button data-value="power" class="active" data-en="Power">发力</button>
+                    <button data-value="burst" data-en="Burst">滑冲</button>
+                  </div>
                 </div>
-              </fieldset>
-
-              <fieldset class="switch-field">
-                <legend data-en="Feature Toggles">技术开关</legend>
-                <label><input id="emotionToggle" type="checkbox" checked /> Emotional BT</label>
-                <label><input id="eventToggle" type="checkbox" checked /> EDBT</label>
-                <label><input id="lifecycleToggle" type="checkbox" checked /> <span data-en="Lifecycle">生命周期</span></label>
-              </fieldset>
-
-              <fieldset class="range-field">
-                <legend data-en="Comm Radius">通信半径</legend>
-                <div class="range-row">
-                  <input id="commRange" type="range" min="70" max="240" step="10" value="150" />
-                  <output id="commRangeValue">150</output>
-                </div>
-              </fieldset>
+              </section>
             </div>
           </section>
 

@@ -838,34 +838,88 @@ body.focus-mode .demo-layout {
 /* Full-width rows, not columns. Side by side each block got 368px, which is
    narrower than its own contents, so both wrapped to three lines and the deck
    became two 114px slabs of cream under the picture. One row each is 36. */
-.tank-deck {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
-}
-.tank-deck > * {
-  width: 100%;
-}
-.canvas-overlays {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  padding: 7px 12px;
+/* ---- the console --------------------------------------------------------
+   One sheet under the set. Seven bordered boxes became three labelled groups
+   of rows, because the borders were the only thing separating controls that
+   were already separated by sitting on different lines. A group is a label in
+   the margin and its controls flowing beside it; the rows wrap on their own,
+   so nothing has to be told a column width it will outgrow. */
+.console {
+  margin-top: 12px;
   border: 1px solid var(--ink-hair);
-  border-radius: 0;
   background: var(--paper);
   color: var(--ink);
 }
-.canvas-overlays .overlay-label {
+.console-group + .console-group {
+  border-top: 1px solid var(--ink-hair);
+}
+.console-group {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: start;
+  gap: 4px 14px;
+  padding: 9px 13px;
+}
+.console-label {
+  margin: 0;
+  padding-top: 5px;
   font-family: var(--mono);
   font-size: 9.5px;
+  font-weight: 500;
   letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--ink-50);
 }
-.canvas-overlays label {
+.console-row {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+.console-row + .console-row {
+  margin-top: 6px;
+}
+/* the little caption in front of a control */
+.console-key {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-50);
+  white-space: nowrap;
+}
+/* hairline between two things sharing a row */
+.console-sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 20px;
+  background: var(--ink-hair);
+}
+.console-hint {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--ink-50);
+}
+.console-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 210px;
+}
+.console-range input[type="range"] {
+  width: 120px;
+}
+.console-range output {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.console-row label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -876,10 +930,10 @@ body.focus-mode .demo-layout {
   white-space: nowrap;
   cursor: pointer;
 }
-.canvas-overlays input[type="checkbox"] {
+.console-row input[type="checkbox"] {
   accent-color: var(--ink);
 }
-.canvas-overlays #overlayAll {
+#overlayAll {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.16em;
@@ -892,58 +946,46 @@ body.focus-mode .demo-layout {
   white-space: nowrap;
   cursor: pointer;
 }
-.canvas-overlays #overlayAll:hover {
+#overlayAll:hover {
   color: var(--ink);
   border-color: var(--ink);
 }
-.canvas-overlays #overlayAll.active {
+#overlayAll.active {
   color: var(--paper);
   background: var(--spot-warm);
   border-color: var(--spot-warm);
 }
+@media (max-width: 640px) {
+  .console-group {
+    grid-template-columns: 1fr;
+  }
+  .console-row {
+    grid-column: 1;
+  }
+  .console-hint {
+    margin-left: 0;
+  }
+}
 
-/* control deck */
-.control-deck {
-  display: grid;
-  grid-template-columns: minmax(260px, 1.1fr) minmax(230px, 1fr) minmax(220px, 0.9fr) minmax(180px, 0.7fr);
-  gap: 14px;
-  margin-top: 16px;
-}
-fieldset {
-  min-width: 0;
-  margin: 0;
-  padding: 13px 14px 14px;
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-}
-legend {
-  padding: 0 8px 0 0;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
+/* The segmented controls used to sit in dark fieldsets, so they were drawn in
+   the dark palette. They live on paper now: grey-on-cream is invisible, and
+   the teal accent belongs to the dark chrome, not to the printed sheet. */
 .segmented {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  margin-top: 11px;
-  border: 1px solid var(--hair-2);
-  border-radius: var(--radius);
+  display: inline-flex;
+  border: 1px solid var(--ink-hair-2);
+  border-radius: 0;
   overflow: hidden;
 }
 .segmented button {
-  min-height: 32px;
-  padding: 0 6px;
+  min-height: 26px;
+  padding: 0 10px;
   border: 0;
-  border-right: 1px solid var(--hair);
+  border-right: 1px solid var(--ink-hair);
   background: transparent;
-  color: var(--dim);
+  color: var(--ink-50);
   font-family: var(--mono);
   font-size: 11px;
+  letter-spacing: 0.06em;
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.14s, color 0.14s;
@@ -952,30 +994,15 @@ legend {
   border-right: 0;
 }
 .segmented button:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
+  background: var(--paper-2);
+  color: var(--ink);
 }
 .segmented button.active {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--spot-warm);
+  color: var(--paper);
   font-weight: 700;
 }
 
-.switch-field {
-  display: grid;
-  gap: 9px;
-}
-.switch-field legend {
-  margin-bottom: 4px;
-}
-.switch-field label {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--dim);
-  font-size: 13px;
-  cursor: pointer;
-}
 input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
@@ -1004,18 +1031,40 @@ input[type="checkbox"]:checked {
 input[type="checkbox"]:checked::after {
   transform: scale(1);
 }
-.range-field .range-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 14px;
+/* The checkbox above is drawn for the dark panels — a dark well with a teal
+   tick. On the console it has to be printed instead: paper well, ink tick. */
+.console-row input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  border-color: var(--ink-hair-2);
+  background: var(--paper);
 }
-.range-field output {
-  min-width: 34px;
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--accent);
-  text-align: right;
+.console-row input[type="checkbox"]::after {
+  width: 7px;
+  height: 7px;
+  background: var(--ink);
+}
+.console-row input[type="checkbox"]:checked {
+  border-color: var(--ink);
+}
+/* same for the slider: the global one paints a teal track */
+.console-range input[type="range"] {
+  height: 2px;
+  background: linear-gradient(90deg, var(--ink) 0%, var(--ink-hair-2) 100%);
+}
+.console-range input[type="range"]::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+}
+.console-range input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--paper);
+  border: 2px solid var(--ink);
 }
 
 /* --------------------------------------------------------------- demo side */
@@ -1497,9 +1546,6 @@ body.focus-mode #monitorTab.active {
   .metric:nth-child(4) {
     border-right: 0;
   }
-  .control-deck {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .demo-side {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1521,7 +1567,6 @@ body.focus-mode #monitorTab.active {
   .search-grid,
   .communication-grid,
   .paper-figures,
-  .control-deck,
   .demo-side {
     grid-template-columns: 1fr;
   }
@@ -1563,21 +1608,10 @@ body.focus-mode #monitorTab.active {
 /* ---------- zoom / inspection controls ---------- */
 /* One strip along the bottom edge rather than a column stacked into the
    corner: the column was ~110px tall and sat right where the seabed reads. */
-.zoom-controls {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 7px 12px;
-  border: 1px solid var(--ink-hair);
-  border-radius: 0;
-  background: var(--paper);
-}
+/* .zoom-controls and .zoom-hint are gone: those controls are rows in the
+   console now, and a wrapper that no element carries is just a rule to read
+   past next time. */
 /* the hint is the widest thing here, so it goes last and takes the slack */
-.zoom-controls .zoom-hint {
-  margin-left: auto;
-}
 .zoom-hud {
   font-family: var(--mono);
   font-size: 10.5px;
@@ -1622,12 +1656,6 @@ body.focus-mode #monitorTab.active {
   background: var(--spot-warm);
   border-color: var(--spot-warm);
   color: var(--paper);
-}
-.zoom-hint {
-  font-family: var(--mono);
-  font-size: 9.5px;
-  color: var(--ink-50);
-  letter-spacing: 0.16em;
 }
 #tankCanvas {
   touch-action: none;
