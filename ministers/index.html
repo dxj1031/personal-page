@@ -3,6 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- React 18.3.1, vendored. support.js document.writes these same two files
+     from unpkg when window.React is missing by the time it runs, and a visitor
+     who cannot reach unpkg gets a blank page and nothing else — the runtime
+     throws "window.React is not available yet" and stops there. Loading them
+     here, ahead of support.js, takes its `if (window.React) return;` path
+     instead, so the CDN is never consulted. Bytes match the SRI hashes
+     support.js still carries for the unpkg copies, so this is the published
+     build rather than a rebuild of it.
+     Do not add defer/async: support.js tests window.React synchronously. -->
+<script src="./vendor/react/react.production.min.js"></script>
+<script src="./vendor/react/react-dom.production.min.js"></script>
 <script src="./support.js"></script>
 </head>
 <body>

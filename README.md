@@ -50,7 +50,9 @@ Static, no build step, no package manager. Clone it and open `index.html`.
 - The homepage is a self-contained bundle — fonts and scripts are inlined, so it
   renders offline once loaded.
 - The Ministers page runs on a small component runtime (`ministers/support.js`,
-  generated) and pulls React from a CDN at load time, so it needs network.
+  generated). React is vendored, so no script is fetched at load time.
+- Both demos still link Google Fonts. Those degrade to system faces rather than
+  breaking, so they are the one remaining network dependency.
 - Deployed straight from `main` by GitHub Pages.
 
 ```text
@@ -63,7 +65,8 @@ personal-page/
 │  └─ assets/paper/    # figures from the source paper
 └─ ministers/          # Ch 03 demo
    ├─ index.html
-   └─ support.js       # component runtime (generated)
+   ├─ support.js       # component runtime (generated)
+   └─ vendor/react/    # React 18.3.1 UMD, so the page needs no CDN
 ```
 
 ## Contact
