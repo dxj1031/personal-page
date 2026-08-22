@@ -4,8 +4,23 @@
     {
       "name": "ecotank",
       "runtimeExecutable": "python",
-      "runtimeArgs": [".claude/devserver.py", "8127"],
+      "runtimeArgs": [
+        ".claude/devserver.py",
+        "8127"
+      ],
       "port": 8127
+    },
+    {
+      "name": "personal-page",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8131",
+        "--directory",
+        ".."
+      ],
+      "port": 8131
     }
   ]
 }
