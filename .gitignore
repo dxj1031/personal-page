@@ -15,3 +15,4 @@ graphify-out/
 # code graph artifacts
 .code-review-graph/
 graphify-out/
+__pycache__/
