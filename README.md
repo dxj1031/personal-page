@@ -47,6 +47,17 @@ on. When it is not, the page plays a scripted demo instead. The
 [console](ministers/console.html) shows every LLM call, latency and fallback.
 There is no evaluation of decision quality yet.
 
+### Other work — interactive decks
+
+Each card in the homepage's *Other work* section opens a short slide deck
+(`projects/<name>/`, arrow keys or swipe) with one interactive piece:
+
+- [Continue or Answer](https://dxj1031.github.io/personal-page/projects/continue-or-answer/): team proposal on teaching audio-visual LLMs to wait for evidence; play the model against the reward. No trained results yet.
+- [Job-search agent workbench](https://dxj1031.github.io/personal-page/projects/career-workbench/): my customisation of the open-source career-ops; step through the turn runner's fallbacks.
+- [Camera-trap domain shift](https://dxj1031.github.io/personal-page/projects/camera-trap/): team course project; switch the model's input and watch out-of-distribution accuracy.
+- [Burning memories](https://dxj1031.github.io/personal-page/projects/memory-cards/): game design from a team of two; a toy version of the card loop.
+- [Stabilising GAN training](https://dxj1031.github.io/personal-page/projects/gan-faces/): undergraduate thesis; compare DCGAN, WGAN-GP and StyleGAN3 samples.
+
 ### Early prototypes (not linked here)
 
 State Tides: a one-day product prototype exploring how an LLM API can structure

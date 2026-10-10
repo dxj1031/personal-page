@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#06070c">
+<title>Burning Memories — Xiaojie Deng</title>
+<meta name="description" content="Game design for a narrative card game about Alzheimer's disease: a black-and-white world, burning memory cards and two timelines.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Spectral:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../deck.css">
+<style>
+  .portraits { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .portraits img { filter: grayscale(1); transition: filter .4s; background: transparent; }
+  .portraits figure:hover img, .portraits figure:focus-within img { filter: none; }
+  @media (max-width: 640px) { .portraits { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .hand { display: flex; flex-wrap: wrap; gap: 8px; min-height: 92px; margin: 14px 0; }
+  .mc { width: 58px; height: 84px; border-radius: 8px; border: 1px solid var(--line); background: #e9ecf7; color: #0a0a12;
+        display: flex; align-items: center; justify-content: center; font: 600 22px/1 var(--serif); }
+  .mc.burn { background: #3a2a2a; color: #a77; text-decoration: line-through; border-color: #6a3a3a; }
+  .mc.hit { background: #ffd27a; }
+  .meter { font: 12px/1.6 var(--mono); color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { .portraits img { transition: none; } }
+</style>
+</head>
+<body>
+<header class="topbar"><a href="../../#more">← Xiaojie Deng</a><span class="deck-title">Burning memories</span></header>
+<div class="progress" aria-hidden="true"><span></span></div>
+
+<main class="deck">
+  <section class="slide">
+    <p class="kicker">2024 · game design · team of 2</p>
+    <h1>Burning memories</h1>
+    <p class="lede">A narrative card game about Alzheimer's disease. The world is black and white; anything in colour is a memory slipping out of place.</p>
+    <div class="tags"><span>Game design</span><span>Card systems</span><span>Narrative</span><span>Godot</span></div>
+    <p class="note" style="margin-top:24px">Design documents and boards, not a shipped game.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Core idea</p>
+    <h2>The world is broken. You are looking for the other half.</h2>
+    <ul class="points">
+      <li><strong>Explore:</strong> walk the map and find broken objects. Pair two halves to recover a whole one.</li>
+      <li><strong>Anomalies:</strong> grey is normal; colour, or anything that breaks common sense, is an anomaly.</li>
+      <li><strong>Hallucinations:</strong> touching an anomaly cuts to a hallucination world, where the card game happens.</li>
+      <li><strong>Main quest:</strong> “find the other half”, of an object, and of a person.</li>
+    </ul>
+    <p class="note" style="margin-top:14px">Four design boards, 310 nodes in total: game flow, card-battle framework, characters, scenes.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">People · two timelines</p>
+    <h2>The same family, now and before.</h2>
+    <div class="portraits">
+      <figure><img src="img/grandmother.jpg" alt="Grey-haired elderly woman in a dark red jacket, sketch style." loading="lazy" width="512" height="512"><figcaption>The patient, now</figcaption></figure>
+      <figure><img src="img/grandfather.jpg" alt="Elderly man with a grey moustache in a dark shirt." loading="lazy" width="512" height="512"><figcaption>The spouse</figcaption></figure>
+      <figure><img src="img/daughter.jpg" alt="Young woman with long dark braided hair and a fur collar." loading="lazy" width="512" height="512"><figcaption>The daughter · second viewpoint</figcaption></figure>
+      <figure><img src="img/dog.jpg" alt="Small white fluffy dog in a round frame." loading="lazy" width="512" height="512"><figcaption>The dog the story circles back to</figcaption></figure>
+    </div>
+    <p class="note" style="margin-top:12px">AI-assisted concept references from the character board. Hover or focus to restore colour.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Card system</p>
+    <h2>Hold memories long enough to make sense of them.</h2>
+    <div class="grid">
+      <div class="card"><h3>Four kinds of card</h3><p>Whole, broken, joint and ash. Broken cards need their other half; ash cards are what is left after burning.</p></div>
+      <div class="card"><h3>Burning</h3><p>Every new memory pushes older ones out: the hand holds fewer cards over time, and each draw burns more of them.</p></div>
+      <div class="card"><h3>Pills</h3><p>Playing ash cards earns pills. Pills of different quality slow the burn by different amounts.</p></div>
+      <div class="card"><h3>Goal</h3><p>Line up a run of fragments, like a tarot spread telling a story. The true sequence and a false “montage” are both possible.</p></div>
+    </div>
+    <p class="note" style="margin-top:14px">Influences: Gwent and Inscryption for the duel; a roguelike blackjack game for setting a clear goal first.</p>
+  </section>
+
+  <section class="slide" id="play">
+    <p class="kicker">Try it · a toy version of the loop</p>
+    <h2>Draw fragments. Make a run of three before they burn.</h2>
+    <div class="row">
+      <button class="btn primary" id="draw" type="button">Draw a memory</button>
+      <button class="btn" id="pill" type="button">Take a pill</button>
+      <button class="btn" id="again" type="button">Start over</button>
+    </div>
+    <div class="hand" id="hand" role="group" aria-label="Your hand"></div>
+    <p class="meter" id="meter"></p>
+    <p id="msg" aria-live="polite"></p>
+    <p class="note">Written for this page to show the rule, not the game itself. You can hold 5 fragments, one fewer every 2 draws; anything over the limit burns at random. A pill skips the next burn.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Process</p>
+    <h2>What designing it taught me</h2>
+    <ul class="points">
+      <li><strong>Set the goal before the mechanics.</strong> The first chapter stalled until we decided what “winning” a memory meant; then every card rule had something to serve.</li>
+      <li><strong>Theme in the rules, not just the art.</strong> Forgetting is the burn timer; denial is the false montage sequence.</li>
+      <li><strong>Scope:</strong> two inexperienced people with spare time only, so we planned chapter by chapter, starting with the one whose boss fight was clearest.</li>
+    </ul>
+    <p><a href="../../#more">Back to the homepage</a></p>
+  </section>
+</main>
+
+<nav class="controls" aria-label="Slides">
+  <button class="btn" id="prev" type="button" aria-label="Previous slide">←</button>
+  <span class="count" id="count" aria-live="polite"></span>
+  <button class="btn" id="next" type="button" aria-label="Next slide">→</button>
+  <span class="hint">← → keys</span>
+</nav>
+<script src="../deck.js"></script>
+<script>
+(function () {
+  var hand, draws, pills, skip, over;
+  var elHand = document.getElementById('hand'), meter = document.getElementById('meter'), msg = document.getElementById('msg');
+  var bDraw = document.getElementById('draw'), bPill = document.getElementById('pill');
+  var MAX = 14;
+
+  function run(h) { // three consecutive values present
+    for (var v = 1; v <= 6; v++) if (h.indexOf(v) >= 0 && h.indexOf(v + 1) >= 0 && h.indexOf(v + 2) >= 0) return [v, v + 1, v + 2];
+    return null;
+  }
+  function render(burnt, hit) {
+    elHand.innerHTML = hand.map(function (v) {
+      return '<span class="mc' + (hit && hit.indexOf(v) >= 0 ? ' hit' : '') + '">' + v + '</span>';
+    }).join('') + (burnt || []).map(function (v) { return '<span class="mc burn">' + v + '<span class="sr"> (burnt)</span></span>'; }).join('');
+    meter.textContent = 'Draws ' + draws + ' / ' + MAX + ' · hand limit ' + limit() + ' · pills ' + pills + (skip ? ' · next burn skipped' : '');
+    bDraw.disabled = over; bPill.disabled = over || pills === 0 || skip;
+  }
+  function limit() { return Math.max(2, 5 - Math.floor(draws / 2)); } // memory shrinks over time
+  function start() { hand = []; draws = 0; pills = 2; skip = false; over = false; msg.textContent = 'Fragments are numbered 1–8. Hold three in a row.'; render(); }
+  function draw() {
+    var v = 1 + Math.floor(Math.random() * 8);
+    hand.push(v); draws++;
+    var hit = run(hand);
+    if (hit) { over = true; render([], hit); msg.textContent = 'You remembered: ' + hit.join(' → ') + '. A walk by the lake with the dog.'; return; }
+    var burnt = [];
+    if (skip) skip = false;
+    else while (hand.length > limit()) burnt.push(hand.splice(Math.floor(Math.random() * hand.length), 1)[0]);
+    var text = 'Drew ' + v + '. ' + (burnt.length ? 'Burnt ' + burnt.join(', ') + '.' : 'Nothing burnt.');
+    if (draws >= MAX) { over = true; text += ' The chapter ends before the memory comes back.'; }
+    msg.textContent = text; render(burnt);
+  }
+  bDraw.onclick = draw;
+  bPill.onclick = function () { pills--; skip = true; msg.textContent = 'Pill taken: the next draw will not burn anything.'; render(); };
+  document.getElementById('again').onclick = start;
+  start();
+})();
+</script>
+</body>
+</html>

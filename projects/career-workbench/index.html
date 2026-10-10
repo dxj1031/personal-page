@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#06070c">
+<title>Job-Search Agent Workbench — Xiaojie Deng</title>
+<meta name="description" content="A Chinese-language workbench on the open-source career-ops agent pipeline, with a resilient agent turn runner.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Spectral:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../deck.css">
+<style>
+  .pipe { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+  .pipe .btn { width: 100%; text-align: left; padding: 14px; }
+  .pipe .btn small { display: block; font: 11px/1.3 var(--mono); color: var(--muted); margin-bottom: 6px; }
+  .pipe .btn[aria-pressed="true"] small { color: #3a3f55; }
+  @media (max-width: 760px) { .pipe { grid-template-columns: 1fr 1fr; } }
+  .trace { list-style: none; padding: 0; margin: 14px 0 0; font: 13px/1.6 var(--mono); }
+  .trace li { padding: 6px 0 6px 14px; border-left: 2px solid var(--line); }
+  .trace li.ok { border-color: var(--good); } .trace li.err { border-color: var(--bad); }
+  fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 0; min-width: 0; }
+  legend { font: 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 0 6px; }
+  label { margin-right: 14px; font-size: 14px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<header class="topbar"><a href="../../#more">← Xiaojie Deng</a><span class="deck-title">Job-search agent workbench</span></header>
+<div class="progress" aria-hidden="true"><span></span></div>
+
+<main class="deck">
+  <section class="slide">
+    <p class="kicker">2026 · ongoing · solo</p>
+    <h1>Job-search agent workbench</h1>
+    <p class="lede">A Chinese-language workbench on top of career-ops, an open-source agent pipeline for job hunting, that I use for my own search.</p>
+    <div class="tags"><span>Next.js</span><span>TypeScript</span><span>Node.js</span><span>Claude Code / Codex CLI</span><span>WebSocket</span></div>
+    <p class="note" style="margin-top:24px">A customisation of someone else's open-source project. What is mine is listed slide by slide.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">The problem</p>
+    <h2>The job hunt lived in five tabs and a spreadsheet.</h2>
+    <p>Postings, notes, tailored CVs and follow-ups were spread across job boards, documents and a sheet. career-ops already chains these steps with agents, but it is English-first and command-line-first.</p>
+    <p>I wanted one Chinese interface for the whole loop, while keeping every application document in English.</p>
+  </section>
+
+  <section class="slide" id="pipeline">
+    <p class="kicker">Try it · the pipeline</p>
+    <h2>Five stages, one place.</h2>
+    <div class="pipe" role="group" aria-label="Pipeline stage" id="stages"></div>
+    <div class="card" style="margin-top:16px"><h3 id="sname"></h3><p id="stext"></p></div>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">What I built</p>
+    <h2>My changes on top of the upstream project</h2>
+    <div class="grid">
+      <div class="card"><div class="stat">150+</div><div class="stat-label">pages and components localised</div><p style="margin-top:10px">Chinese interface; application materials stay in English by design.</p></div>
+      <div class="card"><div class="stat">~3,300</div><div class="stat-label">lines across 8 new modules</div><p style="margin-top:10px">An agent turn runner, plus a study workflow: course material → question bank → Obsidian notes.</p></div>
+      <div class="card"><div class="stat">20</div><div class="stat-label">applications tracked so far</div><p style="margin-top:10px">Used daily for my own search, which is where most fixes came from.</p></div>
+    </div>
+  </section>
+
+  <section class="slide" id="runner">
+    <p class="kicker">Try it · the turn runner</p>
+    <h2>Long agent turns should survive a flaky connection.</h2>
+    <div class="grid">
+      <fieldset><legend>WebSocket server</legend>
+        <label><input type="radio" name="ws" value="up" checked> up</label>
+        <label><input type="radio" name="ws" value="down"> down</label></fieldset>
+      <fieldset><legend>First attempt</legend>
+        <label><input type="radio" name="a1" value="ok" checked> succeeds</label>
+        <label><input type="radio" name="a1" value="503"> 503</label>
+        <label><input type="radio" name="a1" value="bad"> bad request</label></fieldset>
+      <fieldset><legend>Retry</legend>
+        <label><input type="radio" name="a2" value="ok" checked> succeeds</label>
+        <label><input type="radio" name="a2" value="503"> 503 again</label></fieldset>
+    </div>
+    <ol class="trace" id="trace" aria-live="polite"></ol>
+    <p class="note">Same rules as <code>deeptutor-turn.mjs</code>: 1.5 s to open the socket, then the CLI; retry once after 700 ms only on 429 / 502 / 503 / 504 / ECONNRESET / ETIMEDOUT.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Limits</p>
+    <h2>What it is not</h2>
+    <ul class="points">
+      <li>Not my pipeline design: scanning, scoring and CV tailoring come from upstream career-ops.</li>
+      <li>AI-written materials can state things that are not true, so every CV and answer is checked by hand before it goes out.</li>
+      <li>Personal tool: no user accounts, no deployment, no usage beyond my own.</li>
+    </ul>
+    <p><a href="../../#more">Back to the homepage</a></p>
+  </section>
+</main>
+
+<nav class="controls" aria-label="Slides">
+  <button class="btn" id="prev" type="button" aria-label="Previous slide">←</button>
+  <span class="count" id="count" aria-live="polite"></span>
+  <button class="btn" id="next" type="button" aria-label="Next slide">→</button>
+  <span class="hint">← → keys</span>
+</nav>
+<script src="../deck.js"></script>
+<script>
+(function () {
+  var S = [
+    ['Discover', 'Scan company career portals and job boards; drop duplicates and reposts so the same role is not seen twice.'],
+    ['Evaluate', 'An agent reads the posting against my profile and scores fit, with the reasons written out, so I decide what is worth an application.'],
+    ['Tailor', 'Generate a CV and cover letter for the role from one source of facts, in English, then check them by hand.'],
+    ['Apply', 'Track what was sent where, with the exact CV version, in one table.'],
+    ['Follow up', 'Reminders on a cadence, and matching replies back to the right application.']
+  ];
+  var box = document.getElementById('stages');
+  box.innerHTML = S.map(function (s, i) { return '<button class="btn" type="button" data-i="' + i + '" aria-pressed="false"><small>0' + (i + 1) + '</small>' + s[0] + '</button>'; }).join('');
+  function pick(i) {
+    box.querySelectorAll('.btn').forEach(function (b) { b.setAttribute('aria-pressed', +b.dataset.i === i); });
+    document.getElementById('sname').textContent = S[i][0];
+    document.getElementById('stext').textContent = S[i][1];
+  }
+  box.addEventListener('click', function (e) { var b = e.target.closest('.btn'); if (b) pick(+b.dataset.i); });
+  pick(0);
+
+  var trace = document.getElementById('trace');
+  function val(n) { return document.querySelector('input[name="' + n + '"]:checked').value; }
+  function attempt(out, label, steps) {
+    var via = val('ws') === 'up' ? 'WebSocket' : 'CLI';
+    if (via === 'CLI') steps.push(['err', label + ': WebSocket did not open within 1.5 s → fall back to the CLI']);
+    if (out === 'ok') { steps.push(['ok', label + ': turn completed via ' + via]); return 'ok'; }
+    if (out === '503') { steps.push(['err', label + ': ' + via + ' returned 503 (transient)']); return 'transient'; }
+    steps.push(['err', label + ': ' + via + ' returned a non-transient error']); return 'fatal';
+  }
+  function runSim() {
+    var steps = [], r = attempt(val('a1'), 'Attempt 1', steps);
+    if (r === 'transient') {
+      steps.push(['', 'Wait 700 ms, retry once']);
+      var r2 = attempt(val('a2'), 'Attempt 2', steps);
+      if (r2 === 'ok') steps.push(['ok', 'Result returned, marked recovered']);
+      else steps.push(['err', 'Stop: “temporarily unavailable after one automatic retry. Your saved progress is safe.”']);
+    } else if (r === 'fatal') steps.push(['err', 'Stop: error shown as-is (retrying would not help)']);
+    else steps.push(['ok', 'Result returned']);
+    trace.innerHTML = steps.map(function (s) { return '<li class="' + s[0] + '">' + s[1] + '</li>'; }).join('');
+  }
+  document.getElementById('runner').addEventListener('change', runSim);
+  runSim();
+})();
+</script>
+</body>
+</html>

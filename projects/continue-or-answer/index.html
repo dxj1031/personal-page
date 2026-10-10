@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#06070c">
+<title>Continue or Answer — Xiaojie Deng</title>
+<meta name="description" content="Teaching audio-visual LLMs to wait for evidence before answering, with verifiable rewards. Proposal-stage team project.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Spectral:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../deck.css">
+<style>
+  .tl { display: grid; grid-template-columns: 70px repeat(10, 1fr); gap: 3px; align-items: center; font: 11px/1 var(--mono); color: var(--muted); }
+  .tl .cell { height: 26px; border-radius: 4px; background: rgba(255,255,255,.05); }
+  .tl .cell.a { background: #6f8cff; }
+  .tl .cell.v { background: #7fd6a4; }
+  .tl .cell.hid { background: repeating-linear-gradient(45deg, rgba(255,255,255,.04) 0 4px, transparent 4px 8px); }
+  .tl .tick { text-align: center; }
+  .sim-log { min-height: 3.2em; }
+  .score { font: 600 22px/1 var(--serif); }
+  .good { color: var(--good); } .bad { color: var(--bad); }
+  select { font: 14px var(--sans); color: var(--text); background: #11131c; border: 1px solid var(--line); border-radius: 10px; padding: 10px; min-height: 40px; max-width: 100%; }
+</style>
+</head>
+<body>
+<header class="topbar"><a href="../../#more">← Xiaojie Deng</a><span class="deck-title">Continue or Answer</span></header>
+<div class="progress" aria-hidden="true"><span></span></div>
+
+<main class="deck">
+  <section class="slide">
+    <p class="kicker">2026 · team of 4 · proposal stage</p>
+    <h1>Continue or Answer</h1>
+    <p class="lede">Teaching audio-visual LLMs to wait for the evidence before they answer, and to use the right sense when they do.</p>
+    <div class="tags"><span>Qwen2.5-Omni</span><span>GRPO</span><span>LoRA</span><span>Verifiable rewards</span><span>LLP dataset</span></div>
+    <p class="note" style="margin-top:24px">No trained results yet. This deck shows the problem, the task design and the reward.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">The problem</p>
+    <h2>A model watching a live feed should not answer before it can know.</h2>
+    <p>Asked whether the fire alarm has gone off, it should say yes only after <em>hearing</em> it. Asked whether a dog has been seen, it should not say yes from off-screen barking alone.</p>
+    <p>Prior benchmarks test pieces of this. None checks both <strong>when</strong> the model answers and <strong>which modality</strong> it relies on.</p>
+    <div class="scroll-x" style="margin-top:12px">
+      <table>
+        <thead><tr><th>Work</th><th>Audio + visual</th><th>When to answer</th><th>Modality</th><th>Label timing</th></tr></thead>
+        <tbody>
+          <tr><td>AVHBench, AVTrustBench, AVID</td><td>✓</td><td>✗</td><td>partial</td><td>✗</td></tr>
+          <tr><td>StreamScout, AskBench</td><td>✗</td><td>✓</td><td>✗</td><td>✗</td></tr>
+          <tr><td>Audio-swap repair</td><td>✓</td><td>✗</td><td>✓</td><td>✗</td></tr>
+          <tr><td><strong>This project</strong></td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">The task</p>
+    <h2>Every 2 seconds: CONTINUE, or ANSWER.</h2>
+    <p>The model receives the clip in 2-second chunks. After each chunk it either asks for more evidence or commits to YES / NO. Questions ask whether an event was heard, seen, or both by a deadline τ ∈ {2, 4, 6, 8, 10} s.</p>
+    <div class="scroll-x">
+      <table>
+        <thead><tr><th>Question</th><th>YES when</th><th>NO when</th></tr></thead>
+        <tbody>
+          <tr><td>Heard E by τ?</td><td>audible before τ</td><td>only visible, or audible later / never</td></tr>
+          <tr><td>Seen E by τ?</td><td>visible before τ</td><td>only audible, or visible later / never</td></tr>
+          <tr><td>Both by τ?</td><td>audible and visible before τ</td><td>no overlap</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top:12px">τq, the evidence time: for YES, the end of the chunk containing the first labelled second in the queried modality; for NO, the deadline itself.</p>
+  </section>
+
+  <section class="slide" id="sim">
+    <p class="kicker">Try it · you are the model</p>
+    <h2>Answer too early and the reward punishes you, even when you are right.</h2>
+    <div class="row" style="margin-bottom:14px">
+      <label for="q" class="note">Question</label>
+      <select id="q">
+        <option value="0">Has a dog been heard by 10 s?</option>
+        <option value="1">Has a dog been seen by 6 s?</option>
+        <option value="2">Has a dog been heard and seen by 10 s?</option>
+      </select>
+      <button class="btn" id="reset" type="button">Restart</button>
+    </div>
+    <div class="tl" id="tl" aria-hidden="true"></div>
+    <p class="note" style="margin:10px 0 16px">Blue = dog audible, green = dog visible, hatched = not delivered yet.</p>
+    <div class="row">
+      <button class="btn" id="cont" type="button">CONTINUE</button>
+      <button class="btn" id="yes" type="button">ANSWER YES</button>
+      <button class="btn" id="no" type="button">ANSWER NO</button>
+      <span class="note" id="clock"></span>
+    </div>
+    <p class="sim-log" id="log" aria-live="polite" style="margin-top:16px"></p>
+    <p class="note">Reward (evidence-citation term omitted): +2 for a correct answer at t ≥ τq, −2 otherwise; each CONTINUE costs 0.1, plus 0.4 if issued at t ≥ τq.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">The reward</p>
+    <h2>R = R<sub>ans</sub> + R<sub>evi</sub> − λ<sub>w</sub>N<sub>wait</sub> − λ<sub>d</sub>N<sub>late</sub></h2>
+    <div class="grid">
+      <div class="card"><h3>R<sub>ans</sub></h3><p>+2 for a correct answer given once the evidence exists (t ≥ τq); −2 otherwise, including correct but early answers.</p></div>
+      <div class="card"><h3>R<sub>evi</sub></h3><p>+0.4 if a correct answer cites the right modality and the seconds where the event is labelled; −1.5 otherwise.</p></div>
+      <div class="card"><h3>Waiting costs</h3><p>λw = 0.1 per CONTINUE, plus λd = 0.4 for each CONTINUE after the evidence is already in.</p></div>
+    </div>
+    <p style="margin-top:18px">Four nested settings isolate each term: <strong>R0</strong> correctness only · <strong>R1</strong> + evidence boundary and waiting costs · <strong>R2</strong> + evidence citation · <strong>R3</strong> + a bonus for following swapped audio labels.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Data and evaluation</p>
+    <h2>Every score comes from per-second labels, so it can be checked by rule.</h2>
+    <div class="grid" style="margin-bottom:18px">
+      <div class="card"><div class="stat">1,584</div><div class="stat-label">10-second clips (LLP)</div></div>
+      <div class="card"><div class="stat">5,687</div><div class="stat-label">audio + visual event labels</div></div>
+      <div class="card"><div class="stat">~40k</div><div class="stat-label">generated YES / NO questions</div></div>
+    </div>
+    <ul class="points">
+      <li><strong>Correctness:</strong> YES / NO accuracy.</li>
+      <li><strong>Sufficiency:</strong> share of answers given only after evidence exists.</li>
+      <li><strong>Efficiency:</strong> delay after τq and average viewing time.</li>
+      <li><strong>Grounding:</strong> modality / time attribution, and consistency when the audio is swapped.</li>
+    </ul>
+    <p class="note" style="margin-top:12px">Accuracy is always reported with delay, so waiting until the deadline cannot inflate it.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Status</p>
+    <h2>Where it stands</h2>
+    <ul class="points">
+      <li><strong>Milestone:</strong> finish question generation; zero-shot diagnosis of Qwen2.5-Omni-7B, video-SALMONN-o1 and MiniCPM-o 2.6; train R0 and R1 on Qwen2.5-Omni-3B with LoRA + GRPO.</li>
+      <li><strong>Final:</strong> add R2 and R3, report sensitivity to λw, λd and β.</li>
+      <li><strong>Expected:</strong> R0 answers prematurely; R1 raises sufficiency without losing accuracy; R2 / R3 improve grounding.</li>
+    </ul>
+    <p class="note" style="margin-top:18px">Graduate course project at USC, team of 4. Hypotheses, not results.</p>
+    <p><a href="../../#more">Back to the homepage</a></p>
+  </section>
+</main>
+
+<nav class="controls" aria-label="Slides">
+  <button class="btn" id="prev" type="button" aria-label="Previous slide">←</button>
+  <span class="count" id="count" aria-live="polite"></span>
+  <button class="btn" id="next" type="button" aria-label="Next slide">→</button>
+  <span class="hint">← → keys</span>
+</nav>
+<script src="../deck.js"></script>
+<script>
+(function () {
+  // One clip: dog barking off-screen at 3–5 s, dog walks into view at 7–9 s.
+  var AUD = [3, 4, 5], VIS = [7, 8, 9];
+  var Q = [
+    { deadline: 10, truth: true, tq: 4, why: 'barking starts at second 3, so the 2–4 s chunk proves it' },
+    { deadline: 6, truth: false, tq: 6, why: 'the dog is only heard before 6 s; it is not seen until second 7' },
+    { deadline: 10, truth: true, tq: 8, why: 'heard from second 3, but not seen until second 7, so the 6–8 s chunk is needed' }
+  ];
+  var tl = document.getElementById('tl'), log = document.getElementById('log'), clock = document.getElementById('clock');
+  var sel = document.getElementById('q'), bCont = document.getElementById('cont'), bYes = document.getElementById('yes'), bNo = document.getElementById('no');
+  var t, waits, lates, done;
+
+  function draw() {
+    var html = '<span></span>';
+    for (var s = 0; s < 10; s++) html += '<span class="tick">' + s + '</span>';
+    ['audio', 'visual'].forEach(function (row) {
+      html += '<span>' + row + '</span>';
+      for (var s = 0; s < 10; s++) {
+        var on = (row === 'audio' ? AUD : VIS).indexOf(s) >= 0;
+        html += '<span class="cell ' + (s >= t ? 'hid' : on ? (row === 'audio' ? 'a' : 'v') : '') + '"></span>';
+      }
+    });
+    tl.innerHTML = html;
+    clock.textContent = done ? '' : 't = ' + t + ' s · deadline ' + Q[sel.value].deadline + ' s';
+    bCont.disabled = done || t >= Q[sel.value].deadline;
+    bYes.disabled = bNo.disabled = done;
+  }
+  function reset() { t = 2; waits = 0; lates = 0; done = false; log.textContent = 'You have seen the first 2 seconds. Decide.'; draw(); }
+  function cont() {
+    var q = Q[sel.value];
+    waits++; if (t >= q.tq) lates++;
+    t += 2; draw();
+    log.textContent = 'Waited. Now at ' + t + ' s.';
+  }
+  function answer(yes) {
+    var q = Q[sel.value], correct = yes === q.truth, onTime = t >= q.tq;
+    var ans = correct && onTime ? 2 : -2, cost = 0.1 * waits + 0.4 * lates, r = ans - cost;
+    done = true; t = 10; draw();
+    log.innerHTML = (correct ? (onTime ? '<span class="good">Correct, with evidence in hand.</span>' : '<span class="bad">Correct, but a guess: the evidence was not in yet.</span>')
+      : '<span class="bad">Wrong.</span>') + ' τq = ' + q.tq + ' s, because ' + q.why + '. ' +
+      'R<sub>ans</sub> ' + (ans > 0 ? '+2' : '−2') + ', waiting −' + cost.toFixed(1) + ' → <span class="score ' + (r > 0 ? 'good' : 'bad') + '">' + r.toFixed(1).replace('-', '−') + '</span>';
+  }
+  bCont.onclick = cont; bYes.onclick = function () { answer(true); }; bNo.onclick = function () { answer(false); };
+  document.getElementById('reset').onclick = reset; sel.onchange = reset;
+  reset();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#06070c">
+<title>Camera-Trap Domain Shift — Xiaojie Deng</title>
+<meta name="description" content="Why wildlife classifiers fail at new camera sites: 11 controlled interventions on CCT-20 with ResNet-18 to 101.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Spectral:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../deck.css">
+<style>
+  .delta { color: var(--good); font-weight: 600; }
+  .neg { color: var(--bad); }
+</style>
+</head>
+<body>
+<header class="topbar"><a href="../../#more">← Xiaojie Deng</a><span class="deck-title">Camera-trap domain shift</span></header>
+<div class="progress" aria-hidden="true"><span></span></div>
+
+<main class="deck">
+  <section class="slide">
+    <p class="kicker">2026 · team course project · CCT-20</p>
+    <h1>Why do wildlife classifiers fail at a new camera?</h1>
+    <p class="lede">A controlled study of distribution shift on camera-trap images: 4 model sizes, 3 kinds of shift, 11 interventions.</p>
+    <div class="tags"><span>PyTorch</span><span>ResNet-18 → 101</span><span>SLURM / USC CARC</span><span>OOD evaluation</span></div>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Three shifts</p>
+    <h2>Train in one setting, test in another.</h2>
+    <div class="grid">
+      <div class="card"><h3>Cross-location</h3><p>Train on some camera sites, test on unseen ones. New backgrounds, same animals.</p></div>
+      <div class="card"><h3>Day → night</h3><p>Train on daylight frames, test on infrared night frames.</p></div>
+      <div class="card"><h3>Night → day</h3><p>The reverse. The hardest of the three.</p></div>
+    </div>
+    <p style="margin-top:18px">Every condition is scored on out-of-distribution accuracy, macro-F1 and a normalised gap between in- and out-of-distribution accuracy.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Hypothesis 1 · capacity</p>
+    <h2>Bigger models help, but the gap does not close.</h2>
+    <figure><img src="img/capacity.png" alt="Two line charts over ResNet depth 18, 34, 50 and 101. Out-of-distribution accuracy rises with depth for cross-location and day-to-night, but the normalised generalisation gap stays between about 0.18 and 0.36." loading="lazy" width="1600" height="879"></figure>
+    <p style="margin-top:14px">The best model per shift (ResNet-101 or 50) still trails its in-distribution accuracy by a normalised gap of 0.18–0.31.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Hypothesis 2 · interventions</p>
+    <h2>11 controlled changes, grouped by what they test.</h2>
+    <div class="grid">
+      <div class="card"><h3>Train-time diversification</h3><p>Photometric randomisation, background perturbation, both combined. Mean change in OOD accuracy: about zero (−0.004).</p></div>
+      <div class="card"><h3>Visibility enhancement</h3><p>Gamma, CLAHE, both. Helps slightly only when applied at train and test time (+0.006); test-only hurts (−0.037).</p></div>
+      <div class="card"><h3>Legacy probes</h3><p>Background blur inside the box, brightness alignment. Mean change −0.056.</p></div>
+      <div class="card"><h3>Object-centric diagnostics</h3><p>Foreground only, background only, crop to the animal. This is where the signal was.</p></div>
+    </div>
+  </section>
+
+  <section class="slide" id="see">
+    <p class="kicker">Try it · what the model sees</p>
+    <h2>Switch the input and watch out-of-distribution accuracy move.</h2>
+    <div class="row" role="group" aria-label="Input condition" id="conds" style="margin-bottom:14px">
+      <button class="btn" type="button" data-c="full" aria-pressed="true">Full image</button>
+      <button class="btn" type="button" data-c="background" aria-pressed="false">Background only</button>
+      <button class="btn" type="button" data-c="foreground" aria-pressed="false">Foreground only</button>
+      <button class="btn" type="button" data-c="crop" aria-pressed="false">Object crop</button>
+    </div>
+    <figure><img id="strip" src="img/s-original.jpg" alt="" width="1400" height="308"><figcaption id="cap"></figcaption></figure>
+    <div class="scroll-x" style="margin-top:14px">
+      <table>
+        <thead><tr><th>Shift</th><th>OOD accuracy</th><th>vs full image</th></tr></thead>
+        <tbody id="acc"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Result</p>
+    <h2>Cropping to the animal beats every other change.</h2>
+    <figure><img src="img/object-centric.png" alt="Grouped bar charts for three shifts comparing full image, background only, foreground only and object crop. Object crop has the highest out-of-distribution accuracy (0.75, 0.71, 0.59), the lowest gap and the highest macro-F1." loading="lazy" width="1800" height="633"></figure>
+    <div class="grid" style="margin-top:16px">
+      <div class="card"><div class="stat">+18.6 pt</div><div class="stat-label">cross-location · 55.9% → 74.5%</div></div>
+      <div class="card"><div class="stat">+19.0 pt</div><div class="stat-label">day → night · 52.2% → 71.3%</div></div>
+      <div class="card"><div class="stat">+10.9 pt</div><div class="stat-label">night → day · 47.9% → 58.8%</div></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Takeaway and limits</p>
+    <h2>The model was reading the scenery.</h2>
+    <ul class="points">
+      <li>Background-only inputs still score well above chance, so the classifier leans on the site, not the animal.</li>
+      <li>Diversifying the background at training time did not fix it; localising the animal did.</li>
+      <li><strong>Limit:</strong> crops use the dataset's annotated boxes, so +18.6 points is a diagnostic upper bound. A real system would need a detector in front.</li>
+      <li><strong>Limit:</strong> rare classes stay broken. Rodent has 128 training images and an F1 of 0 on every hard shift.</li>
+    </ul>
+    <p class="note" style="margin-top:18px">Engineering: config-driven PyTorch training, a SLURM job matrix over all 11 conditions on USC CARC GPUs, and automatic aggregation into these tables and figures.</p>
+    <p><a href="../../#more">Back to the homepage</a></p>
+  </section>
+</main>
+
+<nav class="controls" aria-label="Slides">
+  <button class="btn" id="prev" type="button" aria-label="Previous slide">←</button>
+  <span class="count" id="count" aria-live="polite"></span>
+  <button class="btn" id="next" type="button" aria-label="Next slide">→</button>
+  <span class="hint">← → keys</span>
+</nav>
+<script src="../deck.js"></script>
+<script>
+(function () {
+  // OOD accuracy from results/tables/manuscript_key_numbers.csv
+  var ACC = {
+    full:       [0.5588, 0.5224, 0.4787],
+    background: [0.4350, 0.5060, 0.3465],
+    foreground: [0.6070, 0.5141, 0.4447],
+    crop:       [0.7451, 0.7126, 0.5878]
+  };
+  var IMG = { full: 's-original', background: 's-background', foreground: 's-foreground', crop: 's-crop' };
+  var CAP = {
+    full: 'Original frames: animal plus the whole site.',
+    background: 'Animal removed: only the site is left.',
+    foreground: 'Site masked: only the animal box is kept, in place.',
+    crop: 'Cropped to the animal box and resized.'
+  };
+  var SHIFTS = ['Cross-location', 'Day → night', 'Night → day'];
+  var strip = document.getElementById('strip'), cap = document.getElementById('cap'), body = document.getElementById('acc');
+  function pick(c) {
+    document.querySelectorAll('#conds .btn').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.c === c); });
+    strip.src = 'img/' + IMG[c] + '.jpg';
+    strip.alt = 'Five camera-trap frames, ' + CAP[c].toLowerCase();
+    cap.textContent = CAP[c];
+    body.innerHTML = SHIFTS.map(function (s, i) {
+      var d = (ACC[c][i] - ACC.full[i]) * 100;
+      var cls = d > 0.05 ? 'delta' : d < -0.05 ? 'neg' : '';
+      return '<tr><td>' + s + '</td><td class="num">' + (ACC[c][i] * 100).toFixed(1) + '%</td><td class="num ' + cls + '">' +
+        (c === 'full' ? '—' : (d > 0 ? '+' : '') + d.toFixed(1) + ' pt') + '</td></tr>';
+    }).join('');
+  }
+  document.getElementById('conds').addEventListener('click', function (e) { var b = e.target.closest('.btn'); if (b) pick(b.dataset.c); });
+  pick('full');
+})();
+</script>
+</body>
+</html>

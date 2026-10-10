@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#06070c">
+<title>Stabilising GAN Training — Xiaojie Deng</title>
+<meta name="description" content="Undergraduate thesis: anime face generation with DCGAN, WGAN-GP and StyleGAN3; FID from 391 to 70.7.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Spectral:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../deck.css">
+<style>
+  .viewer { display: grid; gap: 20px; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); align-items: start; }
+  .viewer img { image-rendering: auto; max-width: 420px; }
+  .viewer img.px { image-rendering: pixelated; }
+  @media (max-width: 760px) { .viewer { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="topbar"><a href="../../#more">← Xiaojie Deng</a><span class="deck-title">Stabilising GAN training</span></header>
+<div class="progress" aria-hidden="true"><span></span></div>
+
+<main class="deck">
+  <section class="slide">
+    <p class="kicker">2023 · undergraduate thesis · NCEPU</p>
+    <h1>Stabilising GAN training for anime faces</h1>
+    <p class="lede">Three generations of GANs on the same face dataset, and what it took to stop training from collapsing.</p>
+    <div class="tags"><span>PyTorch</span><span>DCGAN</span><span>WGAN / WGAN-GP</span><span>StyleGAN2 / 3</span><span>FID</span></div>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">The problem</p>
+    <h2>Early GANs on this data produced noise and the same face twice.</h2>
+    <ul class="points">
+      <li><strong>Unstable losses:</strong> the discriminator wins early and the generator stops learning.</li>
+      <li><strong>Mode collapse:</strong> many samples converge on a few faces.</li>
+      <li><strong>Hard to judge by eye:</strong> needed a number (FID) and a second check.</li>
+    </ul>
+  </section>
+
+  <section class="slide" id="compare">
+    <p class="kicker">Try it · same task, three models</p>
+    <h2>From blurred noise to recognisable faces.</h2>
+    <div class="row" role="group" aria-label="Model" id="models" style="margin-bottom:16px">
+      <button class="btn" type="button" data-m="dcgan" aria-pressed="true">DCGAN</button>
+      <button class="btn" type="button" data-m="wgan" aria-pressed="false">WGAN-GP</button>
+      <button class="btn" type="button" data-m="style" aria-pressed="false">StyleGAN3</button>
+    </div>
+    <div class="viewer">
+      <figure><img id="grid" src="img/dcgan.jpg" alt="" width="420" height="420"></figure>
+      <div><h3 id="mname" style="margin:0 0 8px; font: 600 18px/1.3 var(--sans)"></h3><p id="mtext"></p></div>
+    </div>
+    <p class="note" style="margin-top:14px">Samples are generated images from my runs, not training data.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">What fixed it</p>
+    <h2>Three changes did most of the work.</h2>
+    <div class="grid">
+      <div class="card"><h3>Gradient penalty</h3><p>Replaced weight clipping (WGAN) with a gradient penalty (WGAN-GP) to keep the critic smooth without crippling it.</p></div>
+      <div class="card"><h3>Normalisation</h3><p>Normalisation layers to stop activations from exploding as the networks went deeper.</p></div>
+      <div class="card"><h3>G / D balance</h3><p>Tuned how often and how fast each network updates, so neither side runs away.</p></div>
+    </div>
+    <figure style="margin-top:18px; max-width:620px"><img src="img/loss-d-wgan-gp.png" alt="Line chart of WGAN-GP discriminator loss over 30 epochs: drops from 0.65 to about −0.17 in the first two epochs, then settles near zero." loading="lazy" width="900" height="675"><figcaption>WGAN-GP critic loss settles near zero after the first few epochs.</figcaption></figure>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Result</p>
+    <h2>FID from 391 down to 70.7.</h2>
+    <div class="grid">
+      <div class="card"><div class="stat">391</div><div class="stat-label">FID · first baseline</div></div>
+      <div class="card"><div class="stat">70.7</div><div class="stat-label">FID · best stabilised run</div></div>
+    </div>
+    <p style="margin-top:18px">As a second check, I ran a YOLOv5 anime-face detector over the generated grids: a face the detector can find with high confidence is at least face-shaped.</p>
+    <p class="note">FID (lower is better) compares feature statistics of generated and real images. It can be low for a model that copies the data, so it was read alongside the samples.</p>
+    <p><a href="../../#more">Back to the homepage</a></p>
+  </section>
+</main>
+
+<nav class="controls" aria-label="Slides">
+  <button class="btn" id="prev" type="button" aria-label="Previous slide">←</button>
+  <span class="count" id="count" aria-live="polite"></span>
+  <button class="btn" id="next" type="button" aria-label="Next slide">→</button>
+  <span class="hint">← → keys</span>
+</nav>
+<script src="../deck.js"></script>
+<script>
+(function () {
+  var M = {
+    dcgan: { img: 'dcgan', px: false, name: 'DCGAN · the baseline', text: 'Convolutional GAN with no special stabilisation. Faces are a colour wash with eyes in roughly the right place, and many tiles look alike: early signs of mode collapse.' },
+    wgan: { img: 'wgan-gp', px: true, name: 'WGAN-GP · stable training', text: 'Wasserstein loss with a gradient penalty. Training no longer collapses, and individual faces with distinct hair and eye colours appear, still blurry at low resolution.' },
+    style: { img: 'stylegan3', px: false, name: 'StyleGAN3 · the strongest model', text: 'Style-based generator. Clean, varied faces across hair colour, expression and pose. Remaining flaws are in fine detail and backgrounds.' }
+  };
+  var img = document.getElementById('grid');
+  function pick(k) {
+    document.querySelectorAll('#models .btn').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.m === k); });
+    img.src = 'img/' + M[k].img + '.jpg';
+    img.className = M[k].px ? 'px' : '';
+    img.alt = 'Grid of anime faces generated by ' + M[k].name.split(' · ')[0];
+    document.getElementById('mname').textContent = M[k].name;
+    document.getElementById('mtext').textContent = M[k].text;
+  }
+  document.getElementById('models').addEventListener('click', function (e) { var b = e.target.closest('.btn'); if (b) pick(b.dataset.m); });
+  pick('dcgan');
+})();
+</script>
+</body>
+</html>
