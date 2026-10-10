@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Ministers · 监控台</title>
-<meta name="ministers-api" content="https://group-dish-glucose-dsc.trycloudflare.com">
 <style>
   :root {
     --bg:#1c1a20; --panel:#252229; --line:#3a3540; --ink:#f1ede4; --dim:#a9a3ab;
@@ -100,8 +99,8 @@
   <h1>THE MINISTERS <span>· 监控台</span></h1>
   <span class="muted" id="dbline"></span>
   <span class="grow"></span>
-  <a href="./index.html" id="courtlink">进朝堂 →</a>
-  <a href="https://github.com/dxj1031/personal-page/tree/main/ministers">源码</a>
+  <a href="./app/front/The%20Court.dc.html" id="courtlink">进朝堂 →</a>
+  <a href="https://github.com/dxj1031/The-Ministers">源码 (后端+测试)</a>
   <button id="auto" aria-pressed="false">自动刷新 5s</button>
   <button id="refresh">刷新</button>
 </header>
@@ -156,12 +155,10 @@ const ms = n => Math.round(n) + 'ms';
 
 // 本地跑起来就读实时 API；读不到（GitHub Pages 上没有后端）就退到 snapshot.json 静态快照。
 // 同一份页面两种形态，省掉再维护一个"展示版"。
-// 后端地址和 index.html 共用同一个 meta；留空 = 同源
-const API = (document.querySelector('meta[name="ministers-api"]') || {}).content || '';
 let SNAP = null;
 async function get(path) {
   if (!SNAP) {
-    const r = await fetch(API + path);
+    const r = await fetch(path);
     if (!r.ok) throw new Error(path + ' → ' + r.status);
     return r.json();
   }
@@ -175,15 +172,17 @@ async function get(path) {
 async function pickSource() {
   // 只在本地才去探后端。静态托管上探一次必然 404，会在访客的控制台里留一条红字。
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-  if (local || API) {
+  if (local) {
     try {
-      const r = await fetch(API + '/api/health');
+      const r = await fetch('/api/health');
       if (r.ok) return;                     // 后端在，走实时
     } catch (e) { /* 落到下面 */ }
   }
   const r = await fetch('./snapshot.json');
   if (!r.ok) throw new Error('后端没起，也没有 snapshot.json');
   SNAP = await r.json();
+  // 部署版里游戏就在同目录的 index.html，本地是 FastAPI 挂的静态目录 —— 一行改掉，省一个构建步骤
+  $('#courtlink').href = './index.html';
   $('#banner').hidden = false;
   $('#exported').textContent = SNAP.exported_at;
   $('#auto').hidden = true;
@@ -219,11 +218,11 @@ function tech(s, sessions) {
   const cards = [
     ['规则在代码里，模型只填台词',
      '谁跟谁对呛、谁被游说倒戈、死锁上限，都由引擎按影响力和皇帝倾向算完，再让模型写这句话怎么说。换模型或者模型胡说，玩法都不会崩。',
-     `<b>${s.fallbacks}</b> 次模型不可用时，朝会照样跑完`, 'server/court.py'],
+     `<b>${s.fallbacks}</b> 次模型不可用时，朝会照样跑完`, 'app/back/services/court.py'],
     ['全链路可观测，没有隐形调用',
      '任何模型调用都必须走 llm.complete()，它负责计时、算钱、记 tokens，失败也写一行。绕过去的调用在这一页上就是隐形的 —— 这是这个项目唯一的硬规矩。',
      `<b>${s.calls}</b> 次调用 · <b>${(s.prompt_tokens + s.completion_tokens).toLocaleString()}</b> tokens 全部有据`,
-     'server/llm.py'],
+     'app/back/core/llm.py'],
     ['失败不是异常，是一种可度量的状态',
      '模型超时、限流、返回的 JSON 解析不了，都退回角色口头禅继续演，并在库里标成 fallback。产品不崩，但降级率是看得见的，不会悄悄劣化。',
      `失败率 <b>${pct(s.errors, s.calls)}</b> · 兜底率 <b>${pct(s.fallbacks, s.calls)}</b>` +
@@ -233,21 +232,21 @@ function tech(s, sessions) {
      '一次调用同时产出两句对呛加一次游说。回合数按 speak 调用次数算，不按发言条数 —— 早期按条数算，模型少写一句就少算一轮，白跑一整轮调用。',
      `<b>${speak}</b> 次 speak 调用 = <b>${speak}</b> 个回合`, 'store.count_traces()'],
     ['SSE 把整场辩论推给前端',
-     '前端不轮询：开堂后连一条流，服务端每跑完一轮就推发言和最新票型。辩论在服务端只跑一遍，流只负责读，开两个标签页也不会把模型调用花两遍。',
+     '前端不轮询：开堂后连一条流，服务端每跑完一轮就推发言和最新票型。同一场朝会只允许一条流，两个标签页不会把模型钱花两遍。',
      `均延迟 <b>${ms(s.avg_latency_ms)}</b> · p95 <b>${ms(s.p95_latency_ms)}</b>`,
      'GET /api/court/{id}/stream'],
     ['蝴蝶文库：检索到的 vs 真去引用的',
      '事实切句后向量化入库，蝴蝶发言前做余弦 top-3 检索。它只引用支持自己结论的那几条 —— ' +
      '检索到的条数和真正被引用的条数之差，就是「确认偏误」的可量化形式。' +
-     '没有 embedding 模型时退回本地哈希向量（字符 n-gram），检索数学一样，用的哪种如实记在库里。',
+     '没有 embedding API 时退回本地哈希向量（字符 n-gram），检索数学一样，用的哪种如实记在库里。',
      `<b>${r.facts}</b> 条事实 · <b>${r.searches}</b> 次检索 · 命中率 <b>${pct(r.with_hits, r.searches)}</b>` +
      ` · 引用 <b>${r.cited}/${r.retrieved}</b>` +
      (r.vectorizers.length ? ` · 向量化器 ${r.vectorizers.map(v => esc(v.vectorizer) + '×' + v.n).join(' / ')}` : ''),
-     'server/court.py · retrieve()'],
+     'app/back/services/library.py'],
     ['朝堂状态是查出来的，不是存出来的',
      '没有单独的状态表：每位大臣的当前立场 = 他最后一次发言时的立场，一条 JOIN 查出来。少一份会不一致的副本。SQL 写得可移植，换 Postgres 只要换驱动。',
      `<b>${s.sessions}</b> 场朝会 · 平均 <b>${sessions.length ? Math.round(sessions.reduce((n, x) => n + x.turns, 0) / sessions.length) : 0}</b> 条发言`,
-     'server/store.py · ministers()'],
+     'app/back/core/schema.sql'],
   ];
   $('#tech').innerHTML = cards.map(([h, p, fact, src]) => `<article>
       <h3>${esc(h)}</h3><p>${esc(p)}</p>

@@ -1,11 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Ministers · Xiaojie Deng</title>
-<meta name="description" content="A prototype where eleven LLM ministers debate everyday dilemmas and rule on them, as a daily courtroom comedy. Chapter 03 of Xiaojie Deng's homepage.">
-<meta name="ministers-api" content="https://group-dish-glucose-dsc.trycloudflare.com">
 <script src="./support.js"></script>
 </head>
 <body>
@@ -542,11 +539,7 @@ class Component extends DCLogic {
   // phase: idle 还没开堂 · opening 等十一位大臣表态 · debating 直播中 · recess 辩完待裁决 · offline 后端不在
   // live === null 时整个界面退回原来那套写死的演示数据，所以这个文件单独打开仍然是一份完整的设计稿。
 
-  // 后端地址写在 <head> 的 meta 里；留空 = 同源（本地 app.py 挂静态页时）
-  apiBase() {
-    const m = document.querySelector('meta[name="ministers-api"]');
-    return (m && m.content) || (location.protocol === 'file:' ? 'http://127.0.0.1:8010' : '');
-  }
+  apiBase() { return location.protocol === 'file:' ? 'http://127.0.0.1:8010' : ''; }
 
   async api(path, body) {
     const r = await fetch(this.apiBase() + path, body
