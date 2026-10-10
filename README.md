@@ -2,46 +2,56 @@
 
 Live: **https://dxj1031.github.io/personal-page/**
 
-A personal homepage built as a single narrative: **game AI → behavior simulation →
-cognition and emotion → multi-agent collective decision-making**. The chapters
-trace one question I kept arriving at from different directions — *can a society
-of flawed agents decide better than one rational agent?*
+Xiaojie Deng, AI Agent Engineer and M.S. Computer Engineering student at USC.
+I build LLM agents together with the evaluation and fallbacks that make them
+trustworthy. My way in was game AI: I am co-first author of a review on
+behavior-tree NPC coordination (Applied and Computational Engineering, 2024).
 
-Two of the chapters are not screenshots. They link to demos you can actually run,
-both in this repo.
+This page is a scroll-driven narrative through my side projects. Each one is
+labelled for what it is: a teaching demo, a one-day prototype, or a local
+prototype. None of them is a reproduced research result.
 
 ## Demos
 
-### Ch 01 · [EcoTank](https://dxj1031.github.io/personal-page/ecotank/)
+### [EcoTank](https://dxj1031.github.io/personal-page/ecotank/) — AI-assisted interactive teaching demo
 
-An interactive multi-agent aquarium, written from scratch in HTML/CSS/JS with no
-dependencies. It maps the technical path of *Coordination of NPCs in Multi-Agent
-Systems Based on Behavior Trees* onto something you can watch and poke at.
+An interactive multi-agent aquarium built on *Coordination of NPCs in Multi-Agent
+Systems Based on Behavior Trees*, a review paper I co-authored as co-first
+author. I designed the concept, interaction flow, visual explanations and
+evaluation scenarios, then tested and refined the implementation, which was
+written with AI assistance.
 
-- **Behavior Trees for structure, MCTS for look-ahead** — per-agent decisions under
-  uncertainty, coordinated into world-level emergent behavior.
-- Eight species with predation, parasitism, mutualist cleaning, resource
-  competition, cooperative hunting and group defense.
-- Full lifecycle: energy, age, reproduction, death, nutrient recycling.
-- Inspectable runtime — behavior-tree state, blackboard, emotion, local knowledge,
-  MCTS samples, mailbox queue and the relationship graph are all live panels.
-- Visualization layers for perception range, messages, sub-goals and intent;
-  canvas zoom/pan/follow; run, pause, step, reset and a five-stage guided script.
+The demo uses heuristic approximations to visualize selected concepts from the
+review. It is **not** a reproduction of the reviewed algorithms:
 
-The simulation lives in [`ecotank/ecotank.js`](ecotank/ecotank.js) — perception,
-decision, communication, relationships and rendering. See
-[`ecotank/README.md`](ecotank/README.md) for the loop breakdown.
+- the behavior tree is a teaching state mapping, not a general BT runtime;
+- "MCTS" is MCTS-style candidate sampling, not a full search tree;
+- MDP / MMDP / Dec-POMDP are described, not formally implemented.
 
-### Ch 03 · [The Ministers](https://dxj1031.github.io/personal-page/ministers/)
+What you can do with it: watch eight species interact (predation, cleaning,
+competition, group defense), inspect each agent's state, blackboard and messages
+in live panels, and step through a five-stage guided script. See
+[`ecotank/README.md`](ecotank/README.md) for the mechanism-by-mechanism mapping
+and its limits.
 
-*My Ministers* — a society of eleven LLM agents that argue their way to a
-collective decision, framed as a daily courtroom comedy. Everyday dilemmas
-("should I quit without a plan?") go to the floor, the ministers deliberate in
-character, and the court rules.
+### [The Ministers](https://dxj1031.github.io/personal-page/ministers/) — local prototype
 
-This page is the product prototype: cast, petition, debate, intervention and
-verdict screens, ZH/EN. It's the interaction design and the deliberation shape —
-the agent backend is a separate work in progress and not published here yet.
+Eleven LLM "ministers" debate an everyday dilemma you file, live, and you rule
+on it: cast, petition, debate, intervention and verdict, in ZH/EN. Code decides
+who clashes, who lobbies whom and who defects; the model (qwen2.5:14b on Ollama)
+only writes the lines.
+
+The backend (`ministers/server/`) runs on my own desktop and is reached through
+a Cloudflare quick tunnel, so the live court is only open while that machine is
+on. When it is not, the page plays a scripted demo instead. The
+[console](ministers/console.html) shows every LLM call, latency and fallback.
+There is no evaluation of decision quality yet.
+
+### Early prototypes (not linked here)
+
+State Tides: a one-day product prototype exploring how an LLM API can structure
+reflective journal entries, built with synthetic data and a heuristic fallback.
+Not a clinical or research system.
 
 ## Stack
 
@@ -51,19 +61,25 @@ Static, no build step, no package manager. Clone it and open `index.html`.
   renders offline once loaded.
 - The Ministers page runs on a small component runtime (`ministers/support.js`,
   generated) and pulls React from a CDN at load time, so it needs network.
+- The Ministers backend is Python (FastAPI + SQLite + Ollama). Start it with
+  `powershell -ExecutionPolicy Bypass -File ministers\server\serve.ps1`, which
+  opens the tunnel and pushes its address into the pages' `ministers-api` meta.
+  `python ministers/server/test_court.py` runs a whole court with no model.
 - Deployed straight from `main` by GitHub Pages.
 
 ```text
 personal-page/
 ├─ index.html          # homepage — the narrative, chapter interactions, canvas scenes
-├─ ecotank/            # Ch 01 demo
+├─ ecotank/            # EcoTank demo
 │  ├─ index.html
 │  ├─ ecotank.css
 │  ├─ ecotank.js       # simulation, decision, communication, rendering
 │  └─ assets/paper/    # figures from the source paper
-└─ ministers/          # Ch 03 demo
+└─ ministers/          # The Ministers
    ├─ index.html
-   └─ support.js       # component runtime (generated)
+   ├─ console.html     # observability: calls, latency, retrieval
+   ├─ support.js       # component runtime (generated)
+   └─ server/          # backend: app.py, court.py, llm.py, store.py, serve.ps1
 ```
 
 ## Contact
