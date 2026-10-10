@@ -54,6 +54,9 @@
   .undecided { color:var(--dim); }
   .tag-ok { color:var(--ok); } .tag-err { color:var(--bad); } .tag-fb { color:var(--warn); }
 
+  /* 窄屏下数据表自己横滚，不让整页横滚 */
+  .tw { overflow-x:auto; overscroll-behavior-x:contain; }
+  .tw table { min-width:340px; }
   .bar { height:5px; background:var(--accent); border-radius:3px; min-width:2px; }
   .wrap { max-width:none; }
   .turn { display:grid; grid-template-columns:26px 1fr; gap:8px; padding:5px 0;
@@ -127,17 +130,21 @@
   <div class="tech" id="tech"></div>
 
   <h2>按调用类型</h2>
+  <div class="tw" tabindex="0" role="region" aria-label="按调用类型的统计表">
   <table id="ops"><thead><tr>
     <th>op</th><th class="num">调用</th><th class="num">平均延迟</th>
     <th class="num">失败</th><th class="num">成本 $</th><th style="width:34%"></th>
   </tr></thead><tbody></tbody></table>
+  </div>
 
   <div class="cols">
     <div>
       <h2>朝会 <span class="muted" id="sesscount"></span></h2>
+      <div class="tw" tabindex="0" role="region" aria-label="朝会列表">
       <table id="sessions"><thead><tr>
         <th>议题</th><th>状态</th><th class="num">发言</th><th class="num">调用</th><th class="num">$</th>
       </tr></thead><tbody></tbody></table>
+      </div>
     </div>
     <div>
       <h2 id="detailTitle">明细 <span class="muted">— 点左侧一行</span></h2>
