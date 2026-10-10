@@ -25,7 +25,7 @@
   button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); }
   main { padding:16px 20px 60px; }
 
-  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:10px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(132px,100%),1fr)); gap:10px; }
   .kpi { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--sand);
          border-radius:8px; padding:9px 12px; }
   .kpi b { display:block; font-size:21px; font-weight:600; letter-spacing:.5px; }
@@ -36,7 +36,8 @@
   h2 { font-size:12px; letter-spacing:2px; color:var(--dim); text-transform:uppercase;
        margin:26px 0 8px; font-weight:600; }
   .cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.35fr); gap:20px; align-items:start; }
-  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+  /* minmax(0,1fr) 而不是 1fr：1fr 的隐含最小值是 auto，表格的 min-width 会把列顶宽、整页横滚 */
+  @media (max-width:900px) { .cols { grid-template-columns:minmax(0,1fr); } }
 
   table { width:100%; border-collapse:collapse; font-size:12.5px; }
   th { text-align:left; color:var(--dim); font-weight:600; font-size:11px; letter-spacing:1px;
@@ -81,7 +82,7 @@
   .pipe span.hot { border-color:var(--accent); color:var(--accent); }
   .pipe i { color:var(--dim); font-style:normal; }
 
-  .tech { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:10px; }
+  .tech { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr)); gap:10px; }
   .tech article { background:var(--panel); border:1px solid var(--line); border-radius:8px;
                   padding:11px 13px; display:flex; flex-direction:column; gap:6px; }
   .tech h3 { margin:0; font-size:13.5px; letter-spacing:.5px; }
