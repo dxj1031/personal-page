@@ -94,6 +94,15 @@
   .hit { display:flex; gap:9px; align-items:baseline; padding:5px 0;
          border-bottom:1px solid #2e2a34; font-size:12.5px; }
   .hit .num { color:var(--sand); min-width:46px; }
+  .hit .txt { min-width:0; word-break:break-word; }
+
+  /* 评估回归：行首是真 button，键盘和焦点环都是浏览器白送的，不用自己接 keydown */
+  .rowbtn { background:none; border:0; padding:0; font:inherit; color:inherit;
+            text-align:left; cursor:pointer; }
+  .rowbtn[aria-expanded="true"] { color:var(--accent); }
+  .d { margin-left:5px; font-size:10.5px; }
+  .case { display:flex; flex-wrap:wrap; gap:5px; align-items:baseline;
+          min-width:0; margin:5px 0 7px; }
   [hidden] { display:none !important; }
   :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 </style>
@@ -138,6 +147,12 @@
   </tr></thead><tbody></tbody></table>
   </div>
 
+  <h2>评估回归 <span class="muted" id="evalcount"></span></h2>
+  <div class="tw" tabindex="0" role="region" aria-label="评估 run 对比表，每行一次回归，指标后面是与上一次 run 的差值">
+  <table id="evals"><thead></thead><tbody></tbody></table>
+  </div>
+  <div id="evalCases" class="empty"></div>
+
   <div class="cols">
     <div>
       <h2>朝会 <span class="muted" id="sesscount"></span></h2>
@@ -173,6 +188,13 @@ async function get(path) {
   if (path === '/api/health') return SNAP.health;
   if (path === '/api/stats') return SNAP.stats;
   if (path === '/api/sessions') return SNAP.sessions;
+  if (path.startsWith('/api/evals')) {
+    // 快照里每个 run 已经内嵌了自己的 cases，所以列表和单个 run 查的是同一份数据
+    const runs = SNAP.evals || [];
+    const one = path.match(/^\/api\/evals\/([^?]+)/);
+    if (!one) return runs;
+    return runs.find(r => String(r.id) === one[1]) || { cases: [] };
+  }
   const id = path.replace('/api/sessions/', '');
   return SNAP.detail[id] || { topic: '(快照里没有这一局)', turns: [], traces: [] };
 }
@@ -274,6 +296,123 @@ function ops(rows) {
     </tr>`).join('') : '<tr><td colspan="6" class="empty">还没有调用记录。</td></tr>';
 }
 
+// ── 评估回归 ──────────────────────────────────────────────────────────────
+// 方向语义只写在这张表里：dir=1 越高越好，dir=-1 越低越好，dir=0 是体量不是质量。
+// 差值的红绿全部由 dir 推出来，所以 narration_rate 升高永远是红的，不靠人记。
+const RATE = v => +(100 * v).toFixed(1) + '%';
+const SCORE = v => (+v).toFixed(2);
+const INT = v => Math.round(v).toLocaleString();
+const dur = n => n >= 60000 ? Math.floor(n / 60000) + 'm' + Math.round(n % 60000 / 1000) + 's'
+                            : (n / 1000).toFixed(1) + 's';
+const EVAL_COLS = [
+  ['json_ok',          'json ok',   1, RATE],
+  ['fallback_rate',    '兜底',     -1, RATE],
+  ['len_ok',           '长度 ok',   1, RATE],
+  ['narration_rate',   '旁白',     -1, RATE],
+  ['dup_rate',         '重复',     -1, RATE],
+  ['stance_spread_ok', '立场分布',  1, RATE],
+  ['deadlock_ok',      '死锁 ok',   1, RATE],
+  ['round_shape_ok',   '回合形状',  1, RATE],
+  ['persona',          '人设 /2',   1, SCORE],
+  ['lines',            '发言',      0, INT],
+  ['calls',            '调用',      0, INT],
+  ['avg_latency_ms',   '均延迟',   -1, ms],
+  ['cost_usd',         '成本',     -1, usd],
+];
+const FAIL_KIND = {
+  narration: '旁白', too_long: '超长', duplicate: '重复', stance_spread: '立场分布',
+  deadlock: '死锁', round_shape: '回合形状', persona: '人设',
+};
+let selectedEval = null;
+
+function evalCell(run, prev, [key, , dir, fmt]) {
+  const v = (run.metrics || {})[key];
+  // judge_model 为 null 时 persona 也是 null —— 那是"没评"，不是 0 分
+  if (v == null) return `<td class="num muted">${key === 'persona' ? '未评审' : '—'}</td>`;
+  const p = prev ? (prev.metrics || {})[key] : null;
+  let d = '';
+  if (p != null) {
+    const diff = v - p;
+    const cls = !diff || !dir ? 'muted' : (diff * dir > 0 ? 'tag-ok' : 'tag-err');
+    d = `<span class="d ${cls}">${diff ? (diff > 0 ? '↑' : '↓') + fmt(Math.abs(diff)) : '='}</span>`;
+  }
+  return `<td class="num">${fmt(v)}${d}</td>`;
+}
+
+function evals(runs) {
+  const cols = 4 + EVAL_COLS.length;
+  $('#evalcount').textContent = runs.length ? `— 最近 ${runs.length} 次，指标后面是跟上一次的差值` : '';
+  $('#evals thead').innerHTML = '<tr><th>run</th><th>模型</th><th class="num">用例</th>'
+    + '<th class="num">耗时</th>' + EVAL_COLS.map(([, h]) => `<th class="num">${esc(h)}</th>`).join('')
+    + '</tr>';
+  if (!runs.length) {
+    $('#evals tbody').innerHTML = `<tr><td colspan="${cols}" class="empty">还没跑过评估。跑一次：
+      <code>python -m app.back.evaluation.runner --label baseline</code></td></tr>`;
+    $('#evalCases').className = 'empty';
+    $('#evalCases').textContent = '';
+    return;
+  }
+  $('#evals tbody').innerHTML = runs.map((r, i) => {
+    const prev = runs[i + 1];                      // 最新的在前，所以"上一次"是后一个元素
+    const on = String(r.id) === String(selectedEval);
+    const n = Array.isArray(r.cases) ? r.cases.length : (r.cases ?? 0);
+    return `<tr class="${on ? 'sel' : ''}">
+      <td><button type="button" class="rowbtn" data-id="${esc(r.id)}"
+            aria-controls="evalCases" aria-expanded="${on}">
+        ${esc(r.label || 'run ' + r.id)}
+        ${r.finished_at ? '' : '<span class="pill undecided">进行中</span>'}<br>
+        <span class="muted">${esc(String(r.finished_at || r.started_at || '').slice(0, 16).replace('T', ' '))}</span>
+      </button></td>
+      <td>${esc(r.model || '—')}<br><span class="muted">评审 ${r.judge_model ? esc(r.judge_model) : '未评审'}</span></td>
+      <td class="num">${n}</td>
+      <td class="num">${r.duration_ms != null ? dur(r.duration_ms) : '—'}</td>
+      ${EVAL_COLS.map(c => evalCell(r, prev, c)).join('')}
+    </tr>`;
+  }).join('');
+  $('#evals tbody').querySelectorAll('.rowbtn').forEach(b =>
+    b.onclick = () => { selectedEval = b.dataset.id; refresh(); });
+  if (!selectedEval) {
+    $('#evalCases').className = 'empty';
+    $('#evalCases').textContent = '点上面任意一次 run，看它每个用例的指标和失败项。';
+  }
+}
+
+function evalCases(run) {
+  const box = $('#evalCases');
+  const cs = Array.isArray(run.cases) ? run.cases : [];
+  const name = esc(run.label || 'run ' + run.id);
+  if (!cs.length) {
+    box.className = 'empty';
+    box.innerHTML = `${name}：没有 case 明细。`;
+    return;
+  }
+  box.className = '';
+  box.innerHTML = `<h2>case 明细 <span class="muted">— ${name} · ${cs.length} 个用例</span></h2>`
+    + cs.map(c => {
+      const m = c.metrics || {};
+      const fails = c.failures || [];
+      return `<details>
+        <summary>
+          <span class="${fails.length ? 'tag-err' : 'tag-ok'}">${fails.length ? '✗' : '✓'}</span>
+          <b>${esc(c.case_id)}</b> ${esc(c.topic || '')}
+          <span class="${fails.length ? 'tag-err' : 'muted'}">${fails.length ? fails.length + ' 条失败项' : '无失败项'}</span>
+        </summary>
+        <div class="case">
+          ${EVAL_COLS.filter(([k]) => m[k] != null)
+             .map(([k, h, , f]) => `<span class="pill">${esc(h)} ${f(m[k])}</span>`).join('')}
+          ${m.persona == null ? '<span class="pill undecided">人设 未评审</span>' : ''}
+          ${c.session_id ? `<span class="pill undecided">session ${esc(c.session_id)}</span>` : ''}
+        </div>
+        ${fails.length ? fails.map(f => `<div class="hit">
+             <span class="num tag-err">${esc(FAIL_KIND[f.kind] || f.kind)}</span>
+             <span class="pill">${esc(f.minister || '—')}</span>
+             <span class="txt">${esc(f.text || '')}</span>
+           </div>`).join('')
+          : '<div class="muted">无失败项</div>'}
+      </details>`;
+    }).join('');
+}
+
 function sessions(rows) {
   $('#sesscount').textContent = `(${rows.length})`;
   $('#sessions tbody').innerHTML = rows.length ? rows.map(r => `
@@ -336,6 +475,13 @@ async function refresh() {
     get('/api/stats'), get('/api/sessions'), get('/api/health')]);
   $('#dbline').textContent = health.db;
   kpis(st); tech(st, ss); ops(st.by_op); sessions(ss);
+  // ponytail: /api/evals 拿不到就当没跑过评估，不要让一个新接口把整页拖黑
+  const runs = await get('/api/evals?limit=10').catch(() => []);
+  // 选中的那次 run 已经不在列表里了（接口挂了、或者滚出了 limit）就取消选中
+  if (!runs.some(r => String(r.id) === String(selectedEval))) selectedEval = null;
+  evals(runs);
+  if (selectedEval) evalCases(await get('/api/evals/' + selectedEval)
+    .catch(() => ({ id: selectedEval, cases: [] })));
   if (!selected && ss.length) selected = ss[0].id;
   if (selected) detail(await get('/api/sessions/' + selected));
 }
