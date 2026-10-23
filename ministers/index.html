@@ -82,8 +82,32 @@
   @media (min-width:480px) and (min-height:1098px) { :root { --mm-scale:1.30; } }
   @media (min-width:480px) and (min-height:1140px) { :root { --mm-scale:1.35; } }
 
-  /* ── desktop only · 朝堂实录 ── */
-  .mm-log { flex:0 1 400px; min-width:0; margin-left:24px; height:calc(844px * var(--mm-scale)); max-height:100dvh;
+  /* ── desktop only · 右栏：朕的心事 + 朝堂实录 ──
+     手机上这一整栏不出现（和实录一直以来的规则一样）：390 的框里塞不下第二套面板，
+     硬塞只会把朝堂挤变形。桌面端两段共用同一套边框、圆角、底色和投影。 */
+  .mm-rail { flex:0 1 400px; min-width:0; margin-left:24px; height:calc(844px * var(--mm-scale));
+             max-height:100dvh; display:flex; flex-direction:column; gap:14px; }
+  .mm-mind { flex:none; display:flex; flex-direction:column; background:#2b2733; color:#f1ede4;
+             border:4px solid #b2a181; border-radius:18px; overflow:hidden;
+             font-family:'Baloo 2','ZCOOL KuaiLe',sans-serif; box-shadow:6px 7px 0 rgba(0,0,0,.45); }
+  .mm-mind-body { padding:12px 14px 14px; display:flex; flex-direction:column; gap:10px; }
+  .mm-mind-row { display:flex; flex-direction:column; gap:4px; }
+  .mm-mind-row label { font:800 10px/1.2 'Baloo 2',sans-serif; letter-spacing:1.2px; color:#d8c9a4; }
+  .mm-mind-row input { width:100%; box-sizing:border-box; border:2px solid rgba(241,237,228,.3);
+             border-radius:9px; background:rgba(241,237,228,.07); padding:7px 9px;
+             font:600 13px/1.4 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#f1ede4; outline:none; }
+  .mm-mind-row input:focus-visible { outline:3px solid #b2a181; outline-offset:1px; border-color:#b2a181; }
+  .mm-mind-row input::placeholder { color:rgba(241,237,228,.45); }
+  .mm-mind-by { font:800 9px/1.2 'Baloo 2',sans-serif; letter-spacing:1px; color:#a9a3ab; }
+  .mm-mind-save { all:unset; align-self:flex-start; cursor:pointer; border:2.5px solid #2b2733;
+             border-radius:11px; background:#b2a181; color:#2b2733; padding:7px 15px;
+             font:800 12px/1 'Baloo 2','ZCOOL KuaiLe',sans-serif; letter-spacing:1px;
+             box-shadow:2.5px 2.5px 0 #1c1a20; }
+  .mm-mind-save:focus-visible { outline:3px solid #f1ede4; outline-offset:2px; }
+  .mm-mind-save[disabled] { cursor:default; background:rgba(241,237,228,.14); color:#a9a3ab;
+             border-color:rgba(241,237,228,.2); box-shadow:none; }
+
+  .mm-log { flex:1 1 auto; min-width:0; min-height:0;
             display:flex; flex-direction:column; background:#2b2733; color:#f1ede4;
             border:4px solid #b2a181; border-radius:18px; overflow:hidden;
             font-family:'Baloo 2','ZCOOL KuaiLe',sans-serif; box-shadow:6px 7px 0 rgba(0,0,0,.45); }
@@ -93,7 +117,7 @@
                  scrollbar-color:#b2a181 #2b2733; }
   .mm-log-body:focus-visible { outline:3px solid #b2a181; outline-offset:-3px; }
   /* sc-if 已经不渲染了；这条只是兜底，保证窄屏任何一帧都不可能占位 */
-  @media (max-width:1023px) { .mm-log { display:none; } }
+  @media (max-width:1023px) { .mm-rail { display:none; } }
 </style>
 </helmet>
 
@@ -225,6 +249,17 @@
       <div style="font:800 12px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#847d88;">{{ t.petLabel }}</div>
       <input value="{{ topic }}" onInput="{{ topicChange }}" placeholder="{{ t.topicPh }}" style="margin-top:12px; width:100%; border:3px solid #2b2733; border-radius:14px; background:#f7f4ec; padding:12px 13px; font:400 21px/1.3 {{ dispFont }}; color:#2b2733; outline:none; box-shadow:3px 4px 0 rgba(178,166,140,.75);">
       <input value="{{ ctx }}" onInput="{{ ctxChange }}" placeholder="{{ t.ctxPh }}" style="margin-top:9px; width:100%; border:2.5px dashed rgba(43,39,51,.4); border-radius:12px; background:transparent; padding:9px 12px; font:600 14px/1.4 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#2b2733; outline:none;">
+      <div style="margin-top:14px;">
+        <label for="leanOpen" style="display:block; font:800 12px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#847d88;">{{ t.leanLabel }}</label>
+        <input id="leanOpen" type="range" min="-1" max="1" step="0.1" value="{{ leanOpen }}" onInput="{{ leanChange }}"
+               aria-describedby="leanWord" style="margin-top:9px; width:100%; accent-color:#a4726a; cursor:pointer;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; font:600 11px/1.3 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#6b6470;">
+          <span>{{ t.leanCon }}</span>
+          <b id="leanWord" style="font:800 12px/1.3 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#a4726a;">{{ leanWord }}</b>
+          <span>{{ t.leanPro }}</span>
+        </div>
+        <p style="margin:7px 0 0; font:600 11.5px/1.5 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#6b6470;">{{ t.leanHint }}</p>
+      </div>
       <div style="margin-top:12px; font:600 14.5px/1.55 'Baloo 2',sans-serif; color:{{ errColor }};">{{ stakesLine }}</div>
       <div style="margin-top:24px;">
         <div style="display:flex; align-items:center; gap:8px; padding-bottom:8px; border-bottom:3px solid #2b2733;">
@@ -438,12 +473,46 @@
       <span>{{ t.verKicker }}</span>
       <span style="background:#2b2733; border:2.5px solid #f1ede4; border-radius:10px; padding:4px 9px; transform:rotate(-2deg);">{{ t.verChip }}</span>
     </div>
-    <div style="flex:1; position:relative; padding:0 38px 0 18px; display:flex; flex-direction:column; justify-content:center; overflow:hidden;">
+    <div style="flex:1; position:relative; padding:14px 38px 14px 18px; display:flex; flex-direction:column; justify-content:center; overflow-y:auto;">
       <span style="position:absolute; right:20px; top:24px; color:#b2a181; font-size:30px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.3s ease-in-out infinite;">✦</span>
       <span style="position:absolute; left:16px; bottom:30px; color:#b2a181; font-size:22px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.7s .4s ease-in-out infinite;">✦</span>
       <div style="position:relative; animation:riseIn .6s cubic-bezier(.2,.9,.2,1) both;">
         <div style="font:{{ t.verTitleFont }}; letter-spacing:-1px; color:#b2a181; -webkit-text-stroke:4px #2b2733; paint-order:stroke fill; text-shadow:6px 7px 0 #2b2733;">{{ t.verTitle1 }}<span style="color:transparent; -webkit-text-stroke:3px #f1ede4; text-shadow:none;">{{ t.verTitle2 }}</span></div>
         <div style="margin-top:14px; font:400 19px/1.5 {{ dispFont }}; color:#f1ede4;">{{ decreeText }}</div>
+        <div style="margin-top:7px; font:400 13px/1.4 {{ dispFont }}; color:rgba(241,237,228,.78);">{{ decreeBy }}</div>
+        <sc-if value="{{ hasMirror }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:16px; padding-top:12px; border-top:3px solid rgba(241,237,228,.3);">
+            <div style="font:400 15px/1.2 {{ dispFont }}; letter-spacing:1.5px; color:#f1ede4;">🪞 {{ t.mirrorTitle }}</div>
+            <div style="margin-top:9px; font:800 10px/1.2 'Baloo 2',sans-serif; letter-spacing:1.2px; color:#d8c9a4;">{{ t.mirrorPushed }}</div>
+            <sc-for list="{{ mirrorPushed }}" as="m" hint-placeholder-count="3">
+              <div style="margin-top:6px; display:flex; align-items:baseline; gap:7px;">
+                <span aria-hidden="true" style="font-size:15px;">{{ m.head }}</span>
+                <b style="flex:none; font:400 13px/1.4 {{ dispFont }}; color:#f1ede4;">{{ m.name }}</b>
+                <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 12px/1.4 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:rgba(241,237,228,.92);">{{ m.text }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasRemons }}" hint-placeholder-val="{{ true }}">
+          <figure style="margin:14px 0 0; padding:11px 13px; border-left:3px solid #b2a181; background:rgba(43,39,51,.28);">
+            <div style="font:400 12px/1.3 {{ dispFont }}; color:#d8c9a4; letter-spacing:.08em;">{{ t.remonsWord }}</div>
+            <blockquote style="margin:5px 0 0; font:400 16px/1.5 {{ dispFont }}; color:#f1ede4;">{{ remonsText }}</blockquote>
+            <figcaption style="margin-top:5px; font:400 13px/1.4 {{ dispFont }}; color:rgba(241,237,228,.78);">{{ remonsBy }}</figcaption>
+          </figure>
+        </sc-if>
+        <sc-if value="{{ hasFavorite }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:10px; display:flex; align-items:baseline; gap:9px;">
+            <span style="font:800 10px/1.2 'Baloo 2',sans-serif; letter-spacing:1.2px; color:#d8c9a4;">{{ t.mirrorFavorite }}</span>
+            <span style="min-width:0; font:600 11.5px/1.45 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:rgba(241,237,228,.92);">{{ favoriteLine }}</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasConfirm }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:12px; display:flex; align-items:baseline; gap:9px;">
+            <span style="font:800 10px/1.2 'Baloo 2',sans-serif; letter-spacing:1.2px; color:#d8c9a4;">{{ t.mirrorConfirm }}</span>
+            <b style="font:400 20px/1 'Lilita One',sans-serif; color:#f1ede4;">{{ confirmRate }}</b>
+            <span style="min-width:0; font:600 11.5px/1.45 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:rgba(241,237,228,.92);">{{ confirmLine }}</span>
+          </div>
+        </sc-if>
         <div style="margin-top:18px; display:flex; align-items:baseline; gap:13px;">
           <span style="font:400 54px/1 'Lilita One',sans-serif; text-shadow:4px 4px 0 #2b2733;">{{ proN }}</span>
           <span style="font:400 15px/1.1 {{ dispFont }};">{{ t.proWord }}</span>
@@ -496,8 +565,28 @@
 </div>
 </div>
 
-<!-- ====================== DESKTOP ONLY · 朝堂实录 / TRANSCRIPT ====================== -->
+<!-- ============ DESKTOP ONLY · 右栏：朕的心事 + 朝堂实录 ============ -->
 <sc-if value="{{ wideOn }}" hint-placeholder-val="{{ false }}">
+<div class="mm-rail">
+
+<section class="mm-mind" aria-label="{{ t.mindTitle }}">
+  <h2 class="mm-log-head">
+    <span style="font:400 22px/1.1 {{ dispFont }}; letter-spacing:2px; color:#f1ede4;">🦝 {{ t.mindTitle }}</span>
+    <span style="font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px; color:#b2a181;">{{ t.mindBy }}</span>
+  </h2>
+  <div class="mm-mind-body">
+    <p style="margin:0; font:600 11px/1.5 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#a9a3ab;">{{ t.mindHint }}</p>
+    <sc-for list="{{ mindRows }}" as="f" hint-placeholder-count="4">
+      <div class="mm-mind-row">
+        <label for="{{ f.id }}">{{ f.label }} <span class="mm-mind-by">{{ f.by }}</span></label>
+        <input id="{{ f.id }}" value="{{ f.value }}" onChange="{{ f.change }}"
+               placeholder="{{ f.ph }}" maxLength="{{ 60 }}">
+      </div>
+    </sc-for>
+    <button class="mm-mind-save" onClick="{{ mindSave }}" disabled="{{ mindClean }}">{{ t.mindSave }}</button>
+  </div>
+</section>
+
 <section class="mm-log" aria-label="{{ t.logTitle }}">
   <h2 class="mm-log-head">
     <span style="font:400 22px/1.1 {{ dispFont }}; letter-spacing:2px; color:#f1ede4;">📜 {{ t.logTitle }}</span>
@@ -516,11 +605,16 @@
             <span style="font:800 10px/1.2 'Baloo 2',sans-serif; letter-spacing:1.2px; color:#a9a3ab;">{{ q.meta }}</span>
           </div>
           <p style="margin:5px 0 0; font:600 14px/1.55 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#f1ede4; overflow-wrap:anywhere;">{{ q.text }}</p>
+          <sc-if value="{{ q.canNote }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ q.note }}" style="all:unset; margin-top:6px; cursor:pointer; border:2px solid rgba(241,237,228,.35); border-radius:8px; padding:3px 9px; font:800 10px/1.4 'Baloo 2','ZCOOL KuaiLe',sans-serif; letter-spacing:1px; color:#d8c9a4;">{{ q.noteLabel }}</button>
+          </sc-if>
         </div>
       </article>
     </sc-for>
   </div>
 </section>
+
+</div>
 </sc-if>
 
 </div>
@@ -533,7 +627,10 @@
 }">
 class Component extends DCLogic {
   state = { screen: 1, lang: 'en', duelTurn: 0, poke: null, lobPhase: 0, lobSc: 'A', fishCamp: 'pro', rotTick: 0, itvOpen: false, itv: null, castPoke: null, pairIdx: 0, cut: null,
-            topic: '', ctx: '', sid: null, live: null, feed: [], phase: 'idle', err: '', wide: false };
+            topic: '', ctx: '', sid: null, live: null, feed: [], phase: 'idle', err: '', wide: false,
+            mindEdit: {},    // 心事的本地草稿：没按「改定」之前不发给后端
+            leanOpen: 0,     // 递奏章时的倾向，开堂那一下送出去，之后不再问
+            noted: {} };     // 这一轮点过御笔的行，只用来把按钮改成「已收」
 
   // ---- 后端 ----
   // phase: idle 还没开堂 · opening 等十一位大臣表态 · debating 直播中 · recess 辩完待裁决 · offline 后端不在
@@ -556,12 +653,73 @@ class Component extends DCLogic {
     this.closeStream();
     this.setState({ screen: 4, phase: 'opening', err: '', feed: [], live: null, sid: null });
     try {
-      const s = await this.api('/api/court', { topic, context: this.state.ctx, lang: this.state.lang });
+      const s = await this.api('/api/court', { topic, context: this.state.ctx,
+                                               lang: this.state.lang,
+                                               lean_open: Number(this.state.leanOpen) || 0 });
       this.setState({ sid: s.id, live: s, phase: 'debating' });
       this.openStream(s.id, s.turns.length);
     } catch (e) {
       // 后端没起来不该白屏：退回演示朝堂，只在奏章屏留一句人话
       this.setState({ phase: 'offline', err: (zh ? '朝堂离线，正在放演示：' : 'Court offline, showing demo: ') + (e.message || e) });
+    }
+  }
+
+  // 「朕的心事」四项。拾荒整理出来的存在 live.mind，用户改的先落在 state.mindEdit。
+  // 滑条的文字读数。只分三档：再细的刻度是假精度，用户也说不出 0.4 和 0.5 的区别。
+  leanWord() {
+    const zh = this.state.lang === 'zh';
+    const v = Number(this.state.leanOpen) || 0;
+    if (v <= -0.34) return zh ? '偏驳回' : 'LEANING NO';
+    if (v >= 0.34)  return zh ? '偏准奏' : 'LEANING YES';
+    return zh ? '尚无定见' : 'UNDECIDED';
+  }
+
+  mindFields() {
+    const zh = this.state.lang === 'zh';
+    return [
+      { key:'anxiety',  label: zh ? '真正怕失去的'   : 'AFRAID TO LOSE',
+        ph: zh ? '拾荒还没看出来' : 'nothing on file yet' },
+      { key:'impulse',  label: zh ? '想立刻就做的'   : 'ITCHING TO DO',
+        ph: zh ? '拾荒还没看出来' : 'nothing on file yet' },
+      { key:'stake',    label: zh ? '赌上的'         : 'ON THE TABLE',
+        ph: zh ? '拾荒还没看出来' : 'nothing on file yet' },
+      { key:'deadline', label: zh ? '真实的时间压力' : 'REAL DEADLINE',
+        ph: zh ? '拾荒还没看出来' : 'nothing on file yet' },
+    ];
+  }
+
+  mindValue(key) {
+    const draft = this.state.mindEdit || {};
+    if (key in draft) return draft[key];
+    const m = (this.state.live && this.state.live.mind) || {};
+    return m[key] ? m[key].text : '';
+  }
+
+  // 御笔批注落后端，不落 localStorage：它的价值在跨局 —— 攒够了才看得出你总是收藏谁。
+  async saveNote(minister, text) {
+    if (!this.state.sid || !text) return;
+    const key = minister + '|' + text;
+    this.setState(st => ({ noted: Object.assign({}, st.noted, { [key]: true }) }));
+    try {
+      const live = await this.api('/api/court/' + this.state.sid + '/note', { minister, text });
+      this.setState({ live });
+    } catch (e) {
+      this.setState(st => {
+        const n = Object.assign({}, st.noted); delete n[key];
+        return { noted: n, err: String(e.message || e) };
+      });
+    }
+  }
+
+  async saveMind() {
+    if (!this.state.sid) return;
+    const body = {};
+    this.mindFields().forEach(f => { body[f.key] = this.mindValue(f.key); });
+    try {
+      const live = await this.api('/api/court/' + this.state.sid + '/mind', body);
+      this.setState({ live, mindEdit: {} });
+    } catch (e) {
+      this.setState({ err: String(e.message || e) });
     }
   }
 
@@ -660,7 +818,9 @@ class Component extends DCLogic {
   // ---- 把后端快照翻译成界面已有的那些变量名 ----
   // 没有 live 就返回空对象，render() 里原来的演示值原样生效。
 
-  liveView() {
+  // t 是 renderVals 里的 i18n 字典，必须显式传进来：它不在这个方法的作用域里。
+  // 之前这里直接写 t.xxx，离线演示永远走不到这几行，第一次真跑一局就 ReferenceError。
+  liveView(t) {
     const L = this.state.live;
     if (!L) return {};
     const zh = this.state.lang === 'zh';
@@ -710,7 +870,7 @@ class Component extends DCLogic {
 
     const pad = n => String(n).padStart(2, '0');
     const loud = L.ministers.slice().sort((a, b) => b.influence - a.influence)[0];
-    const verdictTurn = (L.turns || []).filter(t => t.kind === 'verdict').pop();
+    const verdictTurn = (L.turns || []).filter(x => x.kind === 'verdict').pop();
     const waiting = this.state.phase === 'opening' || this.state.phase === 'ruling';
 
     return {
@@ -726,6 +886,48 @@ class Component extends DCLogic {
       proN: String(L.tally.pro), conN: String(L.tally.con), absN: String(L.tally.undecided),
       decreeText: verdictTurn ? verdictTurn.text
                 : (zh ? '朕还未下旨。' : 'No decree yet.'),
+      // 判词是应声念的 —— 署名写出来，用户才知道这份恭维是谁给的
+      decreeBy: verdictTurn && meta[verdictTurn.minister]
+              ? (meta[verdictTurn.minister].head + ' ' + nameOf(verdictTurn.minister)
+                 + (zh ? ' 代宣' : ' READS THE DECREE'))
+              : '',
+      mindRows: this.mindFields().map(f => {
+        const src = ((L.mind || {})[f.key] || {}).source;
+        return Object.assign({}, f, {
+          id: 'mind-' + f.key,
+          value: this.mindValue(f.key),
+          by: src === 'user' ? t.mindByUser : (src ? t.mindByRaccoon : ''),
+          change: (e) => this.setState(st => ({
+            mindEdit: Object.assign({}, st.mindEdit, { [f.key]: e.target.value }),
+          })),
+        });
+      }),
+      mindClean: !Object.keys(this.state.mindEdit || {}).length,
+      hasMirror: !!(L.mirror && L.mirror.pushed && L.mirror.pushed.length),
+      mirrorPushed: ((L.mirror || {}).pushed || []).map(m => ({
+        head: meta[m.minister] ? meta[m.minister].head : '·',
+        name: nameOf(m.minister),
+        text: m.text,
+      })),
+      hasConfirm: !!(L.mirror && L.mirror.confirm),
+      confirmRate: (L.mirror && L.mirror.confirm)
+                 ? Math.round(L.mirror.confirm.rate * 100) + '%' : '',
+      confirmLine: (L.mirror && L.mirror.confirm)
+                 ? (zh ? `过去 ${L.mirror.confirm.n} 次朝会里，有 ${L.mirror.confirm.hit} 次你的裁决和开场倾向一致`
+                       : `${L.mirror.confirm.hit} of your last ${L.mirror.confirm.n} verdicts matched the way you walked in`)
+                 : '',
+      hasFavorite: !!(L.mirror && L.mirror.favorite),
+      favoriteLine: (L.mirror && L.mirror.favorite)
+                 ? (zh ? `${L.mirror.favorite.total} 条御笔里有 ${L.mirror.favorite.n} 条收的是${nameOf(L.mirror.favorite.minister)}的话`
+                       : `${L.mirror.favorite.n} of your ${L.mirror.favorite.total} saved lines are ${nameOf(L.mirror.favorite.minister)}'s`)
+                 : '',
+      hasRemons: !!L.remonstrance,
+      remonsText: L.remonstrance ? L.remonstrance.text : '',
+      remonsBy: L.remonstrance
+              ? ((meta[L.remonstrance.minister] ? meta[L.remonstrance.minister].head : '')
+                 + ' ' + nameOf(L.remonstrance.minister)
+                 + ' · ' + (t.logStance[L.remonstrance.stance] || L.remonstrance.stance))
+              : '',
       needVerdict: L.status !== 'decided',
       ticketQuote: last ? last.text : L.topic,
       ticketByline: nameOf(last ? last.minister : loud.id) + ' · ' + L.topic,
@@ -768,6 +970,9 @@ class Component extends DCLogic {
       fish:    { head:'🐟', bg:'#e2e5e8', zh:'咕噜',     en:'GLUB' },
       sheep:   { head:'🐑', bg:'#efece3', zh:'伍尔西',   en:'WOOLSEY' },
       octopus: { head:'🐙', bg:'#e8e1de', zh:'章鱼宰相', en:'OCTAVIA' },
+      // 应声：立场由后端按皇帝倾向算出来，lean=0 时它是 undecided —— 不推就不上台。
+      // 名册页和演示朝堂先不放它，那要等 M1.3 给它一个「只会复读」的出场方式。
+      parrot:  { head:'🦜', bg:'#ece6d8', zh:'应声',     en:'ECHO' },
     };
   }
 
@@ -784,6 +989,7 @@ class Component extends DCLogic {
       moth:    { anim:'sigSpin 1.2s ease-in-out 1',              fx:'🌀', zh:'茧里啥都知道',           en:'"THE COCOON KNOWS ALL."' },
       banana:  { anim:'sigDive 1.1s cubic-bezier(.4,.1,.4,1) 2', fx:'🍌', zh:'香蕉滑一个！',           en:'"BANANA SLIP!"' },
       octopus: { anim:'sigDizzy 1.1s ease-in-out 2',             fx:'🤝', zh:'八只手都同意～',         en:'"ALL EIGHT HANDS AGREE~"' },
+      parrot:  { anim:'sigHop .6s ease-in-out 3',                fx:'👑', zh:'陛下圣明！',             en:'"YOUR MAJESTY IS WISE!"' },
     };
   }
 
@@ -967,7 +1173,7 @@ class Component extends DCLogic {
       axis:'猫皇御前・十一大臣・吵完就裁', axisSize:'16px', axisSpacing:'7px',
       ticker:'上朝 ▸ 有事启奏 ▸ 御前辩论 ▸ 无事退朝 ▸ 卿等平身 ▸ 上朝 ▸ 有事启奏 ▸ 御前辩论 ▸ 无事退朝 ▸ 卿等平身 ▸ ',
       ctaSpacing:'6px', cta1Main:'上朝！', cta1Sub:'御门已开',
-      castKicker:'INDEX — 名冊', castChip:'十一位大臣',
+      castKicker:'INDEX — 名冊', castChip:'十一位大臣 + 一位应声',
       castTitleFont:"400 60px/0.95 " + D, castTitle:'名冊', castSub1:'按混乱程度', castSub2:'排序',
       cta2Main:'呈递奏章', cta2Sub:'有事启奏',
       petKicker:'PETITION — 奏章', petChip:'第 108 号', petLabel:'有事启奏 · 写下你的议题',
@@ -1001,11 +1207,20 @@ class Component extends DCLogic {
       itvTitle:'圣意如何？', itvSub:'INTERVENE', itvCancel:'再看看 ↓', silenceCry:'肃静！！',
       itvOpt1:'拍案肃静', itvOpt1Sub:'拍案震殿，满堂闭嘴', itvOpt2:'朱笔换将', itvOpt2Sub:'朱笔一挥，换新对手上台', itvOpt3:'宣香蕉发言', itvOpt3Sub:'香蕉雨伺候，让最离谱的上台',
       itvToastSilence:'奉旨：满殿肃静！', itvToastSwap:'奉旨：朱笔一挥，换将再战！', itvToastBanana:'奉旨：宣香蕉大臣发言！',
+      itvOpt4:'罢免应声', itvOpt4Sub:'赶走谀臣。再没有人顺着你说话，判词也得自己扛',
+      itvToastDismiss:'奉旨：应声退朝，不必再来。',
       timeStop:'时停 · 特写', cutSoloTag:'单人特写', cutDuoTag:'双人交锋', closeupBtn:'特写',
       logTitle:'朝堂实录', logEmpty:'尚无发言。递上奏章、开堂，众卿说的每一句都会逐条落在这里。',
-      logKind:{ opening:'表态', rebuttal:'驳斥', lobby:'游说', decree:'圣旨', verdict:'判词' },
+      logKind:{ opening:'表态', rebuttal:'驳斥', lobby:'游说', decree:'圣旨', verdict:'判词', note:'御笔' },
       logStance:{ pro:'赞成', con:'反对', undecided:'中立' },
-      logEmperor:'猫皇', logUnit:' 条',
+      logEmperor:'猫皇', logUnit:' 条', remonsWord:'谏言 · 朝堂上最大的反对',
+      mindTitle:'朕的心事', mindBy:'拾荒整理', mindSave:'朕亲自改定',
+      mindByUser:'朕亲定', mindByRaccoon:'拾荒记的',
+      mindHint:'拾荒从你历次奏章和圣旨里攒出来的。记错了就改 —— 你改过的它不会再动。',
+      leanLabel:'递上去之前，你心里偏哪边', leanCon:'偏驳回', leanPro:'偏准奏',
+      leanHint:'现在说。朝会散了才算得出你是不是早就定了 —— 事后再问，拿到的是合理化。',
+      mirrorTitle:'朝堂镜', mirrorPushed:'推你过去的', mirrorConfirm:'你的确认率',
+      mirrorFavorite:'你总收藏谁', noteBtn:'御笔收藏', noteDone:'✓ 已收',
     };
     const T_EN = {
       epChip:'EP.108 · A DAILY SHOW',
@@ -1015,7 +1230,7 @@ class Component extends DCLogic {
       axis:'THE CAT EMPEROR · 11 MINISTERS · VERDICT DAILY', axisSize:'11px', axisSpacing:'3px',
       ticker:'COURT IS ON ▸ HEAR YE ▸ NO MERCY, ONLY MEMOS ▸ ALL RISE ▸ COURT IS ON ▸ HEAR YE ▸ NO MERCY, ONLY MEMOS ▸ ALL RISE ▸ ',
       ctaSpacing:'1.5px', cta1Main:'TO COURT!', cta1Sub:'THE GATES ARE OPEN',
-      castKicker:'INDEX — THE CAST', castChip:'11 MINISTERS',
+      castKicker:'INDEX — THE CAST', castChip:'11 MINISTERS + 1 YES-MAN',
       castTitleFont:"400 46px/1 " + D, castTitle:'THE CAST', castSub1:'RANKED', castSub2:'BY CHAOS',
       cta2Main:'FILE A PETITION', cta2Sub:'SPEAK YOUR MATTER',
       petKicker:'PETITION — No.108', petChip:'No.108', petLabel:'WRITE YOUR MATTER',
@@ -1049,11 +1264,20 @@ class Component extends DCLogic {
       itvTitle:'YOUR WILL, SIRE?', itvSub:'插手', itvCancel:'JUST WATCHING ↓', silenceCry:'SILENCE!!',
       itvOpt1:'SLAM — SILENCE!', itvOpt1Sub:'The bench rattles. Everyone shuts up.', itvOpt2:'VERMILION SWAP', itvOpt2Sub:'One brushstroke — fresh duelists', itvOpt3:'CALL ON BANANA', itvOpt3Sub:'Banana rain. Chaos has the floor.',
       itvToastSilence:'BY DECREE: SILENCE!', itvToastSwap:'BY DECREE: NEW DUELISTS TAKE THE FLOOR!', itvToastBanana:'BY DECREE: BANANA HAS THE FLOOR!',
+      itvOpt4:'DISMISS THE ECHO', itvOpt4Sub:'Banish the yes-man. Nobody flatters you again — the decree is yours alone.',
+      itvToastDismiss:'BY DECREE: THE ECHO IS BANISHED.',
       timeStop:'TIME STOP · CLOSE-UP', cutSoloTag:'SOLO', cutDuoTag:'DUO CLASH', closeupBtn:'CLOSE-UP',
       logTitle:'COURT TRANSCRIPT', logEmpty:'No lines yet. File a petition and open court — every word lands here, in order.',
-      logKind:{ opening:'OPENING', rebuttal:'REBUTTAL', lobby:'LOBBY', decree:'DECREE', verdict:'VERDICT' },
+      logKind:{ opening:'OPENING', rebuttal:'REBUTTAL', lobby:'LOBBY', decree:'DECREE', verdict:'VERDICT', note:'KEPT' },
       logStance:{ pro:'PRO', con:'CON', undecided:'SWING' },
-      logEmperor:'THE EMPEROR', logUnit:' LINES',
+      logEmperor:'THE EMPEROR', logUnit:' LINES', remonsWord:'REMONSTRANCE · THE LOUDEST DISSENT',
+      mindTitle:'WHAT WEIGHS ON YOU', mindBy:'FILED BY TRASH', mindSave:'SET IT MYSELF',
+      mindByUser:'SET BY YOU', mindByRaccoon:'ON FILE',
+      mindHint:'Pieced together from your petitions and decrees. Wrong? Fix it — the archivist will not touch what you set.',
+      leanLabel:'BEFORE YOU FILE IT — WHICH WAY DO YOU LEAN?', leanCon:'TOWARD NO', leanPro:'TOWARD YES',
+      leanHint:'Say it now. Asked afterwards, you would only rationalise it.',
+      mirrorTitle:'THE COURT MIRROR', mirrorPushed:'WHO PUSHED YOU THERE', mirrorConfirm:'YOU CONFIRMED YOURSELF',
+      mirrorFavorite:'WHOSE LINES YOU KEEP', noteBtn:'KEEP THIS', noteDone:'✓ KEPT',
     };
     const t = zh ? T_ZH : T_EN;
 
@@ -1075,6 +1299,8 @@ class Component extends DCLogic {
       { no:'09', hanzi:'蝶', en:'SILK',    zhName:'结茧',   roleZh:'信息茧 · 只信自己',   roleEn:'THE COCOON',     head:'🦋', ring:'#a9a3ab', bg:'#e6e3e8', dur:'2.0s' },
       { no:'10', hanzi:'蕉', en:'BANANA',  zhName:'香蕉',   roleZh:'脑洞 · 不按剧本',     roleEn:'THE WHIM',       head:'🍌', ring:'#b2a181', bg:'#ece8da', dur:'1.8s' },
       { no:'11', hanzi:'章', en:'OCTAVIA', zhName:'章鱼',   roleZh:'宰相 · 八手周旋',     roleEn:'THE CHANCELLOR', head:'🐙', ring:'#a4726a', bg:'#e8e1de', dur:'2.5s' },
+      // 它不编号：十一位大臣在辩论，它不辩论。整场朝会一言不发，只在裁决时替皇帝念判词。
+      { no:'—',  hanzi:'鹦', en:'ECHO',    zhName:'应声',   roleZh:'谀臣 · 只在裁决时开口', roleEn:'THE YES-MAN · SPEAKS ONLY AT THE VERDICT', head:'🦜', ring:'#c9a227', bg:'#ece6d8', dur:'1.4s' },
     ];
 
     const topicsZh = [
@@ -1135,12 +1361,15 @@ class Component extends DCLogic {
       stopIt: (e) => e.stopPropagation(),
       silenceOn: this.state.itv === 'silence',
       itvToastOn: !!this.state.itv,
-      itvToast: { silence: t.itvToastSilence, swap: t.itvToastSwap, banana: t.itvToastBanana }[this.state.itv] || '',
+      itvToast: { silence: t.itvToastSilence, swap: t.itvToastSwap, banana: t.itvToastBanana,
+                  dismiss: t.itvToastDismiss }[this.state.itv] || '',
       itvOptions: [
         { icon:'💥', label:t.itvOpt1, sub:t.itvOpt1Sub, type:'silence' },
         { icon:'🖌', label:t.itvOpt2, sub:t.itvOpt2Sub, type:'swap' },
         { icon:'🍌', label:t.itvOpt3, sub:t.itvOpt3Sub, type:'banana' },
-      ].map(o => Object.assign({}, o, { pick: () => this.pickItv(o.type) })),
+        { icon:'🦜', label:t.itvOpt4, sub:t.itvOpt4Sub, type:'dismiss' },
+      ].filter(o => o.type !== 'dismiss' || !(this.state.live || {}).echo_out)
+       .map(o => Object.assign({}, o, { pick: () => this.pickItv(o.type) })),
       stageAnim: this.state.itv === 'silence' ? 'stageShake .6s ease-in-out' : 'none',
       itvBanana: this.state.itv === 'banana',
       itvSwap: this.state.itv === 'swap',
@@ -1194,6 +1423,8 @@ class Component extends DCLogic {
         { id:'snake',   head:'🐍', x:'78%', y:'47%', z:5, scale:'1',   dur:'2.6s', ring:'#8f9c90', bg:'#e3e6e1', wander:'none', lineZh:'「卦象不利。」', lineEn:'"THE OMENS SAY NO."' },
         { id:'octopus', head:'🐙', x:'56%', y:'24%', z:2, scale:'.74', dur:'2.5s', ring:'#a4726a', bg:'#e8e1de', wander:'none', lineZh:'「都有道理嘛～」', lineEn:'"ALL FAIR POINTS~"' },
         { id:'sheep',   head:'🐑', x:'32%', y:'26%', z:2, scale:'.74', dur:'2.3s', ring:'#b2a181', bg:'#efece3', wander:'wander 11s ease-in-out infinite', lineZh:'「哪边人多？」', lineEn:'"WHICH SIDE IS BIGGER?"' },
+        // 应声不站队、不入列，栖在御座旁边。辩论期间它的台词永远是沉默 —— 要等裁决才开口。
+        { id:'parrot',  head:'🦜', x:'44%', y:'17%', z:1, scale:'.62', dur:'1.4s', ring:'#c9a227', bg:'#ece6d8', wander:'none', lineZh:'「…」', lineEn:'"…"' },
       ].filter(p => this.pair().indexOf(p.id) < 0).map(p => {
         const q = Object.assign({}, p, {
           poked: this.state.poke === p.id,
@@ -1303,6 +1534,9 @@ class Component extends DCLogic {
       topic: this.state.topic,
       ctx: this.state.ctx,
       topicChange: (e) => this.setState({ topic: e.target.value, err: '' }),
+      leanOpen: this.state.leanOpen,
+      leanWord: this.leanWord(),
+      leanChange: (e) => this.setState({ leanOpen: Number(e.target.value) }),
       ctxChange: (e) => this.setState({ ctx: e.target.value }),
       startCourt: () => this.startCourt(),
       stakesLine: this.state.err || t.stakes,
@@ -1324,6 +1558,31 @@ class Component extends DCLogic {
       // ---- 判决屏（离线时是演示值，liveView() 会盖掉）----
       proN: '6', conN: '3', absN: '2',
       decreeText: t.decree,
+      decreeBy: '🦜 ' + (zh ? '应声 代宣' : 'ECHO READS THE DECREE'),
+      mindRows: this.mindFields().map((f, i) => Object.assign({}, f, {
+        id: 'mind-' + f.key, by: '', change: () => {},
+        value: zh ? ['存款撑不到回本', '明天就递辞职', '八个月生活费', '房东明年涨租'][i]
+                  : ['Savings run out first', 'Quit tomorrow', 'Eight months of rent',
+                     'Rent rises next year'][i],
+      })),
+      mindClean: true,
+      // 判决屏的朝堂镜：离线时是演示值，liveView() 会盖掉
+      hasMirror: true, hasConfirm: true, hasFavorite: true,
+      favoriteLine: zh ? '12 条御笔里有 7 条收的是维斯帕的话'
+                       : "7 of your 12 saved lines are VESPER's",
+      mirrorPushed: zh
+        ? [{ head:'🐰', name:'跺脚将军', text:'拖着才是最大的成本！' },
+           { head:'🐴', name:'奔骥',     text:'赢不赢，就看这一把。' },
+           { head:'🦝', name:'拾荒',     text:'您去年也说过同样的话。' }]
+        : [{ head:'🐰', name:'GEN. THUMP', text:'DELAY IS THE REAL COST!' },
+           { head:'🐴', name:'GALLOP',     text:'WIN OR GO HOME.' },
+           { head:'🦝', name:'TRASH',      text:'YOU SAID THAT LAST YEAR TOO.' }],
+      confirmRate: '90%',
+      confirmLine: zh ? '过去 10 次朝会里，有 9 次你的裁决和开场倾向一致'
+                      : '9 of your last 10 verdicts matched the way you walked in',
+      hasRemons: true,
+      remonsText: zh ? '此事必有蹊跷，臣以为不可' : 'SOMETHING IS OFF HERE. I SAY NO.',
+      remonsBy: zh ? '🦊 维斯帕 · 反对' : '🦊 VESPER · CON',
       needVerdict: false,
       rulings: [
         { key:'approve', icon:'✅', label:t.ruleApprove, bg:'#f1ede4', fg:'#2b2733' },
@@ -1359,12 +1618,16 @@ class Component extends DCLogic {
             stance: emp ? '#f1ede4' : (stColor[q.stance] || '#847d88'),
             rowBg: emp ? 'rgba(164,114,106,.32)' : 'rgba(241,237,228,.05)',
             nameCol: emp ? '#f1ede4' : '#b2a181',
+            // 只有大臣说的话能收进御笔：皇帝自己的圣旨和判词没什么好收藏的
+            canNote: !emp && !!q.text,
+            noteLabel: this.state.noted[q.minister + '|' + q.text] ? t.noteDone : t.noteBtn,
+            note: () => this.saveNote(q.minister, q.text),
           };
         });
       })(),
 
       // 有真数据就用真数据覆盖上面这些演示值
-      ...this.liveView(),
+      ...this.liveView(t),
     };
   }
 }

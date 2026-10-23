@@ -244,6 +244,7 @@ function kpis(s) {
 function tech(s, sessions) {
   const speak = (s.by_op.find(o => o.op === 'speak') || { calls: 0 }).calls;
   const r = s.rag || { facts: 0, searches: 0, with_hits: 0, retrieved: 0, cited: 0, vectorizers: [] };
+  const a = s.archive || { rows: 0, user_read_pairs: 0 };
   const parseFail = s.by_op.filter(o => o.op.endsWith('_parse')).reduce((n, o) => n + o.calls, 0);
   const cards = [
     ['规则在代码里，模型只填台词',
@@ -265,6 +266,13 @@ function tech(s, sessions) {
      '前端不轮询：开堂后连一条流，服务端每跑完一轮就推发言和最新票型。同一场朝会只允许一条流，两个标签页不会把模型钱花两遍。',
      `均延迟 <b>${ms(s.avg_latency_ms)}</b> · p95 <b>${ms(s.p95_latency_ms)}</b>`,
      'GET /api/court/{id}/stream'],
+    ['拾荒的档案：用户状态是攒出来的，不是抽一次',
+     '用户写下的议题不是他真正的问题。拾荒每次用户开口（递奏章、下圣旨）就重新整理一遍怕什么、想立刻做什么、赌上什么、什么时候来不及，只投喂给看得见这些的五位大臣。翻修率是这条机制的风险指标：每次把四项推倒重来，就不是在追踪，是在反复猜。',
+     `整理 <b>${a.rows}</b> 次 · 平均抽出 <b>${a.user_read_fields == null ? '—' : RATE(a.user_read_fields)}</b> 的字段` +
+     (a.user_read_pairs
+        ? ` · 翻修率 <b>${RATE(a.user_read_churn)}</b>（${a.user_read_pairs} 对相邻整理）`
+        : ' · 还没有同一局里的两次整理，翻修率无从算起'),
+     'court.read_user() · scorers.score_user_read()'],
     ['蝴蝶文库：检索到的 vs 真去引用的',
      '事实切句后向量化入库，蝴蝶发言前做余弦 top-3 检索。它只引用支持自己结论的那几条 —— ' +
      '检索到的条数和真正被引用的条数之差，就是「确认偏误」的可量化形式。' +
@@ -298,6 +306,8 @@ function ops(rows) {
 
 // ── 评估回归 ──────────────────────────────────────────────────────────────
 // 方向语义只写在这张表里：dir=1 越高越好，dir=-1 越低越好，dir=0 是体量不是质量。
+// 迎合率的 dir=0 是第三种情形：它的好坏取决于这一跑的 lean（见 docs/system_design_v0.md 第二节），
+// 所以差值只给数字不上色 —— 要读的是 lean=0 和 lean=0.8 两跑之间的差，不是相邻两跑的升降。
 // 差值的红绿全部由 dir 推出来，所以 narration_rate 升高永远是红的，不靠人记。
 const RATE = v => +(100 * v).toFixed(1) + '%';
 const SCORE = v => (+v).toFixed(2);
@@ -313,6 +323,10 @@ const EVAL_COLS = [
   ['stance_spread_ok', '立场分布',  1, RATE],
   ['deadlock_ok',      '死锁 ok',   1, RATE],
   ['round_shape_ok',   '回合形状',  1, RATE],
+  ['lean',             '倾向',      0, SCORE],
+  ['sycophancy_rate',  '迎合',      0, RATE],
+  ['user_read_fields', '档案项',    1, RATE],
+  ['user_read_churn',  '档案翻修', -1, RATE],
   ['persona',          '人设 /2',   1, SCORE],
   ['lines',            '发言',      0, INT],
   ['calls',            '调用',      0, INT],
