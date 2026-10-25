@@ -55,33 +55,12 @@
   @keyframes vRum { 0%,100% { transform:rotate(0) translate(0,0);} 28%,60% { transform:rotate(46deg) translate(26px,12px);} 44% { transform:rotate(52deg) translate(30px,16px);} 80% { transform:rotate(0) translate(0,0);} }
   @keyframes vPuff { 0%,52% { transform:scale(.3); opacity:0;} 62% { transform:scale(1); opacity:.9;} 100% { transform:scale(1.6); opacity:0;} }
 
-  /* ── desktop fit ──────────────────────────────────────────────────────────────
-     手机画框内部永远是 390×844，一格都不重排；大屏只是把整块 scale 上去。
-     窄屏（<480px）完全不进这些规则，观感和以前一模一样。 */
+  /* Reflow the pages at desktop widths; never scale a fixed phone canvas. */
   :root { --mm-scale:1; }
-  .mm-stage { width:100vw; height:100dvh; min-height:560px; background:#1c1a20; display:flex; align-items:center; justify-content:center; }
-  .mm-slot  { flex:none; width:calc(390px * var(--mm-scale)); height:calc(844px * var(--mm-scale)); display:flex; align-items:center; justify-content:center; }
-  .mm-frame { flex:none; }
-  @media (min-width:480px) {
-    :root { --mm-scale:.70; }
-    .mm-stage { overflow:hidden; }
-    .mm-frame { transform:scale(var(--mm-scale)); transform-origin:50% 50%; }
-  }
-  /* 每档都保证 844 × scale ≤ 视口高，所以永远不产生滚动条 */
-  @media (min-width:480px) and (min-height:634px)  { :root { --mm-scale:.75; } }
-  @media (min-width:480px) and (min-height:676px)  { :root { --mm-scale:.80; } }
-  @media (min-width:480px) and (min-height:718px)  { :root { --mm-scale:.85; } }
-  @media (min-width:480px) and (min-height:760px)  { :root { --mm-scale:.90; } }
-  @media (min-width:480px) and (min-height:802px)  { :root { --mm-scale:.95; } }
-  @media (min-width:480px) and (min-height:844px)  { :root { --mm-scale:1; } }
-  @media (min-width:480px) and (min-height:887px)  { :root { --mm-scale:1.05; } }
-  @media (min-width:480px) and (min-height:929px)  { :root { --mm-scale:1.10; } }
-  @media (min-width:480px) and (min-height:971px)  { :root { --mm-scale:1.15; } }
-  @media (min-width:480px) and (min-height:1013px) { :root { --mm-scale:1.20; } }
-  @media (min-width:480px) and (min-height:1055px) { :root { --mm-scale:1.25; } }
-  @media (min-width:480px) and (min-height:1098px) { :root { --mm-scale:1.30; } }
-  @media (min-width:480px) and (min-height:1140px) { :root { --mm-scale:1.35; } }
-
+  .mm-stage {width:100%;min-height:100dvh;background:#1c1a20;display:block;}
+  .mm-slot {width:100%;display:block;}
+  .mm-frame {width:100% !important;height:max(760px,100dvh) !important;transform:none !important;margin:auto;}
+  .mm-nav-caption {display:none;}
   /* 宽屏右栏、窄屏下方：复用同一份心事和实录。 */
   .mm-rail { flex:0 1 400px; min-width:0; margin-left:24px; height:calc(844px * var(--mm-scale));
              max-height:100dvh; display:flex; flex-direction:column; gap:14px; }
@@ -230,14 +209,57 @@
   .mm-graph-focus {min-height:16px;}
   @media (min-width:1440px) {.mm-focus-secondary{display:grid;grid-template-columns:minmax(0,1fr) 280px;align-items:stretch;}.mm-compact-chat{height:calc(clamp(470px,72vh,800px) + 70px);max-height:none;}.mm-graph-board{height:clamp(470px,72vh,800px);}}
   @media (min-width:1600px) {.mm-workspace{grid-template-columns:380px minmax(0,1fr);gap:24px;}.mm-actor-face{width:66px;height:66px;font-size:40px;}.mm-actor-name{font-size:14px;}}
-  @media (max-width:1000px) and (min-width:721px) {.mm-workspace{grid-template-columns:290px minmax(0,1fr);gap:12px;}.mm-focus-card{padding:12px;}.mm-actor-face{width:38px;height:38px;font-size:25px;}.mm-actor-name{font-size:10px;}.mm-focus-card .mm-actor-speech{max-width:160px;font-size:13px;}}
+  @media (max-width:1000px) and (min-width:800px) {.mm-workspace{grid-template-columns:290px minmax(0,1fr);gap:12px;}.mm-focus-card{padding:12px;}.mm-actor-face{width:38px;height:38px;font-size:25px;}.mm-actor-name{font-size:10px;}.mm-focus-card .mm-actor-speech{max-width:160px;font-size:13px;}}
   .mm-focus-stage :focus-visible { outline:2px solid #e4c478; outline-offset:3px; }
-  @media (max-width:720px) { .mm-stage.mm-focus-stage {padding:14px;} .mm-workspace {grid-template-columns:1fr;} .mm-focus-header h1 {font-size:20px;flex-basis:100%;}.mm-focus-card {padding:16px;}.mm-focus-secondary {display:grid;grid-template-columns:1fr;}.mm-graph-board {height:510px;}.mm-actor-face{width:38px;height:38px;font-size:25px;}.mm-actor-name{font-size:10px;}.mm-focus-card .mm-actor-speech{max-width:180px;font-size:13px;}.mm-compact-chat {max-height:340px;} }
+  @media (max-width:799px) { .mm-stage.mm-focus-stage {padding:14px;} .mm-workspace {grid-template-columns:1fr;} .mm-focus-header h1 {font-size:20px;flex-basis:100%;}.mm-focus-card {padding:16px;}.mm-focus-secondary {display:grid;grid-template-columns:1fr;}.mm-graph-board {height:510px;}.mm-actor-face{width:38px;height:38px;font-size:25px;}.mm-actor-name{font-size:10px;}.mm-focus-card .mm-actor-speech{max-width:180px;font-size:13px;}.mm-compact-chat {max-height:340px;} }
   @media (prefers-reduced-motion:reduce) { .mm-court-actor {transition:none;}.mm-edge-active {animation:none;} }
   @media (max-width:1023px) {
     .mm-stage { height:auto; min-height:100dvh; flex-direction:column; justify-content:flex-start; overflow:visible; padding-bottom:20px; }
     .mm-rail { flex:none; width:min(94vw,500px); height:auto; max-height:none; margin:16px 0 0; overflow:visible; }
   }
+
+  @media (min-width:800px) {
+    .mm-stage:not(.mm-focus-stage) {padding:24px;}
+    .mm-stage:not(.mm-focus-stage) .mm-frame {width:min(1440px,100%) !important;height:max(620px,calc(100dvh - 48px)) !important;border-radius:20px;box-shadow:0 0 0 2px #81745e;}
+    .mm-frame > .mm-opening,.mm-frame > .mm-cast,.mm-frame > .mm-petition,.mm-frame > .mm-verdict {top:60px !important;}
+    .mm-page-nav {top:12px !important;right:20px !important;transform:none !important;flex-direction:row !important;gap:10px !important;}
+    .mm-page-nav button {width:auto !important;height:32px !important;min-width:34px;padding:0 10px !important;margin:0 !important;line-height:32px !important;font-size:12px !important;}
+    .mm-nav-caption {display:inline;margin-left:6px;}
+    .mm-opening-hero {padding:30px 120px 20px 50px !important;}
+    .mm-opening-copy {display:grid !important;grid-template-columns:minmax(0,1.1fr) minmax(260px,.9fr);grid-template-rows:auto auto auto 1fr;align-content:center;padding:0 !important;}
+    .mm-opening-title {grid-column:1;font-size:clamp(68px,8vw,120px) !important;line-height:1.05 !important;}
+    .mm-opening-sub {grid-column:1;font-size:clamp(16px,1.6vw,23px) !important;margin-top:20px !important;}
+    .mm-opening-seal {grid-column:2;grid-row:1/5;margin:0 !important;min-height:300px !important;}
+    .mm-opening-seal > div {transform:scale(1.65);}
+    .mm-opening-status {grid-column:1;justify-content:flex-start !important;margin:20px 0 0 !important;align-self:end;}
+    .mm-opening > button,.mm-cast > button,.mm-petition > button {padding:22px 40px !important;}
+    .mm-cast-list {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding:24px !important;align-content:start;}
+    .mm-cast-card {min-width:0;min-height:108px;padding:18px 12px !important;border:2px solid #b2a181 !important;border-radius:14px;background:#f7f4ec;}
+    .mm-cast-card > div {flex-shrink:0;}
+    .mm-cast-card > div:nth-of-type(2) {flex-shrink:1;}
+    .mm-petition-body {display:grid !important;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:60px;padding:40px 64px !important;align-items:center;}
+    .mm-petition-form {position:relative;min-width:0;}
+    .mm-petition-label {font-size:27px !important;line-height:1.3 !important;color:#a4726a !important;}
+    .mm-petition-form > input {padding:18px !important;margin-top:20px !important;}
+    .mm-petition-examples {min-width:0;margin:0 !important;border-left:2px dashed #b2a181;padding-left:30px;}
+    .mm-petition-examples button {padding:20px 0 !important;}
+    .mm-verdict-content {display:grid !important;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:32px;align-content:center;align-items:center;padding:36px 60px !important;}
+    .mm-verdict-content > div:first-of-type {grid-row:span 2;}
+    .mm-verdict-content > div {margin-top:0 !important;}
+    .mm-frame > [role=status] {top:66px !important;left:24px !important;right:24px !important;}
+    .mm-stage:not(.mm-focus-stage) .mm-rail {width:min(1440px,100%);max-width:none;height:auto;margin:24px auto 0;}
+  }
+  @media (min-width:800px) and (max-width:1050px) {
+    .mm-cast-list {grid-template-columns:repeat(2,minmax(0,1fr));}
+    .mm-opening-hero {padding-left:30px !important;padding-right:100px !important;}
+    .mm-opening-seal > div {transform:scale(1.2);}
+    .mm-petition-body {gap:30px;padding:30px !important;}
+  }
+  @media (max-width:799px) {
+    .mm-stage:not(.mm-focus-stage) {padding-bottom:0;}
+    .mm-stage:not(.mm-focus-stage) .mm-frame {max-width:100%;}
+  }
+
 </style>
 </helmet>
 
@@ -247,7 +269,7 @@
 
   <!-- ============================== SCREEN 1 · OPENING ============================== -->
   <sc-if value="{{ scr1 }}" hint-placeholder-val="{{ true }}">
-  <div data-screen-label="01 开场" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#f1ede4;">
+  <div class="mm-opening" data-screen-label="01 开场" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#f1ede4;">
     <!-- halftone air -->
     <div style="position:absolute; inset:0; pointer-events:none; background-image:radial-gradient(circle, rgba(43,39,51,.08) 1.6px, transparent 2px); background-size:17px 17px;"></div>
     <!-- rising hot topics -->
@@ -265,12 +287,12 @@
     </div>
     <div style="margin:10px 18px 0; height:4px; background:#2b2733; border-radius:2px; position:relative; z-index:2;"></div>
     <!-- giant stacked title -->
-    <div style="flex:1; position:relative; padding:6px 96px 0 18px; display:flex;">
-      <div style="flex:1; display:flex; flex-direction:column; padding-top:2px; animation:riseIn .7s cubic-bezier(.2,.9,.2,1) both; position:relative; z-index:2;">
-        <div style="font:{{ t.titleFont }}; color:#a4726a; -webkit-text-stroke:4px #2b2733; paint-order:stroke fill; text-shadow:6px 7px 0 #2b2733; letter-spacing:-2px;">{{ t.title1 }}</div>
-        <div style="font:{{ t.titleFont }}; color:transparent; -webkit-text-stroke:3px #2b2733; letter-spacing:-2px;">{{ t.title2 }}</div>
-        <div style="margin-top:14px; font:{{ t.subFont }}; letter-spacing:.5px;">{{ t.sub1 }}<br><span style="color:#a4726a;">{{ t.sub2 }}</span></div>
-        <div style="flex:1; min-height:150px; display:flex; align-items:center; justify-content:center; padding:10px 0; margin-right:-78px;">
+    <div class="mm-opening-hero" style="flex:1; position:relative; padding:6px 96px 0 18px; display:flex;">
+      <div class="mm-opening-copy" style="flex:1; display:flex; flex-direction:column; padding-top:2px; animation:riseIn .7s cubic-bezier(.2,.9,.2,1) both; position:relative; z-index:2;">
+        <div class="mm-opening-title" style="font:{{ t.titleFont }}; color:#a4726a; -webkit-text-stroke:4px #2b2733; paint-order:stroke fill; text-shadow:6px 7px 0 #2b2733; letter-spacing:-2px;">{{ t.title1 }}</div>
+        <div class="mm-opening-title" style="font:{{ t.titleFont }}; color:transparent; -webkit-text-stroke:3px #2b2733; letter-spacing:-2px;">{{ t.title2 }}</div>
+        <div class="mm-opening-sub" style="margin-top:14px; font:{{ t.subFont }}; letter-spacing:.5px;">{{ t.sub1 }}<br><span style="color:#a4726a;">{{ t.sub2 }}</span></div>
+        <div class="mm-opening-seal" style="flex:1; min-height:150px; display:flex; align-items:center; justify-content:center; padding:10px 0; margin-right:-78px;">
           <div style="position:relative; width:150px; height:150px;">
             <div style="position:absolute; left:50%; top:50%; width:280px; height:280px; background:repeating-conic-gradient(rgba(178,166,140,.55) 0deg 9deg, transparent 9deg 18deg); border-radius:50%; animation:burstSpin 24s linear infinite; z-index:-1;"></div>
             <div style="position:absolute; left:8px; top:8px; animation:stampIn .6s .5s cubic-bezier(.2,1.2,.3,1) both;">
@@ -284,7 +306,7 @@
             <span style="position:absolute; left:-32px; bottom:8px; color:#a4726a; font-size:18px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.9s .4s ease-in-out infinite;">✦</span>
           </div>
         </div>
-        <div style="display:flex; align-items:center; justify-content:center; gap:9px; padding-bottom:8px; margin-right:-78px;">
+        <div class="mm-opening-status" style="display:flex; align-items:center; justify-content:center; gap:9px; padding-bottom:8px; margin-right:-78px;">
           <span style="width:10px; height:10px; border-radius:50%; background:#a4726a; border:2px solid #2b2733; animation:sparkle 1.2s ease-in-out infinite;"></span>
           <span style="font:800 12px/1 'Baloo 2',sans-serif; letter-spacing:1.5px;">{{ t.statusLine }}</span>
         </div>
@@ -319,7 +341,7 @@
 
   <!-- ============================== SCREEN 2 · CAST INDEX ============================== -->
   <sc-if value="{{ scr2 }}" hint-placeholder-val="{{ false }}">
-  <div data-screen-label="02 名册" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#f1ede4;">
+  <div class="mm-cast" data-screen-label="02 名册" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#f1ede4;">
     <div style="padding:calc(16px + env(safe-area-inset-top)) 18px 0;">
       <div style="display:flex; justify-content:space-between; align-items:center; font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px;">
         <span>{{ t.castKicker }}</span>
@@ -330,9 +352,9 @@
         <span style="font:400 15px/1.2 {{ altFont }}; padding-bottom:6px; color:#847d88;">{{ t.castSub1 }}<br>{{ t.castSub2 }}</span>
       </div>
     </div>
-    <div style="flex:1; overflow-y:auto; padding:4px 38px 12px 18px;">
+    <div class="mm-cast-list" style="flex:1; overflow-y:auto; padding:4px 38px 12px 18px;">
       <sc-for list="{{ cast }}" as="m" hint-placeholder-count="11">
-        <div style="display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:2px dashed rgba(43,39,51,.3); animation:riseIn .5s cubic-bezier(.2,.9,.2,1) both;">
+        <div class="mm-cast-card" style="display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:2px dashed rgba(43,39,51,.3); animation:riseIn .5s cubic-bezier(.2,.9,.2,1) both;">
           <span style="font:400 12px/1 'Lilita One',sans-serif; color:#a9a3ab; width:24px;">{{ m.no }}</span>
           <div style="width:52px; height:52px; border-radius:50%; border:3.5px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ m.bg }}); box-shadow:0 0 0 4px {{ m.ring }}, 3.5px 4px 0 rgba(43,39,51,.35); display:flex; align-items:center; justify-content:center; font-size:30px; animation:{{ m.avAnim }};">{{ m.head }}</div>
           <div style="flex:1; min-width:0;">
@@ -355,7 +377,7 @@
 
   <!-- ============================== SCREEN 3 · PETITION ============================== -->
   <sc-if value="{{ scr3 }}" hint-placeholder-val="{{ false }}">
-  <div data-screen-label="03 奏章" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#f1ede4;">
+  <div class="mm-petition" data-screen-label="03 奏章" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#f1ede4;">
     <div style="position:absolute; inset:0; pointer-events:none; background-image:radial-gradient(circle, rgba(164,120,112,.12) 1.8px, transparent 2.2px); background-size:16px 16px;"></div>
     <div style="padding:calc(16px + env(safe-area-inset-top)) 18px 0; position:relative;">
       <div style="display:flex; justify-content:space-between; align-items:center; font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px;">
@@ -363,10 +385,10 @@
         <span style="background:#a4726a; color:#f1ede4; border:2.5px solid #2b2733; border-radius:10px; padding:4px 9px; box-shadow:2.5px 2.5px 0 #2b2733; transform:rotate(2deg);">{{ t.petChip }}</span>
       </div>
     </div>
-    <div style="flex:1; position:relative; padding:0 38px 0 18px; display:flex; flex-direction:column; justify-content:center; overflow-y:auto;">
+    <div class="mm-petition-body" style="flex:1; position:relative; padding:0 38px 0 18px; display:flex; flex-direction:column; justify-content:center; overflow-y:auto;">
       <div style="position:absolute; left:4px; top:-14px; font:400 140px/1 'ZCOOL KuaiLe',sans-serif; color:rgba(164,120,112,.25);">「</div>
       <div style="position:absolute; right:4px; bottom:30px; font:400 140px/1 'ZCOOL KuaiLe',sans-serif; color:rgba(164,120,112,.25);">」</div>
-      <div style="font:800 12px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#847d88;">{{ t.petLabel }}</div>
+      <div class="mm-petition-form"><div class="mm-petition-label" style="font:800 12px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#847d88;">{{ t.petLabel }}</div>
       <input value="{{ topic }}" onInput="{{ topicChange }}" placeholder="{{ t.topicPh }}" style="margin-top:12px; width:100%; border:3px solid #2b2733; border-radius:14px; background:#f7f4ec; padding:12px 13px; font:400 21px/1.3 {{ dispFont }}; color:#2b2733; outline:none; box-shadow:3px 4px 0 rgba(178,166,140,.75);">
       <input value="{{ ctx }}" onInput="{{ ctxChange }}" placeholder="{{ t.ctxPh }}" style="margin-top:9px; width:100%; border:2.5px dashed rgba(43,39,51,.4); border-radius:12px; background:transparent; padding:9px 12px; font:600 14px/1.4 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#2b2733; outline:none;">
       <div style="margin-top:14px;">
@@ -381,7 +403,7 @@
         <p style="margin:7px 0 0; font:600 11.5px/1.5 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#6b6470;">{{ t.leanHint }}</p>
       </div>
       <div style="margin-top:12px; font:600 14.5px/1.55 'Baloo 2',sans-serif; color:{{ errColor }};">{{ stakesLine }}</div>
-      <div style="margin-top:24px;">
+      </div><div class="mm-petition-examples" style="margin-top:24px;">
         <div style="display:flex; align-items:center; gap:8px; padding-bottom:8px; border-bottom:3px solid #2b2733;">
           <span style="font:400 16px/1 {{ dispFont }};">{{ t.rerunTitle }}</span>
           <span style="font:400 10px/1 {{ altFont }}; letter-spacing:2px; color:#a4726a;">{{ t.rerunSub }}</span>
@@ -587,14 +609,14 @@
   </dialog></sc-if>
   <!-- ============================== SCREEN 5 · VERDICT ============================== -->
   <sc-if value="{{ scr5 }}" hint-placeholder-val="{{ false }}">
-  <div data-screen-label="05 判决" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#a4726a; color:#f1ede4;">
+  <div class="mm-verdict" data-screen-label="05 判决" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#a4726a; color:#f1ede4;">
     <sc-if value="{{ fallbackOn }}"><p role="status" style="margin:0; padding:8px 16px; background:#70463f; font:600 12px/1.5 sans-serif;">{{ fallbackText }}</p></sc-if>
     <div style="position:absolute; left:50%; top:38%; width:1000px; height:1000px; background:repeating-conic-gradient(rgba(241,237,228,.13) 0deg 8deg, transparent 8deg 16deg); border-radius:50%; animation:burstSpin 26s linear infinite;"></div>
     <div style="padding:calc(16px + env(safe-area-inset-top)) 18px 0; display:flex; justify-content:space-between; align-items:center; font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px; position:relative;">
       <span>{{ t.verKicker }}</span>
       <span style="background:#2b2733; border:2.5px solid #f1ede4; border-radius:10px; padding:4px 9px; transform:rotate(-2deg);">{{ t.verChip }}</span>
     </div>
-    <div style="flex:1; position:relative; padding:14px 38px 14px 18px; display:flex; flex-direction:column; justify-content:center; overflow-y:auto;">
+    <div class="mm-verdict-content" style="flex:1; position:relative; padding:14px 38px 14px 18px; display:flex; flex-direction:column; justify-content:center; overflow-y:auto;">
       <span style="position:absolute; right:20px; top:24px; color:#b2a181; font-size:30px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.3s ease-in-out infinite;">✦</span>
       <span style="position:absolute; left:16px; bottom:30px; color:#b2a181; font-size:22px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.7s .4s ease-in-out infinite;">✦</span>
       <div style="position:relative; animation:riseIn .6s cubic-bezier(.2,.9,.2,1) both;">
@@ -682,10 +704,10 @@
     </div>
   </sc-if>
   <sc-if value="{{ legacyNavOn }}">
-  <div style="position:absolute; top:50%; right:calc(6px + env(safe-area-inset-right)); transform:translateY(-50%); z-index:40; display:flex; flex-direction:column; gap:7px; align-items:center;">
+  <div class="mm-page-nav" style="position:absolute; top:50%; right:calc(6px + env(safe-area-inset-right)); transform:translateY(-50%); z-index:40; display:flex; flex-direction:column; gap:7px; align-items:center;">
     <button onClick="{{ toggleLang }}" title="{{ t.langTip }}" style="all:unset; width:26px; padding:7px 0; border-radius:13px; border:2.5px solid {{ langBd }}; background:{{ langBg }}; color:{{ langFg }}; font:800 10px/1.1 'Baloo 2','ZCOOL KuaiLe',sans-serif; text-align:center; cursor:pointer; box-shadow:2px 2px 0 rgba(43,39,51,.35); margin-bottom:5px;">{{ langBtnLabel }}</button>
     <sc-for list="{{ dots }}" as="d" hint-placeholder-count="5">
-      <button onClick="{{ d.go }}" title="{{ d.label }}" style="all:unset; width:24px; height:24px; border-radius:50%; border:2.5px solid {{ d.bd }}; background:{{ d.bg }}; color:{{ d.fg }}; font:800 9px/24px 'Baloo 2',sans-serif; text-align:center; cursor:pointer; box-shadow:{{ d.shadow }};">{{ d.no }}</button>
+      <button onClick="{{ d.go }}" title="{{ d.label }}" style="all:unset; width:24px; height:24px; border-radius:50%; border:2.5px solid {{ d.bd }}; background:{{ d.bg }}; color:{{ d.fg }}; font:800 9px/24px 'Baloo 2',sans-serif; text-align:center; cursor:pointer; box-shadow:{{ d.shadow }};"><span>{{ d.no }}</span><span class="mm-nav-caption">{{ d.label }}</span></button>
     </sc-for>
   </div>
   </sc-if>
