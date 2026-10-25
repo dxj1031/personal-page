@@ -82,9 +82,7 @@
   @media (min-width:480px) and (min-height:1098px) { :root { --mm-scale:1.30; } }
   @media (min-width:480px) and (min-height:1140px) { :root { --mm-scale:1.35; } }
 
-  /* ── desktop only · 右栏：朕的心事 + 朝堂实录 ──
-     手机上这一整栏不出现（和实录一直以来的规则一样）：390 的框里塞不下第二套面板，
-     硬塞只会把朝堂挤变形。桌面端两段共用同一套边框、圆角、底色和投影。 */
+  /* 宽屏右栏、窄屏下方：复用同一份心事和实录。 */
   .mm-rail { flex:0 1 400px; min-width:0; margin-left:24px; height:calc(844px * var(--mm-scale));
              max-height:100dvh; display:flex; flex-direction:column; gap:14px; }
   .mm-mind { flex:none; display:flex; flex-direction:column; background:#2b2733; color:#f1ede4;
@@ -116,8 +114,11 @@
   .mm-log-body { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column-reverse; gap:10px; padding:14px;
                  scrollbar-color:#b2a181 #2b2733; }
   .mm-log-body:focus-visible { outline:3px solid #b2a181; outline-offset:-3px; }
-  /* sc-if 已经不渲染了；这条只是兜底，保证窄屏任何一帧都不可能占位 */
-  @media (max-width:1023px) { .mm-rail { display:none; } }
+  .mm-frame button:disabled { cursor:not-allowed !important; opacity:.45; }
+  @media (max-width:1023px) {
+    .mm-stage { height:auto; min-height:100dvh; flex-direction:column; justify-content:flex-start; overflow:visible; padding-bottom:20px; }
+    .mm-rail { flex:none; width:min(94vw,500px); height:600px; max-height:none; margin:16px 0 0; }
+  }
 </style>
 </helmet>
 
@@ -279,8 +280,9 @@
   </sc-if>
 
   <!-- ============================== SCREEN 4 · DEBATE ============================== -->
-  <sc-if value="{{ scr4 }}" hint-placeholder-val="{{ false }}">
+  <sc-if value="{{ scr4Live }}" hint-placeholder-val="{{ false }}">
   <div data-screen-label="04 辩论" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#2b2733; color:#f1ede4;">
+    <sc-if value="{{ fallbackOn }}"><p role="status" style="margin:0; padding:8px 16px; background:#70463f; font:600 12px/1.5 sans-serif;">{{ fallbackText }}</p></sc-if>
     <!-- act ticker -->
     <div style="border-bottom:3px solid rgba(241,237,228,.3); overflow:hidden; padding:calc(8px + env(safe-area-inset-top)) 0 8px;">
       <div style="display:inline-flex; white-space:nowrap; animation:tickerMove 11s linear infinite;">
@@ -302,7 +304,7 @@
       </div>
       <!-- header row -->
       <div style="position:relative; z-index:6; padding:12px 38px 0 18px; display:flex; justify-content:space-between; align-items:baseline;">
-        <span style="font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:2px; color:#a9a3ab;">{{ t.nowSpeaking }}</span>
+        <span style="font:800 11px/1.4 'Baloo 2',sans-serif; color:#b2a181; max-width:75%;">{{ speakingLabel }}</span>
         <span style="font:400 10.5px/1 {{ altFont }}; letter-spacing:1px; color:#847d88;">{{ t.tapHint }}</span>
       </div>
       <!-- throne · the emperor looks down -->
@@ -389,6 +391,7 @@
       </sc-if>
       <!-- featured duel · two-hander -->
       <div style="position:absolute; left:50%; bottom:158px; transform:translateX(-50%); z-index:9; max-width:310px; width:max-content;">
+        <sc-if value="{{ hasResponse }}"><div style="margin-bottom:8px; padding:8px 10px; border:2px solid #b2a181; border-radius:12px; background:#2b2733; color:#d8c9a4; font:400 13px/1.4 {{ dispFont }}; overflow-wrap:anywhere;">{{ responseLine }}</div></sc-if>
         <div style="position:relative; background:#f7f4ec; color:#2b2733; border:4px solid #2b2733; border-radius:16px; box-shadow:5px 5px 0 rgba(0,0,0,.45); padding:10px 14px; font:400 17px/1.35 {{ dispFont }}; text-align:center;">{{ duelLine }}
           <span style="position:absolute; right:-14px; top:-16px; color:#a4726a; font-size:24px; -webkit-text-stroke:2px #2b2733; animation:sparkle 1.2s ease-in-out infinite;">💢</span>
           <div style="position:absolute; left:{{ duelTailLeft }}; bottom:-15px; width:0; height:0; border-left:8px solid transparent; border-right:13px solid transparent; border-top:15px solid #2b2733;"></div>
@@ -396,15 +399,15 @@
       </div>
       <div style="position:absolute; left:0; right:0; bottom:12px; z-index:8; display:flex; justify-content:center; align-items:flex-end; gap:40px;">
         <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
-          <div style="width:82px; height:82px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ duelL.bg }}); box-shadow:0 0 0 5px #a4726a, 5px 6px 0 rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; font-size:48px; animation:{{ duelLeftAnim }};">{{ duelL.head }}</div>
+          <button onClick="{{ duelLPoke }}" style="all:unset; cursor:pointer; width:82px; height:82px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ duelL.bg }}); box-shadow:0 0 0 5px #a4726a, 5px 6px 0 rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; font-size:48px; animation:{{ duelLeftAnim }};">{{ duelL.head }}</button>
           <span style="background:#a4726a; color:#f1ede4; border:2.5px solid #f1ede4; border-radius:9px; font:400 11px/1.2 {{ dispFont }}; padding:3px 8px; white-space:nowrap;">{{ duelL.name }}</span>
         </div>
         <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding-bottom:26px;">
-          <span style="font-size:24px; animation:sparkle 1s ease-in-out infinite; filter:drop-shadow(2px 2px 0 rgba(0,0,0,.5));">⚡</span>
-          <div style="width:32px; height:32px; border-radius:50%; border:3px solid #f1ede4; background:#2b2733; display:flex; align-items:center; justify-content:center; font:400 11px/1 'Lilita One',sans-serif; color:#f1ede4; box-shadow:2px 2px 0 rgba(0,0,0,.4);">VS</div>
+          <span style="font-size:24px; animation:sparkle 1s ease-in-out infinite; filter:drop-shadow(2px 2px 0 rgba(0,0,0,.5));">{{ duelMark }}</span>
+          <div style="width:32px; height:32px; border-radius:50%; border:3px solid #f1ede4; background:#2b2733; display:flex; align-items:center; justify-content:center; font:400 11px/1 'Lilita One',sans-serif; color:#f1ede4; box-shadow:2px 2px 0 rgba(0,0,0,.4);">{{ duelRelation }}</div>
         </div>
         <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
-          <div style="width:82px; height:82px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ duelR.bg }}); box-shadow:0 0 0 5px #b2a181, 5px 6px 0 rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; font-size:48px; animation:{{ duelRightAnim }};">{{ duelR.head }}</div>
+          <button onClick="{{ duelRPoke }}" style="all:unset; cursor:pointer; width:82px; height:82px; border-radius:50%; border:4px solid #2b2733; background:radial-gradient(circle at 36% 28%, #fff, {{ duelR.bg }}); box-shadow:0 0 0 5px #b2a181, 5px 6px 0 rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; font-size:48px; animation:{{ duelRightAnim }};">{{ duelR.head }}</button>
           <span style="background:#b2a181; color:#2b2733; border:2.5px solid #f1ede4; border-radius:9px; font:400 11px/1.2 {{ dispFont }}; padding:3px 8px; white-space:nowrap;">{{ duelR.name }}</span>
         </div>
       </div>
@@ -419,7 +422,7 @@
         </div>
         <div style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
           <sc-for list="{{ itvOptions }}" as="o" hint-placeholder-count="3">
-            <button onClick="{{ o.pick }}" style="all:unset; display:flex; align-items:center; gap:12px; background:#f7f4ec; border:3px solid #2b2733; border-radius:14px; box-shadow:3.5px 3.5px 0 #2b2733; padding:11px 14px; cursor:pointer;" style-active="transform:translate(2px,2px); box-shadow:1.5px 1.5px 0 #2b2733;">
+            <button onClick="{{ o.pick }}" disabled="{{ itvBusy }}" style="all:unset; display:flex; align-items:center; gap:12px; background:#f7f4ec; border:3px solid #2b2733; border-radius:14px; box-shadow:3.5px 3.5px 0 #2b2733; padding:11px 14px; cursor:pointer;" style-active="transform:translate(2px,2px); box-shadow:1.5px 1.5px 0 #2b2733;">
               <span style="font-size:26px;">{{ o.icon }}</span>
               <span style="flex:1;">
                 <span style="display:block; font:400 17px/1.2 {{ dispFont }};">{{ o.label }}</span>
@@ -435,8 +438,8 @@
           <span style="flex:1; height:2px; background:rgba(43,39,51,.22);"></span>
         </div>
         <div style="margin-top:10px; display:flex; gap:8px;">
-          <input value="{{ itvCustom }}" onChange="{{ itvCustomChange }}" placeholder="{{ t.itvCustomPh }}" style="flex:1; min-width:0; border:3px solid #2b2733; border-radius:12px; background:#f7f4ec; padding:11px 12px; font:600 14px 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#2b2733; outline:none; box-shadow:2.5px 2.5px 0 #2b2733;">
-          <button onClick="{{ itvCustomGo }}" style="all:unset; background:#a4726a; color:#f1ede4; border:3px solid #2b2733; border-radius:12px; box-shadow:2.5px 2.5px 0 #2b2733; padding:0 16px; display:flex; align-items:center; cursor:pointer;" style-active="transform:translate(2px,2px); box-shadow:.5px .5px 0 #2b2733;"><span style="font:400 16px/1 {{ dispFont }}; letter-spacing:2px;">{{ t.itvCustomBtn }}</span></button>
+          <input value="{{ itvCustom }}" onChange="{{ itvCustomChange }}" maxLength="{{ 200 }}" aria-label="{{ t.itvCustomPh }}" placeholder="{{ t.itvCustomPh }}" style="flex:1; min-width:0; border:3px solid #2b2733; border-radius:12px; background:#f7f4ec; padding:11px 12px; font:600 14px 'Baloo 2','ZCOOL KuaiLe',sans-serif; color:#2b2733; outline:none; box-shadow:2.5px 2.5px 0 #2b2733;">
+          <button onClick="{{ itvCustomGo }}" disabled="{{ customDisabled }}" style="all:unset; background:#a4726a; color:#f1ede4; border:3px solid #2b2733; border-radius:12px; box-shadow:2.5px 2.5px 0 #2b2733; padding:0 16px; display:flex; align-items:center; cursor:pointer;" style-active="transform:translate(2px,2px); box-shadow:.5px .5px 0 #2b2733;"><span style="font:400 16px/1 {{ dispFont }}; letter-spacing:2px;">{{ t.itvCustomBtn }}</span></button>
         </div>
         <button onClick="{{ closeItv }}" style="all:unset; display:block; width:100%; text-align:center; margin-top:12px; font:400 14px/1.2 {{ dispFont }}; color:#847d88; letter-spacing:2px; cursor:pointer;">{{ t.itvCancel }}</button>
       </div>
@@ -450,16 +453,16 @@
       </div>
       <div style="margin-top:10px; display:flex; gap:8px;">
         <sc-for list="{{ acts }}" as="a" hint-placeholder-count="5">
-          <button onClick="{{ a.go }}" style="all:unset; flex:1; text-align:center; padding:8px 0 9px; border:3px solid {{ a.bd }}; border-radius:12px; background:{{ a.bg }}; color:{{ a.fg }}; cursor:pointer; box-shadow:{{ a.shadow }};">
+          <div style="flex:1; text-align:center; padding:8px 0 9px; border:3px solid {{ a.bd }}; border-radius:12px; background:{{ a.bg }}; color:{{ a.fg }}; box-shadow:{{ a.shadow }};">
             <div style="font:400 16px/1 'Lilita One',sans-serif;">{{ a.no }}</div>
             <div style="margin-top:3px; font:400 11px/1.1 {{ dispFont }}; letter-spacing:1px;">{{ a.label }}</div>
-          </button>
+          </div>
         </sc-for>
       </div>
       <div style="margin-top:12px; display:flex; gap:8px;">
-        <button onClick="{{ openItv }}" style="all:unset; flex:1.3; background:#b2a181; color:#2b2733; border:3px solid #f1ede4; border-radius:14px; box-shadow:4px 4px 0 rgba(0,0,0,.4); text-align:center; padding:13px 0; cursor:pointer; animation:wiggle 1.7s ease-in-out infinite;"><span style="font:400 16px/1.1 {{ dispFont }}; letter-spacing:1px;">🖐 {{ t.intervene }}</span></button>
-        <button onClick="{{ playCut }}" style="all:unset; flex:1; background:#a4726a; color:#f1ede4; border:3px solid #f1ede4; border-radius:14px; box-shadow:4px 4px 0 rgba(0,0,0,.4); text-align:center; padding:13px 0; cursor:pointer;"><span style="font:400 16px/1.1 {{ dispFont }}; letter-spacing:1px;">🎬 {{ t.closeupBtn }}</span></button>
-        <button onClick="{{ go5 }}" style="all:unset; flex:1; border:3px solid rgba(241,237,228,.55); border-radius:14px; color:#f1ede4; text-align:center; padding:13px 0; cursor:pointer; animation:{{ ruleAnim }};"><span style="font:400 16px/1.1 {{ dispFont }}; letter-spacing:1px;">👑 {{ t.ruleNow }}</span></button>
+        <button onClick="{{ openItv }}" disabled="{{ interventionDisabled }}" style="all:unset; flex:1.3; background:#b2a181; color:#2b2733; border:3px solid #f1ede4; border-radius:14px; box-shadow:4px 4px 0 rgba(0,0,0,.4); text-align:center; padding:13px 0; cursor:pointer; animation:wiggle 1.7s ease-in-out infinite;"><span style="font:400 16px/1.1 {{ dispFont }}; letter-spacing:1px;">🖐 {{ t.intervene }}</span></button>
+        <button onClick="{{ togglePlayback }}" disabled="{{ playbackDisabled }}" style="all:unset; flex:1; background:#a4726a; color:#f1ede4; border:3px solid #f1ede4; border-radius:14px; text-align:center; padding:13px 0; cursor:pointer;">{{ playbackLabel }}</button>
+        <button onClick="{{ go5 }}" disabled="{{ ruleDisabled }}" style="all:unset; flex:1; border:3px solid rgba(241,237,228,.55); border-radius:14px; color:#f1ede4; text-align:center; padding:13px 0; cursor:pointer; animation:{{ ruleAnim }};"><span style="font:400 16px/1.1 {{ dispFont }}; letter-spacing:1px;">👑 {{ t.ruleNow }}</span></button>
       </div>
     </div>
   </div>
@@ -468,6 +471,7 @@
   <!-- ============================== SCREEN 5 · VERDICT ============================== -->
   <sc-if value="{{ scr5 }}" hint-placeholder-val="{{ false }}">
   <div data-screen-label="05 判决" style="position:absolute; inset:0; display:flex; flex-direction:column; background:#a4726a; color:#f1ede4;">
+    <sc-if value="{{ fallbackOn }}"><p role="status" style="margin:0; padding:8px 16px; background:#70463f; font:600 12px/1.5 sans-serif;">{{ fallbackText }}</p></sc-if>
     <div style="position:absolute; left:50%; top:38%; width:1000px; height:1000px; background:repeating-conic-gradient(rgba(241,237,228,.13) 0deg 8deg, transparent 8deg 16deg); border-radius:50%; animation:burstSpin 26s linear infinite;"></div>
     <div style="padding:calc(16px + env(safe-area-inset-top)) 18px 0; display:flex; justify-content:space-between; align-items:center; font:800 11px/1 'Baloo 2',sans-serif; letter-spacing:1.5px; position:relative;">
       <span>{{ t.verKicker }}</span>
@@ -548,13 +552,18 @@
       </div>
     </div>
     <div style="display:flex; position:relative;">
-      <button onClick="{{ noopBtn }}" style="all:unset; flex:1.4; background:#2b2733; color:#f1ede4; text-align:center; padding:18px 0 calc(18px + env(safe-area-inset-bottom)); cursor:pointer;"><span style="font:400 21px/1.1 {{ dispFont }}; letter-spacing:{{ t.ctaSpacing }};">🎴 {{ t.collectMain }}</span></button>
+      <button onClick="{{ exportVerdict }}" disabled="{{ exportDisabled }}" style="all:unset; flex:1.4; background:#2b2733; color:#f1ede4; text-align:center; padding:18px 0 calc(18px + env(safe-area-inset-bottom)); cursor:pointer;"><span style="font:400 21px/1.1 {{ dispFont }}; letter-spacing:{{ t.ctaSpacing }};">↓ {{ exportLabel }}</span></button>
       <button onClick="{{ go1 }}" style="all:unset; flex:1; background:#b2a181; color:#2b2733; text-align:center; padding:18px 0 calc(18px + env(safe-area-inset-bottom)); cursor:pointer;"><span style="font:400 21px/1.1 {{ dispFont }}; letter-spacing:{{ t.ctaSpacing }};">{{ t.tomorrow }} →</span></button>
     </div>
   </div>
   </sc-if>
 
   <!-- ============================== FLOATING CONTROLS ============================== -->
+  <sc-if value="{{ noticeOn }}">
+    <div role="status" style="position:absolute; top:8px; left:12px; right:40px; z-index:55; padding:12px; border:2px solid #b2a181; border-radius:12px; background:#2b2733; color:#f1ede4; font:600 14px/1.5 sans-serif; overflow-wrap:anywhere;">{{ noticeText }}
+      <sc-if value="{{ noCourt }}"><button onClick="{{ go3 }}" style="display:block; margin-top:12px; padding:10px; cursor:pointer;">{{ petitionLabel }}</button></sc-if>
+    </div>
+  </sc-if>
   <div style="position:absolute; top:50%; right:calc(6px + env(safe-area-inset-right)); transform:translateY(-50%); z-index:40; display:flex; flex-direction:column; gap:7px; align-items:center;">
     <button onClick="{{ toggleLang }}" title="{{ t.langTip }}" style="all:unset; width:26px; padding:7px 0; border-radius:13px; border:2.5px solid {{ langBd }}; background:{{ langBg }}; color:{{ langFg }}; font:800 10px/1.1 'Baloo 2','ZCOOL KuaiLe',sans-serif; text-align:center; cursor:pointer; box-shadow:2px 2px 0 rgba(43,39,51,.35); margin-bottom:5px;">{{ langBtnLabel }}</button>
     <sc-for list="{{ dots }}" as="d" hint-placeholder-count="5">
@@ -565,8 +574,8 @@
 </div>
 </div>
 
-<!-- ============ DESKTOP ONLY · 右栏：朕的心事 + 朝堂实录 ============ -->
-<sc-if value="{{ wideOn }}" hint-placeholder-val="{{ false }}">
+<!-- ============ 朕的心事 + 朝堂实录：窄屏移到朝堂下方 ============ -->
+<sc-if value="{{ railOn }}" hint-placeholder-val="{{ false }}">
 <div class="mm-rail">
 
 <section class="mm-mind" aria-label="{{ t.mindTitle }}">
@@ -630,11 +639,10 @@ class Component extends DCLogic {
             topic: '', ctx: '', sid: null, live: null, feed: [], phase: 'idle', err: '', wide: false,
             mindEdit: {},    // 心事的本地草稿：没按「改定」之前不发给后端
             leanOpen: 0,     // 递奏章时的倾向，开堂那一下送出去，之后不再问
-            noted: {} };     // 这一轮点过御笔的行，只用来把按钮改成「已收」
+            noted: {}, paused: false, activeTurn: null };
 
   // ---- 后端 ----
-  // phase: idle 还没开堂 · opening 等十一位大臣表态 · debating 直播中 · recess 辩完待裁决 · offline 后端不在
-  // live === null 时整个界面退回原来那套写死的演示数据，所以这个文件单独打开仍然是一份完整的设计稿。
+  // 没有真实朝会数据时显示等待或错误，不播放预设辩论。
 
   apiBase() { return location.protocol === 'file:' ? 'http://127.0.0.1:8010' : ''; }
 
@@ -651,16 +659,19 @@ class Component extends DCLogic {
     const topic = (this.state.topic || '').trim();
     if (!topic) { this.setState({ err: zh ? '先写下今天要裁决的事。' : 'Write today’s petition first.' }); return; }
     this.closeStream();
-    this.setState({ screen: 4, phase: 'opening', err: '', feed: [], live: null, sid: null });
+    const run = this._run;
+    this.setState({ screen: 4, phase: 'opening', err: '', feed: [], live: null, sid: null,
+                    paused: false, activeTurn: null, cut: null, noted: {}, mindEdit: {}, itvBusy: false, itvOpen: false, itv: null, poke: null });
     try {
       const s = await this.api('/api/court', { topic, context: this.state.ctx,
                                                lang: this.state.lang,
                                                lean_open: Number(this.state.leanOpen) || 0 });
-      this.setState({ sid: s.id, live: s, phase: 'debating' });
-      this.openStream(s.id, s.turns.length);
+      if (run !== this._run) return;
+      this.setState({ sid: s.id, phase: 'debating' });
+      this.acceptSnapshot(s);
     } catch (e) {
-      // 后端没起来不该白屏：退回演示朝堂，只在奏章屏留一句人话
-      this.setState({ phase: 'offline', err: (zh ? '朝堂离线，正在放演示：' : 'Court offline, showing demo: ') + (e.message || e) });
+      if (run !== this._run) return;
+      this.setState({ phase: 'offline', err: zh ? '无法连接朝堂。请启动后端后重新呈递奏章。' : 'Court unavailable. Start the backend and submit the petition again.' });
     }
   }
 
@@ -698,12 +709,15 @@ class Component extends DCLogic {
   // 御笔批注落后端，不落 localStorage：它的价值在跨局 —— 攒够了才看得出你总是收藏谁。
   async saveNote(minister, text) {
     if (!this.state.sid || !text) return;
+    const run = this._run;
     const key = minister + '|' + text;
     this.setState(st => ({ noted: Object.assign({}, st.noted, { [key]: true }) }));
     try {
       const live = await this.api('/api/court/' + this.state.sid + '/note', { minister, text });
-      this.setState({ live });
+      if (run !== this._run) return;
+      this.acceptSnapshot(live);
     } catch (e) {
+      if (run !== this._run) return;
       this.setState(st => {
         const n = Object.assign({}, st.noted); delete n[key];
         return { noted: n, err: String(e.message || e) };
@@ -713,46 +727,165 @@ class Component extends DCLogic {
 
   async saveMind() {
     if (!this.state.sid) return;
+    const run = this._run;
     const body = {};
     this.mindFields().forEach(f => { body[f.key] = this.mindValue(f.key); });
     try {
       const live = await this.api('/api/court/' + this.state.sid + '/mind', body);
-      this.setState({ live, mindEdit: {} });
+      if (run !== this._run) return;
+      this.acceptSnapshot(live);
+      this.setState({ mindEdit: {} });
     } catch (e) {
+      if (run !== this._run) return;
       this.setState({ err: String(e.message || e) });
     }
   }
 
-  openStream(sid, after) {
-    this.closeStream();
-    const es = new EventSource(this.apiBase() + '/api/court/' + sid + '/stream?after=' + (after || 0));
-    this._es = es;
-    es.addEventListener('turn', e => {
-      const t = JSON.parse(e.data);
-      this.setState(st => ({ feed: st.feed.concat(t).slice(-24) }));
-    });
-    es.addEventListener('state', e => this.setState({ live: JSON.parse(e.data) }));
-    es.addEventListener('done', () => { this.closeStream(); this.setState({ phase: 'recess' }); });
-    es.addEventListener('error', e => {
-      this.closeStream();
-      let m = ''; try { m = JSON.parse(e.data).message; } catch (x) {}
-      this.setState({ phase: 'recess', err: m });
-    });
-    // EventSource 自身的 onerror（断网、后端挂了）没有 data，不能和上面的业务 error 混为一谈
-    es.onerror = () => { this.closeStream(); this.setState({ phase: 'offline' }); };
+  // 一句读完再显示下一句；整轮读完才请求下一轮，给干预留下真正生效的窗口。
+  acceptSnapshot(s) {
+    if (s.id !== this.state.sid) return;
+    if (this.state.live && s.turns.length < this.state.live.turns.length) return;
+    if (['recess', 'ruled'].includes(this.state.phase)) {
+      this.setState({ live: s, feed: s.turns });
+      return;
+    }
+    this._queue = this._queue || [];
+    this._queue.push(...s.turns.filter(t => t.seq > (this._queuedSeq || 0)));
+    this._queuedSeq = Math.max(this._queuedSeq || 0, ...s.turns.map(t => t.seq));
+    if (!this.state.live || s.turns.length >= this.state.live.turns.length) this.setState({ live: s });
+    if (!this._playT) this.playNext();
   }
 
-  closeStream() { if (this._es) { this._es.close(); this._es = null; } }
+  playNext() {
+    this._playT = null;
+    if (this.state.paused || this.state.phase !== 'debating') return;
+    const turn = (this._queue || []).shift();
+    if (turn) {
+      const previous = this.state.feed.filter(t => t.minister === turn.minister).pop();
+      if (turn.kind === 'note') {
+        this.setState(st => ({ feed: st.feed.concat(turn) }));
+        this.playNext(); return;
+      }
+      this.setState(st => ({ activeTurn: turn, feed: st.feed.concat(turn) }));
+      this.animateTurn(turn, previous);
+      this._playT = setTimeout(() => this.playNext(), Math.max(3200, Math.min(8000, turn.text.length * 140)));
+      return;
+    }
+    if (this._loading || !this.state.live) return;
+    if (!this.state.live.rounds_left) { this.setState({ phase: 'recess' }); return; }
+    this.loadRound();
+  }
+
+  async loadRound() {
+    const run = this._run;
+    this._loading = true;
+    try {
+      // 响应丢失时先读服务器进度，重试不能额外多跑一轮。
+      let s = await this.api('/api/court/' + this.state.sid);
+      if (run !== this._run) return;
+      if (s.turns.length <= (this._queuedSeq || 0) && s.rounds_left) {
+        s = await this.api('/api/court/' + this.state.sid + '/round', {});
+      }
+      if (run !== this._run) return;
+      this._loading = false;
+      if (s.turns.length <= (this._queuedSeq || 0) && s.rounds_left) {
+        this.setState({ live: s, phase: 'recess', err: this.state.lang === 'zh'
+          ? '本轮没有产生新发言，可直接裁决。' : 'No new lines this round. You may rule now.' });
+        return;
+      }
+      this.acceptSnapshot(s);
+    } catch (e) {
+      if (run !== this._run) return;
+      this._loading = false;
+      this.setState({ phase: 'offline', err: this.state.lang === 'zh'
+        ? '本轮生成失败。点击“重试”继续，已收到的发言仍可查看。'
+        : 'Round failed. Retry to continue; received lines are still available.' });
+    }
+  }
+
+  togglePlayback() {
+    if (!['debating', 'offline'].includes(this.state.phase) || this.state.itvBusy) return;
+    if (this.state.phase === 'offline' && this.state.sid) {
+      this.setState({ phase: 'debating', paused: false, err: '' });
+    } else {
+      this.setState({ paused: !this.state.paused });
+    }
+    clearTimeout(this._playT); this._playT = null;
+    if (!this.state.paused) this.playNext();
+  }
+
+  closeStream() {
+    this._run = (this._run || 0) + 1;
+    clearTimeout(this._playT); this._playT = null;
+    this._queue = []; this._queuedSeq = 0; this._loading = false;
+  }
+
+  animateTurn(turn, previous) {
+    if (!this.minMeta()[turn.minister]) return;
+    clearTimeout(this._cutT);
+    if (turn.kind === 'rebuttal' && turn.target) {
+      this.setState({ cut: { mode: 'duo' }, duelTurn: 0 });
+    } else if ((previous && previous.stance !== turn.stance)
+               || this.signatureCue(turn.minister, turn.text)) {
+      this.showSolo(turn.minister);
+    } else {
+      this.setState({ cut: null });
+    }
+    clearTimeout(this._cutT);
+    this._cutT = setTimeout(() => this.setState({ cut: null }), 1500);
+  }
+
+  signatureCue(id, text) {
+    // 角色招牌动作仍在，但须由实际台词中的性格线索触发。
+    const cues = {
+      rabbit: /立刻|马上|现在|冲|行动|now|act|go!/i,
+      fox: /三思|风险|万一|后果|risk|what if|disaster/i,
+      horse: /赢|输|胜|比赛|win|lose|race/i,
+      raccoon: /去年|记得|记录|以前|账|last year|remember|record/i,
+      banana: /香蕉|不如|脑洞|灵感|banana|what if|idea/i,
+      snake: /卦|预兆|征兆|嘶|omen|sign|sss/i,
+      collie: /合同|条|规则|规定|clause|rule|contract/i,
+      moth: /茧|知道|资料|证据|cocoon|knew|evidence/i,
+      fish: /完了|要完|热搜|刷新|doom|feed|refresh/i,
+      sheep: /大家|哪边|跟着|多数|everyone|majority|follow/i,
+      octopus: /都|协调|同意|关系|agree|both|together/i,
+    };
+    return !!(cues[id] && cues[id].test(text));
+  }
+
+  navigate(n) {
+    if (n === 5 && (!this.state.live || !['recess', 'ruled'].includes(this.state.phase))) {
+      this.setState({ err: this.state.lang === 'zh' ? '请先听完本场辩论，再下裁决。' : 'Hear the debate before ruling.' });
+      return;
+    }
+    if (n !== 4 && this.state.phase === 'debating') {
+      clearTimeout(this._playT); this._playT = null;
+      this.setState({ paused: true });
+    }
+    this.setState({ screen: n, err: '' });
+  }
+
+  exportVerdict() {
+    const s = this.state.live;
+    if (!s || s.status !== 'decided') return;
+    const blob = new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'court-' + s.id + '.json';
+    a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   async rule(choice) {
+    if (!this.state.sid || this.state.phase !== 'recess') return;
     this.closeStream();
-    if (!this.state.sid) { this.setState({ screen: 5, phase: 'ruled' }); return; }
+    const run = this._run;
     this.setState({ phase: 'ruling' });
     try {
       const s = await this.api('/api/court/' + this.state.sid + '/verdict', { choice });
-      this.setState({ live: s, phase: 'ruled', screen: 5 });
+      if (run !== this._run) return;
+      this.setState({ live: s, feed: s.turns, phase: 'ruled', screen: 5, err: '' });
     } catch (e) {
-      this.setState({ phase: 'offline', err: String(e.message || e) });
+      if (run !== this._run) return;
+      this.setState({ phase: 'recess', err: String(e.message || e) });
     }
   }
 
@@ -766,35 +899,7 @@ class Component extends DCLogic {
     try { lang = localStorage.getItem('mm_lang'); } catch (e) {}
     lang = lang || this.props.lang;
     if (lang === 'en' || lang === 'zh') this.setState({ lang });
-    this._duel = setInterval(() => this.setState(st => ({ duelTurn: (st.duelTurn + 1) % 4 })), 2800);
-    this._lobT = [];
-    const runLobby = () => {
-      const sc = this.state.fishCamp === 'pro' ? 'A' : 'B';
-      this.setState({ lobSc: sc, lobPhase: 1 });
-      this._lobT = [
-        setTimeout(() => this.setState({ lobPhase: 2 }), 1500),
-        setTimeout(() => this.setState({ lobPhase: 3 }), 3900),
-        setTimeout(() => this.setState({ lobPhase: 0, fishCamp: sc === 'A' ? 'con' : 'pro' }), 5700),
-      ];
-    };
-    this._lobI = setInterval(runLobby, 10000);
-    this._rot = setInterval(() => this.setState(st => ({ rotTick: (st.rotTick + 1) % 4 })), 7000);
-    // time-stop cut-ins: alternate duo clash (rotates the duel pair) and solo signature closeups
-    this._cutFlip = false;
-    this._soloIdx = 0;
-    this._cutI = setInterval(() => {
-      if (this.state.itvOpen || this.state.itv) return;
-      this._cutFlip = !this._cutFlip;
-      if (this._cutFlip) {
-        this.setState(st => ({ pairIdx: (st.pairIdx + 1) % 4, cut: { mode: 'duo' } }));
-        clearTimeout(this._cutT);
-        this._cutT = setTimeout(() => this.setState({ cut: null }), 2500);
-      } else {
-        this.showSolo();
-      }
-    }, 9500);
-    this._lobT.push(setTimeout(runLobby, 3000));
-    // 宽屏才挂朝堂实录；窄屏下 sc-if 直接不渲染，一个占位都不留
+    // 表演由发言与圣旨触发，不再按固定时间循环播放演示剧本。
     this._mq = window.matchMedia('(min-width:1024px)');
     this._onMq = () => this.setState({ wide: this._mq.matches });
     this._mq.addEventListener('change', this._onMq);
@@ -816,27 +921,37 @@ class Component extends DCLogic {
   }
 
   // ---- 把后端快照翻译成界面已有的那些变量名 ----
-  // 没有 live 就返回空对象，render() 里原来的演示值原样生效。
+  // 没有 live 就返回空对象；真实朝堂与裁决区须等后端返回数据。
 
   // t 是 renderVals 里的 i18n 字典，必须显式传进来：它不在这个方法的作用域里。
   // 之前这里直接写 t.xxx，离线演示永远走不到这几行，第一次真跑一局就 ReferenceError。
   liveView(t) {
-    const L = this.state.live;
-    if (!L) return {};
+    const snapshot = this.state.live;
+    if (!snapshot) return {};
+    // 阵营和票数也按已播放的发言推进，不能提前透露本轮尚未读到的倒戈。
+    const shown = {};
+    this.state.feed.forEach(t => { if (t.minister !== 'emperor' && t.kind !== 'verdict') shown[t.minister] = t; });
+    const ministers = snapshot.ministers.map(m => m.id === 'parrot' ? m : Object.assign({}, m, {
+      stance: shown[m.id] ? shown[m.id].stance : 'undecided',
+      influence: shown[m.id] ? shown[m.id].influence : m.influence,
+    }));
+    const tally = { pro:0, con:0, undecided:0 };
+    ministers.filter(m => m.id !== 'parrot').forEach(m => tally[m.stance]++);
+    const L = Object.assign({}, snapshot, { ministers, tally });
     const zh = this.state.lang === 'zh';
     const meta = this.minMeta();
     const ring = { pro: '#a4726a', con: '#b2a181', undecided: '#a9a3ab' };
     const nameOf = id => (meta[id] ? (zh ? meta[id].zh : meta[id].en) : id);
 
-    // 最近两句对呛决定台上的主角；没有就用影响力最高的一对
-    const said = this.state.feed.filter(f => f.kind === 'rebuttal' || f.kind === 'lobby');
-    const last = said[said.length - 1];
-    const prev = said[said.length - 2];
+    const said = this.state.feed.filter(f => meta[f.minister] && f.kind !== 'note');
+    const last = this.state.poke ? said.filter(f => f.minister === this.state.poke).pop()
+                                : this.state.activeTurn;
+    const prev = said.slice(0, -1).filter(f => !last || f.minister !== last.minister).pop();
     const byInf = st => L.ministers.filter(m => m.stance === st)
                         .sort((a, b) => b.influence - a.influence)[0];
-    const lid = (prev && meta[prev.minister]) ? prev.minister : ((byInf('pro') || L.ministers[0]).id);
-    const rid = (last && meta[last.minister] && last.minister !== lid) ? last.minister
-              : ((byInf('con') || L.ministers[1] || L.ministers[0]).id);
+    const lid = (last && meta[last.minister]) ? last.minister : ((byInf('pro') || L.ministers[0]).id);
+    const rid = (last && meta[last.target]) ? last.target
+              : (prev ? prev.minister : L.ministers.find(m => m.id !== lid).id);
 
     // 两侧列队：影响力高的站前排（越靠下越大）
     const place = (list, side) => list.map((m, i) => {
@@ -857,10 +972,11 @@ class Component extends DCLogic {
     const plaza = place(camp('pro'), 'pro').concat(place(camp('con'), 'con'), mid).map(m => ({
       id: m.id, head: meta[m.id] ? meta[m.id].head : '❔', bg: meta[m.id] ? meta[m.id].bg : '#e8e0dc',
       ring: ring[m.stance], x: m.x, y: m.y, z: m.id === speaking ? 14 : m.z,
-      scale: m.scale, dur: m.dur, wander: 'none',
+      scale: m.scale, dur: m.dur, wander: m.id === 'sheep' && m.stance === 'undecided' ? 'wander 11s ease-in-out infinite' : 'none',
       poked: this.state.poke === m.id || m.id === speaking,
       line: m.id === speaking ? last.text : (this.state.poke === m.id ? this.lineOf(m.id) : ''),
-      sup: false, supLine: '',
+      sup: !!(shown[m.id] && shown[m.id].target === speaking),
+      supLine: shown[m.id] ? (zh ? '此前回应：' : 'Earlier reply: ') + shown[m.id].text : '',
       poke: () => this.pokeM(m.id),
       bLeft: m.side === 'con' ? 'auto' : (m.side === 'mid' ? '50%' : '0'),
       bRight: m.side === 'con' ? '0' : 'auto',
@@ -875,17 +991,33 @@ class Component extends DCLogic {
 
     return {
       plaza,
+      speakingLabel: (zh ? '议题：' : 'PETITION: ') + L.topic + ' · '
+        + (last ? ((last.minister === 'emperor' ? (zh ? '猫皇' : 'EMPEROR') : nameOf(last.minister))
+          + ' · ' + (t.logKind[last.kind] || last.kind)
+          + (meta[last.target] ? ' → ' + nameOf(last.target) : '')) : t.waitLine),
+      duelTailLeft: '24%',
+      hasResponse: !!(last && last.target && shown[last.target]),
+      responseLine: last && shown[last.target]
+        ? nameOf(last.target) + (zh ? '此前说：' : ' previously: ') + shown[last.target].text : '',
+      duelMark: last && last.kind === 'lobby' ? '🤝' : '⚡',
+      duelRelation: last && last.kind === 'lobby' ? (zh ? '游说' : 'TALK') : 'VS',
+      duelLeftAnim: this.state.paused ? 'none' : (last && ['rebuttal','lobby'].includes(last.kind) ? 'lungeR .85s ease-in-out 2' : 'idleBob 2s ease-in-out infinite'),
+      duelRightAnim: this.state.paused ? 'none' : (last && last.kind === 'lobby' ? 'lungeL 1.1s ease-in-out 2'
+        : (last && last.kind === 'rebuttal' ? 'recoilR 1.1s ease-in-out 2' : 'idleBob 2s ease-in-out infinite')),
       proCount: pad(L.tally.pro), conCount: pad(L.tally.con),
       lobActive: !!(last && last.kind === 'lobby'),
       duelL: { head: meta[lid].head, bg: meta[lid].bg, name: nameOf(lid) },
       duelR: { head: meta[rid].head, bg: meta[rid].bg, name: nameOf(rid) },
+      duelLPoke: () => this.pokeM(lid), duelRPoke: () => this.pokeM(rid),
       duelLine: waiting ? (zh ? '「……朝堂正在集结」' : '"…THE COURT IS GATHERING"')
                         : (last ? last.text : (zh ? '「……」' : '"…"')),
       cutLHead: meta[lid].head, cutLBg: meta[lid].bg, cutLName: nameOf(lid),
       cutRHead: meta[rid].head, cutRBg: meta[rid].bg, cutRName: nameOf(rid),
+      cutCaption: this.state.cut && this.state.cut.id ? this.lineOf(this.state.cut.id) : (last ? last.text : ''),
       proN: String(L.tally.pro), conN: String(L.tally.con), absN: String(L.tally.undecided),
       decreeText: verdictTurn ? verdictTurn.text
-                : (zh ? '朕还未下旨。' : 'No decree yet.'),
+                : (this.state.phase === 'ruling' ? (zh ? '正在拟写判词……' : 'Preparing the decree…')
+                                                : (zh ? '朕还未下旨。' : 'No decree yet.')),
       // 判词是应声念的 —— 署名写出来，用户才知道这份恭维是谁给的
       decreeBy: verdictTurn && meta[verdictTurn.minister]
               ? (meta[verdictTurn.minister].head + ' ' + nameOf(verdictTurn.minister)
@@ -928,7 +1060,7 @@ class Component extends DCLogic {
                  + ' ' + nameOf(L.remonstrance.minister)
                  + ' · ' + (t.logStance[L.remonstrance.stance] || L.remonstrance.stance))
               : '',
-      needVerdict: L.status !== 'decided',
+      needVerdict: L.status !== 'decided' && this.state.phase === 'recess',
       ticketQuote: last ? last.text : L.topic,
       ticketByline: nameOf(last ? last.minister : loud.id) + ' · ' + L.topic,
       ticketHead: meta[last && meta[last.minister] ? last.minister : loud.id].head,
@@ -936,21 +1068,27 @@ class Component extends DCLogic {
   }
 
   lineOf(id) {
-    const t = (this.state.live.turns || []).filter(x => x.minister === id).pop();
+    const t = this.state.feed.filter(x => x.minister === id).pop();
     return t ? t.text : '……';
   }
 
-  pickItv(type, text) {
+  async pickItv(type, text) {
+    if (!this.state.sid || this.state.itvBusy || !['debating', 'recess'].includes(this.state.phase)) return;
+    const run = this._run;
+    this.setState({ paused: true, itvBusy: true, err: '' });
+    try {
+      const live = await this.api('/api/court/' + this.state.sid + '/decree', { kind: type, text: text || '' });
+      if (run !== this._run) return;
+      this.acceptSnapshot(live);
+    } catch (e) {
+      if (run === this._run) this.setState({ itvBusy: false, err: String(e.message || e) });
+      return;
+    }
+    this.setState({ itvBusy: false, itvCustom: '' });
     clearTimeout(this._itvT);
     const upd = { itvOpen: false, itv: type, cut: null };
-    if (type === 'swap') upd.pairIdx = (this.state.pairIdx + 1) % 4;
     this.setState(upd);
     this._itvT = setTimeout(() => this.setState({ itv: null }), 3200);
-    // 圣旨要进朝堂记录：下一轮的 prompt 会带上它，大臣得知道皇帝插过话
-    if (this.state.sid) {
-      this.api('/api/court/' + this.state.sid + '/decree',
-               { kind: type, text: text || '' }).catch(() => {});
-    }
   }
 
   pair() {
@@ -993,10 +1131,11 @@ class Component extends DCLogic {
     };
   }
 
-  showSolo() {
+  showSolo(speaker) {
     const ids = ['rabbit','fox','horse','raccoon','banana','snake','collie','moth','fish','sheep','octopus'];
     this._soloIdx = ((this._soloIdx || 0) + 1) % ids.length;
-    const id = ids[this._soloIdx];
+    const id = speaker || (this.state.activeTurn && this.state.activeTurn.minister);
+    if (!ids.includes(id)) return;
     this._vc = this._vc || {};
     this._vc[id] = ((this._vc[id] === undefined ? -1 : this._vc[id]) + 1) % this.vig()[id].length;
     clearTimeout(this._cutT);
@@ -1154,14 +1293,15 @@ class Component extends DCLogic {
 
   pokeM(id) {
     clearTimeout(this._pk);
-    this.setState({ poke: id });
+    this.setState({ poke: id, paused: true });
+    this.showSolo(id);
     this._pk = setTimeout(() => this.setState({ poke: null }), 2200);
   }
 
   renderVals() {
     const s = this.state.screen;
     const zh = this.state.lang === 'zh';
-    const go = (n) => () => this.setState({ screen: n });
+    const go = (n) => () => this.navigate(n);
     const D = zh ? "'ZCOOL KuaiLe','Baloo 2',sans-serif" : "'Lilita One','Baloo 2',sans-serif";
     const A = zh ? "'ZCOOL KuaiLe',sans-serif" : "'Lilita One',sans-serif";
 
@@ -1188,7 +1328,7 @@ class Component extends DCLogic {
       speakerChip:'跺脚将军 · 主战', speakerSide:'第一武将',
       clashLeft:'跺脚将军', clashRight:'维斯帕', clashWord:'交锋！', clashSub:'第三幕', objWord:'异议！',
       proLabel:'赞成', conLabel:'反对', swingLabel:'摇摆',
-      sbLabel:'本集分镜 — 点击插手', actNo:'第 3/5 幕',
+      sbLabel:'朝会议程 — 发言驱动', actNo:'第 3/5 幕',
       intervene:'插手这一幕', ruleNow:'圣裁',
       topicPh:'今天要裁决的是……', ctxPh:'补充背景（可留空，写了大臣更贴题）',
       ruleApprove:'准奏', ruleReject:'驳回', ruleShelve:'搁置', ruleAdjourn:'退朝',
@@ -1205,7 +1345,8 @@ class Component extends DCLogic {
       throneTag:'YOU · 猫皇', tapHint:'点一点大臣，听他嘀咕',
       lobbyBanner:'游说进行中…', whisperA:'「跟我走，有小鱼干…」', whisperB:'「回来！赢了请你喝鱼汤」', lobThought:'「有道理…！」',
       itvTitle:'圣意如何？', itvSub:'INTERVENE', itvCancel:'再看看 ↓', silenceCry:'肃静！！',
-      itvOpt1:'拍案肃静', itvOpt1Sub:'拍案震殿，满堂闭嘴', itvOpt2:'朱笔换将', itvOpt2Sub:'朱笔一挥，换新对手上台', itvOpt3:'宣香蕉发言', itvOpt3Sub:'香蕉雨伺候，让最离谱的上台',
+      itvOrLabel:'或亲自下旨', itvCustomPh:'补充要求，下一轮会参考（最多 200 字）', itvCustomBtn:'下旨',
+      itvOpt1:'拍案肃静', itvOpt1Sub:'暂停逐句播放，按继续恢复朝议', itvOpt2:'朱笔换将', itvOpt2Sub:'下一轮更换对手；下旨后点击继续', itvOpt3:'宣香蕉发言', itvOpt3Sub:'下一轮指定香蕉发言；下旨后点击继续',
       itvToastSilence:'奉旨：满殿肃静！', itvToastSwap:'奉旨：朱笔一挥，换将再战！', itvToastBanana:'奉旨：宣香蕉大臣发言！',
       itvOpt4:'罢免应声', itvOpt4Sub:'赶走谀臣。再没有人顺着你说话，判词也得自己扛',
       itvToastDismiss:'奉旨：应声退朝，不必再来。',
@@ -1245,7 +1386,7 @@ class Component extends DCLogic {
       speakerChip:'GEN. THUMP · PRO', speakerSide:'FIRST GENERAL',
       clashLeft:'GEN. THUMP', clashRight:'VESPER', clashWord:'CLASH!', clashSub:'ACT 3', objWord:'OBJECTION!',
       proLabel:'PRO', conLabel:'CON', swingLabel:'SWING',
-      sbLabel:'STORYBOARD — TAP TO STEP IN', actNo:'ACT 3/5',
+      sbLabel:'COURT PROGRESS', actNo:'ACT 3/5',
       intervene:'INTERVENE', ruleNow:'RULE NOW',
       topicPh:'TODAY I MUST DECIDE…', ctxPh:'Context (optional — sharpens the ministers)',
       ruleApprove:'APPROVE', ruleReject:'REJECT', ruleShelve:'SHELVE', ruleAdjourn:'ADJOURN',
@@ -1262,7 +1403,8 @@ class Component extends DCLogic {
       throneTag:'YOU · EMPEROR', tapHint:'TAP A MINISTER',
       lobbyBanner:'LOBBYING…', whisperA:'"COME — I HAVE SARDINES…"', whisperB:'"COME BACK — FISH SOUP ON ME!"', lobThought:'"FAIR POINT…!"',
       itvTitle:'YOUR WILL, SIRE?', itvSub:'插手', itvCancel:'JUST WATCHING ↓', silenceCry:'SILENCE!!',
-      itvOpt1:'SLAM — SILENCE!', itvOpt1Sub:'The bench rattles. Everyone shuts up.', itvOpt2:'VERMILION SWAP', itvOpt2Sub:'One brushstroke — fresh duelists', itvOpt3:'CALL ON BANANA', itvOpt3Sub:'Banana rain. Chaos has the floor.',
+      itvOrLabel:'OR ISSUE YOUR OWN DECREE', itvCustomPh:'A request for the next round (up to 200 characters)', itvCustomBtn:'ISSUE',
+      itvOpt1:'SLAM — SILENCE!', itvOpt1Sub:'Pause the debate. Press RESUME to continue.', itvOpt2:'VERMILION SWAP', itvOpt2Sub:'Change next round’s pair, then press RESUME', itvOpt3:'CALL ON BANANA', itvOpt3Sub:'Banana speaks next round; then press RESUME',
       itvToastSilence:'BY DECREE: SILENCE!', itvToastSwap:'BY DECREE: NEW DUELISTS TAKE THE FLOOR!', itvToastBanana:'BY DECREE: BANANA HAS THE FLOOR!',
       itvOpt4:'DISMISS THE ECHO', itvOpt4Sub:'Banish the yes-man. Nobody flatters you again — the decree is yours alone.',
       itvToastDismiss:'BY DECREE: THE ECHO IS BANISHED.',
@@ -1280,6 +1422,15 @@ class Component extends DCLogic {
       mirrorFavorite:'WHOSE LINES YOU KEEP', noteBtn:'KEEP THIS', noteDone:'✓ KEPT',
     };
     const t = zh ? T_ZH : T_EN;
+    if (this.state.live) {
+      const decided = this.state.live.status === 'decided';
+      t.verTitle1 = decided ? (zh ? '聖裁' : 'DECREE ') : (zh ? '请下' : 'YOUR ');
+      t.verTitle2 = decided ? (zh ? '已下' : 'IS OUT') : (zh ? '聖裁' : 'VERDICT');
+      t.verChip = decided ? (zh ? '本场朝会 · 已裁决' : 'COURT · DECIDED') : (zh ? '本场朝会 · 待裁决' : 'COURT · AWAITING VERDICT');
+      const kind = (this.state.activeTurn || {}).kind;
+      t.heatWord = this.state.phase === 'recess' ? (zh ? '辩毕' : 'RECESS')
+        : (kind === 'rebuttal' ? (zh ? '交锋' : 'CLASH') : (kind === 'lobby' ? (zh ? '游说' : 'LOBBY') : (zh ? '陈词' : 'SPEAKING')));
+    }
 
     const dotPal = (s === 4)
       ? { on:'#b2a181', onFg:'#2b2733', off:'rgba(241,237,228,.5)', offFg:'rgba(241,237,228,.8)', offBg:'#2b2733' }
@@ -1344,31 +1495,45 @@ class Component extends DCLogic {
     const cS = this.state.cut;
     const soloV = (cS && cS.mode === 'solo') ? this.vig()[cS.id][cS.v || 0] : null;
 
-    // 实录的底稿 = 后端快照 live.turns，再把还没进快照的那几条 SSE 新发言（feed）按 seq 补在后面。
-    // 快照是每轮才推一次的，不补的话新台词要等一整轮才上墙。只读，不动数据层。
-    const baseTurns = (L && L.turns) || [];
-    const lastSeq = baseTurns.length ? baseTurns[baseTurns.length - 1].seq : 0;
-    const logTurns = baseTurns.concat((this.state.feed || []).filter(x => x && x.seq > lastSeq));
+    // 实录跟随逐句播放，不提前展示尚未读到的台词。
+    const logTurns = this.state.feed || [];
 
     return {
-      scr1: s === 1, scr2: s === 2, scr3: s === 3, scr4: s === 4, scr5: s === 5,
+      scr1: s === 1, scr2: s === 2, scr3: s === 3, scr4Live: s === 4 && !!L, scr5: s === 5 && !!L,
+      noCourt: !L && s >= 4,
+      noticeOn: !!this.state.err || (!L && s >= 4),
+      noticeText: this.state.err || (this.state.phase === 'opening'
+        ? (zh ? '众卿正在阅读奏章，请稍候……' : 'The ministers are reading your petition…')
+        : (zh ? '请先呈递奏章，开堂后才会出现真实发言。' : 'Submit a petition to hear the ministers.')),
+      petitionLabel: zh ? '返回奏章' : 'BACK TO PETITION',
+      exportLabel: zh ? '下载本场记录' : 'SAVE COURT RECORD',
+      exportDisabled: !L || L.status !== 'decided',
+      ruleDisabled: !canRule,
+      itvBusy: !!this.state.itvBusy,
+      customDisabled: !!this.state.itvBusy || !(this.state.itvCustom || '').trim(),
+      exportVerdict: () => this.exportVerdict(),
+      togglePlayback: () => this.togglePlayback(),
+      playbackDisabled: !this.state.sid || !['debating','offline'].includes(this.state.phase),
+      interventionDisabled: this.state.phase !== 'debating',
+      playbackLabel: this.state.phase === 'recess' ? (zh ? '辩毕' : 'FINISHED') : this.state.phase === 'offline' ? (zh ? '重试' : 'RETRY')
+        : (this.state.paused ? (zh ? '继续' : 'RESUME') : (zh ? '暂停' : 'PAUSE')),
       go1: go(1), go2: go(2), go3: go(3), go4: go(4), go5: go(5),
-      noopBtn: () => {},
       t, dispFont: D, altFont: A,
       itvOpen: this.state.itvOpen,
-      openItv: () => this.setState({ itvOpen: true }),
+      openItv: () => this.setState({ itvOpen: true, paused: true }),
       closeItv: () => this.setState({ itvOpen: false }),
       stopIt: (e) => e.stopPropagation(),
       silenceOn: this.state.itv === 'silence',
       itvToastOn: !!this.state.itv,
-      itvToast: { silence: t.itvToastSilence, swap: t.itvToastSwap, banana: t.itvToastBanana,
+      itvToast: this.state.itv === 'custom' ? (zh ? '圣旨已记录，下一轮会参考。点击继续朝议。' : 'Decree recorded for the next round. Press RESUME.') : { silence: t.itvToastSilence, swap: t.itvToastSwap, banana: t.itvToastBanana,
                   dismiss: t.itvToastDismiss }[this.state.itv] || '',
       itvOptions: [
         { icon:'💥', label:t.itvOpt1, sub:t.itvOpt1Sub, type:'silence' },
         { icon:'🖌', label:t.itvOpt2, sub:t.itvOpt2Sub, type:'swap' },
         { icon:'🍌', label:t.itvOpt3, sub:t.itvOpt3Sub, type:'banana' },
         { icon:'🦜', label:t.itvOpt4, sub:t.itvOpt4Sub, type:'dismiss' },
-      ].filter(o => o.type !== 'dismiss' || !(this.state.live || {}).echo_out)
+      ].filter(o => (o.type !== 'dismiss' || !(this.state.live || {}).echo_out)
+                   && (!['swap', 'banana'].includes(o.type) || this.state.phase === 'debating'))
        .map(o => Object.assign({}, o, { pick: () => this.pickItv(o.type) })),
       stageAnim: this.state.itv === 'silence' ? 'stageShake .6s ease-in-out' : 'none',
       itvBanana: this.state.itv === 'banana',
@@ -1522,7 +1687,7 @@ class Component extends DCLogic {
       acts: actLabels.map((label, i) => {
         const n = i + 1, cur = n === act, past = n < act;
         return {
-          no: String(n).padStart(2, '0'), label, go: () => {},
+      no: String(n).padStart(2, '0'), label,
           bg: cur ? '#b2a181' : 'transparent',
           bd: cur ? '#2b2733' : (past ? 'rgba(241,237,228,.4)' : 'rgba(241,237,228,.22)'),
           fg: cur ? '#2b2733' : (past ? 'rgba(241,237,228,.65)' : 'rgba(241,237,228,.4)'),
@@ -1551,8 +1716,7 @@ class Component extends DCLogic {
       itvCustomChange: (e) => this.setState({ itvCustom: e.target.value }),
       itvCustomGo: () => {
         const txt = (this.state.itvCustom || '').trim();
-        if (txt) this.pickItv('swap', txt);
-        this.setState({ itvCustom: '' });
+        if (txt) this.pickItv('custom', txt);
       },
 
       // ---- 判决屏（离线时是演示值，liveView() 会盖掉）----
@@ -1594,9 +1758,10 @@ class Component extends DCLogic {
       ticketByline: t.ticketByline,
       ticketHead: '🐰',
 
-      // ---- 电脑端多出来的那一栏：朝堂实录 ----
-      // live 为 null（纯设计稿 / 后端没起）时 transcript 是空数组，面板只显示一句占位。
-      wideOn: this.state.wide,
+      // 已播放的真实发言，宽屏和窄屏共用。
+      railOn: !!L,
+      fallbackOn: !!(L && L.fallback),
+      fallbackText: zh ? '本场包含模型失败后的兜底台词；请检查模型连接。' : 'This court includes fallback lines after a model failure. Check the model connection.',
       logEmpty: !logTurns.length,
       logCount: logTurns.length + t.logUnit,
       transcript: (() => {
