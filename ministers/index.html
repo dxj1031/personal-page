@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="ministers-app" content="https://the-ministers.onrender.com/front/The%20Court.dc.html">
-<script>location.replace("https://the-ministers.onrender.com/front/The%20Court.dc.html" + location.search + location.hash);</script>
+<script>const courtUrl = new URL("https://the-ministers.onrender.com/front/The%20Court.dc.html"); courtUrl.search = location.search; if (!courtUrl.searchParams.has("lang")) courtUrl.searchParams.set("lang", "zh"); courtUrl.hash = location.hash; location.replace(courtUrl.href);</script>
 <script src="./support.js"></script>
 </head>
 <body>
